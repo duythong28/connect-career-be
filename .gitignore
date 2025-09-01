@@ -370,8 +370,6 @@ obj/
 # =============================================================================
 
 # Documentation build
-docs/
-**/docs/
 
 # IDE workspace files
 *.code-workspace

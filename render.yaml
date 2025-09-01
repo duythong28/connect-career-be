@@ -1,0 +1,19 @@
+services:
+  - type: web
+    name: connect-career-be
+    runtime: node
+    rootDir: services/connect-career-be
+    plan: starter
+    autoDeploy: false
+    buildCommand: npm ci && npm run build
+    startCommand: npm run start:prod
+    envVars: []
+  - type: web
+    name: ai-service
+    runtime: python
+    rootDir: services/ai-service
+    plan: starter
+    autoDeploy: false
+    buildCommand: pip install -r requirements.txt
+    startCommand: uvicorn app.main:app --host 0.0.0.0 --port $PORT
+    envVars: []

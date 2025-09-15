@@ -55,7 +55,6 @@ import { PasswordValidator } from './infrastructure/validators/password.validato
 import { DefaultRolesSeeder } from './infrastructure/seeders/default-roles.seeder';
 
 // Repository interfaces
-import * as identityRepository from './domain/repository/identity.repository';
 
 @Module({
   imports: [
@@ -75,11 +74,7 @@ import * as identityRepository from './domain/repository/identity.repository';
       inject: [ConfigService],
     }),
   ],
-  controllers: [
-    IdentityController,
-    RbacController,
-    OAuthController,
-  ],
+  controllers: [IdentityController, RbacController, OAuthController],
   providers: [
     // Core services
     AuthenticationService,

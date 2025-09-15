@@ -1,4 +1,11 @@
-import { User, Role, Permission, UserSession, MfaDevice, OAuthAccount } from '../entities';
+import {
+  User,
+  Role,
+  Permission,
+  UserSession,
+  MfaDevice,
+  OAuthAccount,
+} from '../entities';
 
 export interface IUserRepository {
   findById(id: string): Promise<User | null>;
@@ -64,7 +71,10 @@ export interface IMfaDeviceRepository {
 
 export interface IOAuthAccountRepository {
   findById(id: string): Promise<OAuthAccount | null>;
-  findByProviderAndAccountId(provider: string, providerAccountId: string): Promise<OAuthAccount | null>;
+  findByProviderAndAccountId(
+    provider: string,
+    providerAccountId: string,
+  ): Promise<OAuthAccount | null>;
   findByUserId(userId: string): Promise<OAuthAccount[]>;
   findActiveByUserId(userId: string): Promise<OAuthAccount[]>;
   create(account: Partial<OAuthAccount>): Promise<OAuthAccount>;

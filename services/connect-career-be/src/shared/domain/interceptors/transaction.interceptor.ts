@@ -1,14 +1,20 @@
-import { CallHandler, ExecutionContext, Injectable, NestInterceptor, SetMetadata } from "@nestjs/common";
-import { Reflector } from "@nestjs/core";
-import { BaseUnitOfWork } from "../base";
-import { Observable, switchMap, from, catchError, throwError } from "rxjs";
+import {
+  CallHandler,
+  ExecutionContext,
+  Injectable,
+  NestInterceptor,
+  SetMetadata,
+} from '@nestjs/common';
+import { Reflector } from '@nestjs/core';
+import { BaseUnitOfWork } from '../base';
+import { Observable, switchMap, from, catchError, throwError } from 'rxjs';
 
 export const TRANSACTIONAL_KEY = 'transactional';
 /**
  * Transaction interceptor for handling database transactions
  * @param unitOfWorkToken - Injection token for the unit of work
  */
-export const Transactional = (unitOfWorkToken?: string | symbol) => 
+export const Transactional = (unitOfWorkToken?: string | symbol) =>
   SetMetadata(TRANSACTIONAL_KEY, { unitOfWorkToken });
 
 /**
@@ -51,14 +57,16 @@ export class TransactionInterceptor implements NestInterceptor {
     // Execute in transaction
     return from(this.unitOfWork.beginTransaction()).pipe(
       switchMap(() => next.handle()),
-      switchMap(data => from(this.unitOfWork.commit()).pipe(
-        switchMap(() => Promise.resolve(data))
-      )),
-      catchError(error => {
+      switchMap((data) =>
+        from(this.unitOfWork.commit()).pipe(
+          switchMap(() => Promise.resolve(data)),
+        ),
+      ),
+      catchError((error) => {
         return from(this.unitOfWork.rollback()).pipe(
-          switchMap(() => throwError(() => error))
+          switchMap(() => throwError(() => error)),
         );
-      })
+      }),
     );
   }
 }
@@ -67,7 +75,9 @@ export class TransactionInterceptor implements NestInterceptor {
  * Factory provider for transaction interceptor
  * @param unitOfWorkToken - Injection token for the unit of work
  */
-export const createTransactionInterceptorProvider = (unitOfWorkToken: string | symbol) => ({
+export const createTransactionInterceptorProvider = (
+  unitOfWorkToken: string | symbol,
+) => ({
   provide: TransactionInterceptor,
   useFactory: (reflector: Reflector, unitOfWork: BaseUnitOfWork) => {
     return new TransactionInterceptor(reflector, unitOfWork);

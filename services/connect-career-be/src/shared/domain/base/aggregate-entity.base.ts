@@ -1,5 +1,10 @@
 import { AggregateRoot } from '@nestjs/cqrs';
-import { Column, CreateDateColumn, UpdateDateColumn, DeleteDateColumn} from 'typeorm';
+import {
+  Column,
+  CreateDateColumn,
+  UpdateDateColumn,
+  DeleteDateColumn,
+} from 'typeorm';
 import { v7 } from 'uuid';
 import { IDomainEvent } from '../interfaces/domain-event.interface';
 
@@ -9,114 +14,122 @@ import { IDomainEvent } from '../interfaces/domain-event.interface';
  * @template TKey - Primary key type
  */
 export abstract class AggregateEntity<TKey> extends AggregateRoot {
-    @Column('uuid', { primary: true })
-    public readonly id: TKey;
+  @Column('uuid', { primary: true })
+  public readonly id: TKey;
 
-    @Column('uuid', { nullable: true })
-    public readonly createdBy?: string;
+  @Column('uuid', { nullable: true })
+  public readonly createdBy?: string;
 
-    @Column('uuid', { nullable: true })
-    public readonly updatedBy?: string;
+  @Column('uuid', { nullable: true })
+  public readonly updatedBy?: string;
 
-    @Column({ type: 'timestamptz', default: () => 'CURRENT_TIMESTAMP', nullable: true })
-    @CreateDateColumn()
-    public readonly createdAt?: Date;
+  @Column({
+    type: 'timestamptz',
+    default: () => 'CURRENT_TIMESTAMP',
+    nullable: true,
+  })
+  @CreateDateColumn()
+  public readonly createdAt?: Date;
 
-    @Column({ type: 'timestamptz', default: () => 'CURRENT_TIMESTAMP', onUpdate: 'CURRENT_TIMESTAMP' })
-    @UpdateDateColumn()
-    public readonly updatedAt?: Date;
+  @Column({
+    type: 'timestamptz',
+    default: () => 'CURRENT_TIMESTAMP',
+    onUpdate: 'CURRENT_TIMESTAMP',
+  })
+  @UpdateDateColumn()
+  public readonly updatedAt?: Date;
 
-    @DeleteDateColumn({
-        type: 'timestamptz',
-        default: null,
-        nullable: true
-    })
-    deletedAt?: Date;
-    
-    @Column({
-        type: 'boolean',
-        default: false
-    })
-    public readonly isDeleted: boolean = false;
+  @DeleteDateColumn({
+    type: 'timestamptz',
+    default: null,
+    nullable: true,
+  })
+  deletedAt?: Date;
 
-    private _domainEvents: IDomainEvent[] = [];
-    private _beforeCommitEvents: IDomainEvent[] = [];
+  @Column({
+    type: 'boolean',
+    default: false,
+  })
+  public readonly isDeleted: boolean = false;
 
-    /**
-     * Create a new aggregate entity
-     */
-    public constructor() {
-        super();
-        this.id = v7() as unknown as TKey;
-        this.createdAt = new Date();
-        this.updatedAt = new Date();
-    }
+  private _domainEvents: IDomainEvent[] = [];
+  private _beforeCommitEvents: IDomainEvent[] = [];
 
-    /**
-     * Add a domain event to be published after commit
-     * @param event - Domain event to add
-     */
-    public addDomainEvent(event: IDomainEvent): void {
-        this._domainEvents.push(event);
-        this.apply(event);
-    }
+  /**
+   * Create a new aggregate entity
+   */
+  public constructor() {
+    super();
+    this.id = v7() as unknown as TKey;
+    this.createdAt = new Date();
+    this.updatedAt = new Date();
+  }
 
-    /**
-     * Add a domain event to be published before commit
-     * @param event - Domain event to add
-     */
-    public addBeforeCommitEvent(event: IDomainEvent): void {
-        this._beforeCommitEvents.push(event);
-        this.apply(event);
-    }
+  /**
+   * Add a domain event to be published after commit
+   * @param event - Domain event to add
+   */
+  public addDomainEvent(event: IDomainEvent): void {
+    this._domainEvents.push(event);
+    this.apply(event);
+  }
 
-    /**
-     * Get all domain events
-     */
-    public getDomainEvents(): IDomainEvent[] {
-        return [...this._domainEvents];
-    }
+  /**
+   * Add a domain event to be published before commit
+   * @param event - Domain event to add
+   */
+  public addBeforeCommitEvent(event: IDomainEvent): void {
+    this._beforeCommitEvents.push(event);
+    this.apply(event);
+  }
 
-    /**
-     * Get all before-commit events
-     */
-    public getBeforeCommitEvents(): IDomainEvent[] {
-        return [...this._beforeCommitEvents];
-    }
+  /**
+   * Get all domain events
+   */
+  public getDomainEvents(): IDomainEvent[] {
+    return [...this._domainEvents];
+  }
 
-    /**
-     * Clear all domain events
-     */
-    public clearDomainEvents(): void {
-        this._domainEvents = [];
-        this.commit();
-    }
+  /**
+   * Get all before-commit events
+   */
+  public getBeforeCommitEvents(): IDomainEvent[] {
+    return [...this._beforeCommitEvents];
+  }
 
-    /**
-     * Clear all before-commit events
-     */
-    public clearBeforeCommitEvents(): void {
-        this._beforeCommitEvents = [];
-    }
+  /**
+   * Clear all domain events
+   */
+  public clearDomainEvents(): void {
+    this._domainEvents = [];
+    this.commit();
+  }
 
-    /**
-     * Mark entity as soft deleted
-     * Sets isDeleted to true and deletedAt to current date
-     */
-    public softDelete(): void {
-        // Use type assertion to modify readonly properties
-        const self = this as any;
-        self.isDeleted = true;
-        self.deletedAt = new Date();
-    }
+  /**
+   * Clear all before-commit events
+   */
+  public clearBeforeCommitEvents(): void {
+    this._beforeCommitEvents = [];
+  }
 
-    /**
-     * Check if this entity equals another
-     * @param other - Entity to compare with
-     */
-    public equals(other: AggregateEntity<TKey>): boolean {
-        if (!other) return false;
-        if (!(other instanceof AggregateEntity)) return false;
-        return other.id === this.id;
-    }
+  /**
+   * Mark entity as soft deleted
+   * Sets isDeleted to true and deletedAt to current date
+   */
+  public softDelete(): void {
+    // Use type assertion to modify readonly properties
+    const self = this as any;
+    self.isDeleted = true;
+    self.deletedAt = new Date();
+  }
+
+  /**
+   * Check if this entity equals another
+   * @param other - Entity to compare with
+   */
+  public equals(other: AggregateEntity<TKey>): boolean {
+    if (!other) return false;
+    if (!(other instanceof AggregateEntity)) return false;
+    return other.id === this.id;
+  }
 }

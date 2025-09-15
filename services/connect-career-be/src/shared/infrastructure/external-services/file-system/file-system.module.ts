@@ -8,23 +8,20 @@ import { FileManagementService } from './core/services/file-management.service';
 import { FileUploadController } from './api/file-upload.controller';
 
 @Module({
-    imports: [
-        TypeOrmModule.forFeature([File]),
-        ConfigModule,
-    ],
-    providers: [
-        FileRepository,
-        {
-            provide: 'IFileSystemService',
-            useClass: CloudinaryProvider,
-        },
-        {
-            provide: 'IFileRepository',
-            useClass: FileRepository,
-        },
-        FileManagementService,
-    ],
-    controllers: [FileUploadController],
-    exports: [FileManagementService, FileRepository],
+  imports: [TypeOrmModule.forFeature([File]), ConfigModule],
+  providers: [
+    FileRepository,
+    {
+      provide: 'IFileSystemService',
+      useClass: CloudinaryProvider,
+    },
+    {
+      provide: 'IFileRepository',
+      useClass: FileRepository,
+    },
+    FileManagementService,
+  ],
+  controllers: [FileUploadController],
+  exports: [FileManagementService, FileRepository],
 })
 export class FileSystemModule {}

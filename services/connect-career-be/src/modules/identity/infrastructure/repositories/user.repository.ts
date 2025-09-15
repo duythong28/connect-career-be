@@ -25,10 +25,7 @@ export class UserRepository implements IUserRepository {
 
   async findByEmailOrUsername(identifier: string): Promise<User | null> {
     return this.repository.findOne({
-      where: [
-        { email: identifier },
-        { username: identifier }
-      ]
+      where: [{ email: identifier }, { username: identifier }],
     });
   }
 
@@ -53,19 +50,21 @@ export class UserRepository implements IUserRepository {
   async findWithRoles(id: string): Promise<User | null> {
     return this.repository.findOne({
       where: { id },
-      relations: ['roles']
+      relations: ['roles'],
     });
   }
 
   async findWithPermissions(id: string): Promise<User | null> {
     return this.repository.findOne({
       where: { id },
-      relations: ['roles', 'roles.permissions']
+      relations: ['roles', 'roles.permissions'],
     });
   }
 
   async findByEmailVerificationToken(token: string): Promise<User | null> {
-    return this.repository.findOne({ where: { emailVerificationToken: token } });
+    return this.repository.findOne({
+      where: { emailVerificationToken: token },
+    });
   }
 
   async findByPasswordResetToken(token: string): Promise<User | null> {

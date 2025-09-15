@@ -20,7 +20,7 @@ export class AuthorizationException extends IdentityException {
 
 export class UserNotFoundException extends IdentityException {
   constructor(identifier?: string) {
-    const message = identifier 
+    const message = identifier
       ? `User with identifier '${identifier}' not found`
       : 'User not found';
     super(message, HttpStatus.NOT_FOUND);
@@ -29,7 +29,10 @@ export class UserNotFoundException extends IdentityException {
 
 export class UserAlreadyExistsException extends IdentityException {
   constructor(identifier: string) {
-    super(`User with identifier '${identifier}' already exists`, HttpStatus.CONFLICT);
+    super(
+      `User with identifier '${identifier}' already exists`,
+      HttpStatus.CONFLICT,
+    );
   }
 }
 
@@ -41,7 +44,7 @@ export class InvalidCredentialsException extends AuthenticationException {
 
 export class AccountLockedException extends AuthenticationException {
   constructor(unlockTime?: Date) {
-    const message = unlockTime 
+    const message = unlockTime
       ? `Account is locked until ${unlockTime.toISOString()}`
       : 'Account is temporarily locked';
     super(message);
@@ -80,7 +83,10 @@ export class RoleNotFoundException extends IdentityException {
 
 export class PermissionNotFoundException extends IdentityException {
   constructor(permissionId: string) {
-    super(`Permission with ID '${permissionId}' not found`, HttpStatus.NOT_FOUND);
+    super(
+      `Permission with ID '${permissionId}' not found`,
+      HttpStatus.NOT_FOUND,
+    );
   }
 }
 
@@ -98,7 +104,7 @@ export class SystemPermissionModificationException extends AuthorizationExceptio
 
 export class InsufficientPermissionsException extends AuthorizationException {
   constructor(requiredPermission?: string) {
-    const message = requiredPermission 
+    const message = requiredPermission
       ? `Insufficient permissions. Required: ${requiredPermission}`
       : 'Insufficient permissions';
     super(message);
@@ -126,7 +132,7 @@ export class SessionExpiredException extends AuthenticationException {
 
 export class TooManyRequestsException extends IdentityException {
   constructor(retryAfter?: number) {
-    const message = retryAfter 
+    const message = retryAfter
       ? `Too many requests. Try again in ${retryAfter} seconds`
       : 'Too many requests';
     super(message, HttpStatus.TOO_MANY_REQUESTS);

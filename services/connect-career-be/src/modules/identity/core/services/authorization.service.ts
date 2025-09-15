@@ -1,11 +1,16 @@
-import { Injectable, ForbiddenException, NotFoundException, Inject } from '@nestjs/common';
+import {
+  Injectable,
+  ForbiddenException,
+  NotFoundException,
+  Inject,
+} from '@nestjs/common';
 import * as identityRepository from '../../domain/repository/identity.repository';
-import { 
-  User, 
-  Role, 
-  Permission, 
-  PermissionAction, 
-  ResourceType 
+import {
+  User,
+  Role,
+  Permission,
+  PermissionAction,
+  ResourceType,
 } from '../../domain/entities';
 
 export interface PermissionCheck {
@@ -30,27 +35,35 @@ export class AuthorizationService {
     private readonly permissionRepository: identityRepository.IPermissionRepository,
   ) {}
 
-  async checkPermission(userId: string, permission: PermissionCheck): Promise<boolean> {
+  async checkPermission(
+    userId: string,
+    permission: PermissionCheck,
+  ): Promise<boolean> {
     const user = await this.userRepository.findWithPermissions(userId);
     if (!user) {
       return false;
     }
 
     // Check if user has the specific permission
-    return user.hasPermission(Permission.createPermissionName(
-      permission.action,
-      permission.resource,
-      permission.resourceId
-    ));
+    return user.hasPermission(
+      Permission.createPermissionName(
+        permission.action,
+        permission.resource,
+        permission.resourceId,
+      ),
+    );
   }
 
-  async requirePermission(userId: string, permission: PermissionCheck): Promise<void> {
+  async requirePermission(
+    userId: string,
+    permission: PermissionCheck,
+  ): Promise<void> {
     const hasPermission = await this.checkPermission(userId, permission);
     if (!hasPermission) {
       throw new ForbiddenException(
         `Access denied. Required permission: ${permission.action}:${permission.resource}${
           permission.resourceId ? `:${permission.resourceId}` : ''
-        }`
+        }`,
       );
     }
   }
@@ -77,47 +90,61 @@ export class AuthorizationService {
       return false;
     }
 
-    return roleNames.some(roleName => user.hasRole(roleName));
+    return roleNames.some((roleName) => user.hasRole(roleName));
   }
 
   async requireAnyRole(userId: string, roleNames: string[]): Promise<void> {
     const hasAnyRole = await this.checkAnyRole(userId, roleNames);
     if (!hasAnyRole) {
-      throw new ForbiddenException(`Access denied. Required roles: ${roleNames.join(', ')}`);
+      throw new ForbiddenException(
+        `Access denied. Required roles: ${roleNames.join(', ')}`,
+      );
     }
   }
 
-  async checkResourceOwnership(userId: string, resourceOwnerId: string): Promise<boolean> {
+  async checkResourceOwnership(
+    userId: string,
+    resourceOwnerId: string,
+  ): Promise<boolean> {
     return userId === resourceOwnerId;
   }
 
-  async requireResourceOwnership(userId: string, resourceOwnerId: string): Promise<void> {
+  async requireResourceOwnership(
+    userId: string,
+    resourceOwnerId: string,
+  ): Promise<void> {
     const isOwner = await this.checkResourceOwnership(userId, resourceOwnerId);
     if (!isOwner) {
-      throw new ForbiddenException('Access denied. You can only access your own resources');
+      throw new ForbiddenException(
+        'Access denied. You can only access your own resources',
+      );
     }
   }
 
   async checkPermissionOrOwnership(
-    userId: string, 
-    permission: PermissionCheck, 
-    resourceOwnerId: string
+    userId: string,
+    permission: PermissionCheck,
+    resourceOwnerId: string,
   ): Promise<boolean> {
     const hasPermission = await this.checkPermission(userId, permission);
     const isOwner = await this.checkResourceOwnership(userId, resourceOwnerId);
-    
+
     return hasPermission || isOwner;
   }
 
   async requirePermissionOrOwnership(
-    userId: string, 
-    permission: PermissionCheck, 
-    resourceOwnerId: string
+    userId: string,
+    permission: PermissionCheck,
+    resourceOwnerId: string,
   ): Promise<void> {
-    const hasAccess = await this.checkPermissionOrOwnership(userId, permission, resourceOwnerId);
+    const hasAccess = await this.checkPermissionOrOwnership(
+      userId,
+      permission,
+      resourceOwnerId,
+    );
     if (!hasAccess) {
       throw new ForbiddenException(
-        'Access denied. You need permission or resource ownership'
+        'Access denied. You need permission or resource ownership',
       );
     }
   }
@@ -155,7 +182,7 @@ export class AuthorizationService {
     }
 
     if (user.roles) {
-      user.roles = user.roles.filter(r => r.id !== role.id);
+      user.roles = user.roles.filter((r) => r.id !== role.id);
       await this.userRepository.update(user.id, user);
     }
   }
@@ -191,11 +218,14 @@ export class AuthorizationService {
     return role;
   }
 
-  async updateRole(roleId: string, updates: {
-    name?: string;
-    description?: string;
-    isActive?: boolean;
-  }): Promise<Role> {
+  async updateRole(
+    roleId: string,
+    updates: {
+      name?: string;
+      description?: string;
+      isActive?: boolean;
+    },
+  ): Promise<Role> {
     const role = await this.roleRepository.findById(roleId);
     if (!role) {
       throw new NotFoundException('Role not found');
@@ -224,7 +254,10 @@ export class AuthorizationService {
     await this.roleRepository.delete(roleId);
   }
 
-  async assignPermissionsToRole(roleId: string, permissionIds: string[]): Promise<void> {
+  async assignPermissionsToRole(
+    roleId: string,
+    permissionIds: string[],
+  ): Promise<void> {
     const role = await this.roleRepository.findWithPermissions(roleId);
     if (!role) {
       throw new NotFoundException('Role not found');
@@ -240,7 +273,10 @@ export class AuthorizationService {
     await this.roleRepository.update(roleId, role);
   }
 
-  async removePermissionsFromRole(roleId: string, permissionIds: string[]): Promise<void> {
+  async removePermissionsFromRole(
+    roleId: string,
+    permissionIds: string[],
+  ): Promise<void> {
     const role = await this.roleRepository.findWithPermissions(roleId);
     if (!role) {
       throw new NotFoundException('Role not found');
@@ -264,7 +300,9 @@ export class AuthorizationService {
     resource: ResourceType;
     resourceId?: string;
   }): Promise<Permission> {
-    const existingPermission = await this.permissionRepository.findByName(permissionData.name);
+    const existingPermission = await this.permissionRepository.findByName(
+      permissionData.name,
+    );
     if (existingPermission) {
       throw new ForbiddenException('Permission with this name already exists');
     }
@@ -272,20 +310,27 @@ export class AuthorizationService {
     return this.permissionRepository.create(permissionData);
   }
 
-  async updatePermission(permissionId: string, updates: {
-    name?: string;
-    description?: string;
-    isActive?: boolean;
-  }): Promise<Permission> {
+  async updatePermission(
+    permissionId: string,
+    updates: {
+      name?: string;
+      description?: string;
+      isActive?: boolean;
+    },
+  ): Promise<Permission> {
     const permission = await this.permissionRepository.findById(permissionId);
     if (!permission) {
       throw new NotFoundException('Permission not found');
     }
 
     if (updates.name && updates.name !== permission.name) {
-      const existingPermission = await this.permissionRepository.findByName(updates.name);
+      const existingPermission = await this.permissionRepository.findByName(
+        updates.name,
+      );
       if (existingPermission) {
-        throw new ForbiddenException('Permission with this name already exists');
+        throw new ForbiddenException(
+          'Permission with this name already exists',
+        );
       }
     }
 
@@ -320,7 +365,11 @@ export class AuthorizationService {
     });
   }
 
-  async canReadResource(userId: string, resource: ResourceType, resourceId?: string): Promise<boolean> {
+  async canReadResource(
+    userId: string,
+    resource: ResourceType,
+    resourceId?: string,
+  ): Promise<boolean> {
     return this.checkPermission(userId, {
       action: PermissionAction.READ,
       resource,
@@ -328,7 +377,11 @@ export class AuthorizationService {
     });
   }
 
-  async canWriteResource(userId: string, resource: ResourceType, resourceId?: string): Promise<boolean> {
+  async canWriteResource(
+    userId: string,
+    resource: ResourceType,
+    resourceId?: string,
+  ): Promise<boolean> {
     return this.checkPermission(userId, {
       action: PermissionAction.UPDATE,
       resource,
@@ -336,7 +389,11 @@ export class AuthorizationService {
     });
   }
 
-  async canDeleteResource(userId: string, resource: ResourceType, resourceId?: string): Promise<boolean> {
+  async canDeleteResource(
+    userId: string,
+    resource: ResourceType,
+    resourceId?: string,
+  ): Promise<boolean> {
     return this.checkPermission(userId, {
       action: PermissionAction.DELETE,
       resource,

@@ -5,13 +5,17 @@ import * as notificationProviderInterface from './notification-provider.interfac
 @Injectable()
 export class ProviderFactory {
   constructor(
-    @Inject('SmtpProvider') private readonly smtpProvider: notificationProviderInterface.INotificationProvider,
-    @Inject('SmsProvider') private readonly smsProvider: notificationProviderInterface.INotificationProvider,
+    @Inject('SmtpProvider')
+    private readonly smtpProvider: notificationProviderInterface.INotificationProvider,
+    @Inject('SmsProvider')
+    private readonly smsProvider: notificationProviderInterface.INotificationProvider,
     @Inject('WebSocketProvider')
     private readonly webSocketProvider: notificationProviderInterface.INotificationProvider,
   ) {}
 
-  createProvider(channel: NotificationChannel): notificationProviderInterface.INotificationProvider {
+  createProvider(
+    channel: NotificationChannel,
+  ): notificationProviderInterface.INotificationProvider {
     switch (channel) {
       case NotificationChannel.EMAIL:
         return this.smtpProvider;

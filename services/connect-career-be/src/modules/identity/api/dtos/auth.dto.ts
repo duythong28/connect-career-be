@@ -1,4 +1,11 @@
-import { IsEmail, IsString, IsOptional, MinLength, MaxLength, IsEnum, IsBoolean } from 'class-validator';
+import {
+  IsEmail,
+  IsString,
+  IsOptional,
+  MinLength,
+  MaxLength,
+  IsEnum,
+} from 'class-validator';
 import { ApiProperty, ApiPropertyOptional } from '@nestjs/swagger';
 import { MfaDeviceType } from '../../domain/entities';
 

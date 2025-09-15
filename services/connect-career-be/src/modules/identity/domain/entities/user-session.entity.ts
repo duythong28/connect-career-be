@@ -1,10 +1,16 @@
-import { Entity, PrimaryGeneratedColumn, Column, ManyToOne, JoinColumn } from 'typeorm';
+import {
+  Entity,
+  PrimaryGeneratedColumn,
+  Column,
+  ManyToOne,
+  JoinColumn,
+} from 'typeorm';
 import { User } from './user.entity';
 
 export enum SessionStatus {
   ACTIVE = 'active',
   EXPIRED = 'expired',
-  REVOKED = 'revoked'
+  REVOKED = 'revoked',
 }
 
 @Entity('user_sessions')
@@ -24,7 +30,7 @@ export class UserSession {
   @Column({
     type: 'enum',
     enum: SessionStatus,
-    default: SessionStatus.ACTIVE
+    default: SessionStatus.ACTIVE,
   })
   status: SessionStatus;
 
@@ -55,11 +61,15 @@ export class UserSession {
   @Column({ type: 'timestamp', default: () => 'CURRENT_TIMESTAMP' })
   createdAt: Date;
 
-  @Column({ type: 'timestamp', default: () => 'CURRENT_TIMESTAMP', onUpdate: 'CURRENT_TIMESTAMP' })
+  @Column({
+    type: 'timestamp',
+    default: () => 'CURRENT_TIMESTAMP',
+    onUpdate: 'CURRENT_TIMESTAMP',
+  })
   updatedAt: Date;
 
   // Relationships
-  @ManyToOne(() => User, user => user.sessions, { onDelete: 'CASCADE' })
+  @ManyToOne(() => User, (user) => user.sessions, { onDelete: 'CASCADE' })
   @JoinColumn({ name: 'userId' })
   user: User;
 

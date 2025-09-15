@@ -28,7 +28,7 @@ import { FileSystemModule } from './shared/infrastructure/external-services/file
       inject: [ConfigService],
     }),
     IdentityModule,
-    FileSystemModule
+    FileSystemModule,
   ],
   providers: [
     {

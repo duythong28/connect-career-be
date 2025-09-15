@@ -1,4 +1,11 @@
-import { IsString, IsOptional, IsArray, IsEnum, IsBoolean, IsUUID } from 'class-validator';
+import {
+  IsString,
+  IsOptional,
+  IsArray,
+  IsEnum,
+  IsBoolean,
+  IsUUID,
+} from 'class-validator';
 import { ApiProperty, ApiPropertyOptional } from '@nestjs/swagger';
 import { PermissionAction, ResourceType } from '../../domain/entities';
 
@@ -12,7 +19,10 @@ export class CreateRoleDto {
   @IsString()
   description?: string;
 
-  @ApiPropertyOptional({ description: 'Permission IDs to assign to role', type: [String] })
+  @ApiPropertyOptional({
+    description: 'Permission IDs to assign to role',
+    type: [String],
+  })
   @IsOptional()
   @IsArray()
   @IsUUID('4', { each: true })
@@ -64,7 +74,9 @@ export class CreatePermissionDto {
   @IsEnum(ResourceType)
   resource: ResourceType;
 
-  @ApiPropertyOptional({ description: 'Specific resource ID for resource-level permissions' })
+  @ApiPropertyOptional({
+    description: 'Specific resource ID for resource-level permissions',
+  })
   @IsOptional()
   @IsString()
   resourceId?: string;
@@ -150,7 +162,10 @@ export class PermissionResponseDto {
 }
 
 export class RoleWithPermissionsDto extends RoleResponseDto {
-  @ApiProperty({ description: 'Role permissions', type: [PermissionResponseDto] })
+  @ApiProperty({
+    description: 'Role permissions',
+    type: [PermissionResponseDto],
+  })
   permissions: PermissionResponseDto[];
 }
 
@@ -166,6 +181,9 @@ export class UserPermissionsResponseDto {
   @ApiProperty({ description: 'User ID' })
   userId: string;
 
-  @ApiProperty({ description: 'User permissions', type: [PermissionResponseDto] })
+  @ApiProperty({
+    description: 'User permissions',
+    type: [PermissionResponseDto],
+  })
   permissions: PermissionResponseDto[];
 }

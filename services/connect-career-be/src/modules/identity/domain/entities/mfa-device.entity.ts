@@ -1,4 +1,12 @@
-import { Entity, PrimaryGeneratedColumn, Column, CreateDateColumn, UpdateDateColumn, ManyToOne, JoinColumn } from 'typeorm';
+import {
+  Entity,
+  PrimaryGeneratedColumn,
+  Column,
+  CreateDateColumn,
+  UpdateDateColumn,
+  ManyToOne,
+  JoinColumn,
+} from 'typeorm';
 import { User } from './user.entity';
 import * as crypto from 'crypto';
 
@@ -7,13 +15,13 @@ export enum MfaDeviceType {
   SMS = 'sms',
   EMAIL = 'email',
   HARDWARE_TOKEN = 'hardware_token',
-  BACKUP_CODES = 'backup_codes'
+  BACKUP_CODES = 'backup_codes',
 }
 
 export enum MfaDeviceStatus {
   PENDING = 'pending',
   ACTIVE = 'active',
-  DISABLED = 'disabled'
+  DISABLED = 'disabled',
 }
 
 @Entity('mfa_devices')
@@ -26,14 +34,14 @@ export class MfaDevice {
 
   @Column({
     type: 'enum',
-    enum: MfaDeviceType
+    enum: MfaDeviceType,
   })
   type: MfaDeviceType;
 
   @Column({
     type: 'enum',
     enum: MfaDeviceStatus,
-    default: MfaDeviceStatus.PENDING
+    default: MfaDeviceStatus.PENDING,
   })
   status: MfaDeviceStatus;
 
@@ -74,7 +82,7 @@ export class MfaDevice {
   updatedAt: Date;
 
   // Relationships
-  @ManyToOne(() => User, user => user.mfaDevices, { onDelete: 'CASCADE' })
+  @ManyToOne(() => User, (user) => user.mfaDevices, { onDelete: 'CASCADE' })
   @JoinColumn({ name: 'userId' })
   user: User;
 

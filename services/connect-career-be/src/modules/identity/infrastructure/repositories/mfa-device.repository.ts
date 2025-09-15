@@ -23,8 +23,8 @@ export class MfaDeviceRepository implements IMfaDeviceRepository {
     return this.repository.find({
       where: {
         userId,
-        status: MfaDeviceStatus.ACTIVE
-      }
+        status: MfaDeviceStatus.ACTIVE,
+      },
     });
   }
 
@@ -33,8 +33,8 @@ export class MfaDeviceRepository implements IMfaDeviceRepository {
       where: {
         userId,
         isPrimary: true,
-        status: MfaDeviceStatus.ACTIVE
-      }
+        status: MfaDeviceStatus.ACTIVE,
+      },
     });
   }
 

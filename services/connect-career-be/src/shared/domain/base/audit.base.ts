@@ -8,24 +8,24 @@ import { Column, CreateDateColumn, UpdateDateColumn } from 'typeorm';
  * - Soft delete flag
  */
 export abstract class AuditBase {
-    @Column({ nullable: true })
-    createdBy?: string;
+  @Column({ nullable: true })
+  createdBy?: string;
 
-    @Column({ nullable: true })
-    updatedBy?: string;
+  @Column({ nullable: true })
+  updatedBy?: string;
 
-    @CreateDateColumn()
-    createdAt: Date;
+  @CreateDateColumn()
+  createdAt: Date;
 
-    @UpdateDateColumn()
-    updatedAt: Date;
+  @UpdateDateColumn()
+  updatedAt: Date;
 
-    @Column({ nullable: true })
-    deletedBy?: string;
+  @Column({ nullable: true })
+  deletedBy?: string;
 
-    @Column({ nullable: true })
-    deletedAt?: Date;
+  @Column({ nullable: true })
+  deletedAt?: Date;
 
-    @Column({ default: false })
-    isDeleted: boolean;
+  @Column({ default: false })
+  isDeleted: boolean;
 }

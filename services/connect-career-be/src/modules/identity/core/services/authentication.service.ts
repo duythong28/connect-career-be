@@ -1,20 +1,26 @@
-import { Injectable, UnauthorizedException, BadRequestException, Inject } from '@nestjs/common';
+import {
+  Injectable,
+  UnauthorizedException,
+  BadRequestException,
+  Inject,
+  Logger,
+} from '@nestjs/common';
 import { JwtService } from '@nestjs/jwt';
+import { ConfigService } from '@nestjs/config';
 import * as bcrypt from 'bcrypt';
 import * as speakeasy from 'speakeasy';
 import * as qrcode from 'qrcode';
 import { v4 as uuidv4 } from 'uuid';
 import * as identityRepository from '../../domain/repository/identity.repository';
-import { 
-  User, 
-  UserSession, 
-  MfaDevice, 
-  OAuthAccount, 
-  UserStatus, 
+import {
+  User,
+  UserStatus,
   AuthProvider,
   MfaDeviceType,
-  MfaDeviceStatus 
+  MfaDeviceStatus,
 } from '../../domain/entities';
+import { EventBus } from '@nestjs/cqrs';
+import { UserRegisteredEvent } from '../../domain/events/user-register.event';
 
 export interface LoginCredentials {
   identifier: string; // email or username
@@ -53,6 +59,8 @@ export interface OAuthProfile {
 
 @Injectable()
 export class AuthenticationService {
+  private readonly logger = new Logger(AuthenticationService.name);
+
   constructor(
     @Inject('IUserRepository')
     private readonly userRepository: identityRepository.IUserRepository,
@@ -62,18 +70,27 @@ export class AuthenticationService {
     private readonly mfaDeviceRepository: identityRepository.IMfaDeviceRepository,
     @Inject('IOAuthAccountRepository')
     private readonly oauthAccountRepository: identityRepository.IOAuthAccountRepository,
+    @Inject('IRoleRepository')
+    private readonly roleRepository: identityRepository.IRoleRepository,
     private readonly jwtService: JwtService,
+    private readonly eventBus: EventBus,
+    private readonly configService: ConfigService,
   ) {}
 
   async login(credentials: LoginCredentials): Promise<AuthTokens> {
-    const user = await this.validateUser(credentials.identifier, credentials.password);
-    
+    const user = await this.validateUser(
+      credentials.identifier,
+      credentials.password,
+    );
+
     if (!user.isActive) {
       throw new UnauthorizedException('Account is not active');
     }
 
     if (user.isLocked) {
-      throw new UnauthorizedException('Account is temporarily locked due to failed login attempts');
+      throw new UnauthorizedException(
+        'Account is temporarily locked due to failed login attempts',
+      );
     }
 
     // Check if MFA is required
@@ -98,6 +115,7 @@ export class AuthenticationService {
     username?: string;
     firstName?: string;
     lastName?: string;
+    fullName?: string;
   }): Promise<User> {
     // Check if user already exists
     const existingUser = await this.userRepository.findByEmail(userData.email);
@@ -106,23 +124,40 @@ export class AuthenticationService {
     }
 
     if (userData.username) {
-      const existingUsername = await this.userRepository.findByUsername(userData.username);
+      const existingUsername = await this.userRepository.findByUsername(
+        userData.username,
+      );
       if (existingUsername) {
         throw new BadRequestException('Username already taken');
       }
     }
 
-    // Hash password
     const passwordHash = await this.hashPassword(userData.password);
+    const verificationToken = uuidv4();
+    const expiresAt = new Date(Date.now() + 24 * 60 * 60 * 1000);
 
-    // Create user
     const user = await this.userRepository.create({
       ...userData,
       passwordHash,
-      emailVerificationToken: uuidv4(),
+      emailVerificationToken: verificationToken,
+      emailVerificationExpires: expiresAt,
       status: UserStatus.PENDING_VERIFICATION,
     });
-
+    try {
+      const defaultRole = await this.roleRepository.findByName('user');
+      if (defaultRole) {
+        if (!user.roles) {
+          user.roles = [];
+        }
+        user.roles.push(defaultRole);
+        await this.userRepository.update(user.id, user);
+      }
+    } catch (error) {
+      this.logger.warn('Failed to assign default role to user:', error);
+    }
+    this.eventBus.publish(
+      new UserRegisteredEvent(user.fullName!, user.id, user.email, verificationToken, expiresAt),
+    );
     return user;
   }
 
@@ -143,7 +178,8 @@ export class AuthenticationService {
   }
 
   async refreshTokens(refreshToken: string): Promise<AuthTokens> {
-    const session = await this.sessionRepository.findByRefreshToken(refreshToken);
+    const session =
+      await this.sessionRepository.findByRefreshToken(refreshToken);
     if (!session || !session.isActive) {
       throw new UnauthorizedException('Invalid refresh token');
     }
@@ -153,10 +189,8 @@ export class AuthenticationService {
       throw new UnauthorizedException('User not found or inactive');
     }
 
-    // Generate new tokens
     const tokens = await this.generateTokens(user);
-    
-    // Update session
+
     await this.sessionRepository.update(session.id, {
       refreshToken: tokens.refreshToken,
       accessTokenJti: this.extractJtiFromToken(tokens.accessToken),
@@ -167,7 +201,8 @@ export class AuthenticationService {
   }
 
   async logout(refreshToken: string): Promise<void> {
-    const session = await this.sessionRepository.findByRefreshToken(refreshToken);
+    const session =
+      await this.sessionRepository.findByRefreshToken(refreshToken);
     if (session) {
       session.revoke();
       await this.sessionRepository.update(session.id, session);
@@ -179,7 +214,10 @@ export class AuthenticationService {
   }
 
   // MFA Methods
-  async setupMfa(userId: string, deviceType: MfaDeviceType = MfaDeviceType.TOTP): Promise<MfaSetupResult> {
+  async setupMfa(
+    userId: string,
+    deviceType: MfaDeviceType = MfaDeviceType.TOTP,
+  ): Promise<MfaSetupResult> {
     const user = await this.userRepository.findById(userId);
     if (!user) {
       throw new BadRequestException('User not found');
@@ -213,7 +251,11 @@ export class AuthenticationService {
     throw new BadRequestException('Unsupported MFA device type');
   }
 
-  async verifyMfaSetup(userId: string, deviceId: string, code: string): Promise<boolean> {
+  async verifyMfaSetup(
+    userId: string,
+    deviceId: string,
+    code: string,
+  ): Promise<boolean> {
     const device = await this.mfaDeviceRepository.findById(deviceId);
     if (!device || device.userId !== userId) {
       throw new BadRequestException('MFA device not found');
@@ -230,7 +272,7 @@ export class AuthenticationService {
       if (isValid) {
         device.activate();
         await this.mfaDeviceRepository.update(device.id, device);
-        
+
         // Enable MFA for user if this is their first device
         const user = await this.userRepository.findById(userId);
         if (user && !user.mfaEnabled) {
@@ -246,7 +288,7 @@ export class AuthenticationService {
 
   async validateMfaCode(userId: string, code: string): Promise<boolean> {
     const devices = await this.mfaDeviceRepository.findActiveByUserId(userId);
-    
+
     for (const device of devices) {
       if (device.type === MfaDeviceType.TOTP && device.secret) {
         const isValid = speakeasy.totp.verify({
@@ -274,7 +316,10 @@ export class AuthenticationService {
   }
 
   // OAuth Methods
-  async handleOAuthLogin(profile: OAuthProfile, deviceInfo?: Partial<LoginCredentials>): Promise<AuthTokens> {
+  async handleOAuthLogin(
+    profile: OAuthProfile,
+    deviceInfo?: Partial<LoginCredentials>,
+  ): Promise<AuthTokens> {
     let user = await this.findUserByOAuthProfile(profile);
 
     if (!user) {
@@ -298,9 +343,12 @@ export class AuthenticationService {
   }
 
   // Private helper methods
-  private async createUserSession(user: User, deviceInfo: Partial<LoginCredentials>): Promise<AuthTokens> {
+  private async createUserSession(
+    user: User,
+    deviceInfo: Partial<LoginCredentials>,
+  ): Promise<AuthTokens> {
     const tokens = await this.generateTokens(user);
-    
+
     await this.sessionRepository.create({
       userId: user.id,
       refreshToken: tokens.refreshToken,
@@ -324,16 +372,26 @@ export class AuthenticationService {
       jti: uuidv4(),
     };
 
-    const accessToken = await this.jwtService.signAsync(payload, {
-      expiresIn: '15m',
-    });
+    const isDevelopment = this.configService.get<string>('NODE_ENV') === 'development';
+    const unlimitedDev = this.configService.get<boolean>('JWT_UNLIMITED_DEV');
+    
+    const signOptions: any = {};
+    let expiresInSeconds: number;
 
+    if (isDevelopment && unlimitedDev) {
+      expiresInSeconds = 0; // Indicates unlimited
+    } else {
+      signOptions.expiresIn = '15m';
+      expiresInSeconds = 15 * 60; // 15 minutes
+    }
+
+    const accessToken = await this.jwtService.signAsync(payload, signOptions);
     const refreshToken = uuidv4();
 
     return {
       accessToken,
       refreshToken,
-      expiresIn: 15 * 60, // 15 minutes
+      expiresIn: expiresInSeconds,
       tokenType: 'Bearer',
     };
   }
@@ -348,11 +406,14 @@ export class AuthenticationService {
     return bcrypt.hash(password, saltRounds);
   }
 
-  private async findUserByOAuthProfile(profile: OAuthProfile): Promise<User | null> {
-    const oauthAccount = await this.oauthAccountRepository.findByProviderAndAccountId(
-      profile.provider,
-      profile.providerId
-    );
+  private async findUserByOAuthProfile(
+    profile: OAuthProfile,
+  ): Promise<User | null> {
+    const oauthAccount =
+      await this.oauthAccountRepository.findByProviderAndAccountId(
+        profile.provider,
+        profile.providerId,
+      );
 
     if (oauthAccount) {
       return this.userRepository.findById(oauthAccount.userId);
@@ -362,7 +423,9 @@ export class AuthenticationService {
     return this.userRepository.findByEmail(profile.email);
   }
 
-  private async createUserFromOAuthProfile(profile: OAuthProfile): Promise<User> {
+  private async createUserFromOAuthProfile(
+    profile: OAuthProfile,
+  ): Promise<User> {
     return this.userRepository.create({
       email: profile.email,
       firstName: profile.firstName,
@@ -374,15 +437,26 @@ export class AuthenticationService {
     });
   }
 
-  private async updateOAuthAccount(userId: string, profile: OAuthProfile): Promise<void> {
-    const existingAccount = await this.oauthAccountRepository.findByProviderAndAccountId(
-      profile.provider,
-      profile.providerId
-    );
+  private async updateOAuthAccount(
+    userId: string,
+    profile: OAuthProfile,
+  ): Promise<void> {
+    const existingAccount =
+      await this.oauthAccountRepository.findByProviderAndAccountId(
+        profile.provider,
+        profile.providerId,
+      );
 
     if (existingAccount) {
-      existingAccount.updateTokens(profile.accessToken, profile.refreshToken, profile.expiresIn);
-      await this.oauthAccountRepository.update(existingAccount.id, existingAccount);
+      existingAccount.updateTokens(
+        profile.accessToken,
+        profile.refreshToken,
+        profile.expiresIn,
+      );
+      await this.oauthAccountRepository.update(
+        existingAccount.id,
+        existingAccount,
+      );
     } else {
       await this.oauthAccountRepository.create({
         userId,
@@ -390,8 +464,8 @@ export class AuthenticationService {
         providerAccountId: profile.providerId,
         accessToken: profile.accessToken,
         refreshToken: profile.refreshToken,
-        accessTokenExpires: profile.expiresIn 
-          ? new Date(Date.now() + profile.expiresIn * 1000) 
+        accessTokenExpires: profile.expiresIn
+          ? new Date(Date.now() + profile.expiresIn * 1000)
           : undefined,
       });
     }

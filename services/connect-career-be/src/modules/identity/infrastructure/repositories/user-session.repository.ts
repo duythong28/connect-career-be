@@ -28,8 +28,8 @@ export class UserSessionRepository implements IUserSessionRepository {
       where: {
         userId,
         status: SessionStatus.ACTIVE,
-        expiresAt: LessThan(new Date())
-      }
+        expiresAt: LessThan(new Date()),
+      },
     });
   }
 
@@ -38,7 +38,10 @@ export class UserSessionRepository implements IUserSessionRepository {
     return this.repository.save(entity);
   }
 
-  async update(id: string, updates: Partial<UserSession>): Promise<UserSession> {
+  async update(
+    id: string,
+    updates: Partial<UserSession>,
+  ): Promise<UserSession> {
     await this.repository.update(id, updates);
     const updated = await this.findById(id);
     if (!updated) {
@@ -57,14 +60,11 @@ export class UserSessionRepository implements IUserSessionRepository {
 
   async deleteExpired(): Promise<void> {
     await this.repository.delete({
-      expiresAt: LessThan(new Date())
+      expiresAt: LessThan(new Date()),
     });
   }
 
   async revokeAllByUserId(userId: string): Promise<void> {
-    await this.repository.update(
-      { userId },
-      { status: SessionStatus.REVOKED }
-    );
+    await this.repository.update({ userId }, { status: SessionStatus.REVOKED });
   }
 }

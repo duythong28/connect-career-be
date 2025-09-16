@@ -1,4 +1,11 @@
-import { Entity, PrimaryGeneratedColumn, Column, CreateDateColumn, UpdateDateColumn, ManyToMany } from 'typeorm';
+import {
+  Entity,
+  PrimaryGeneratedColumn,
+  Column,
+  CreateDateColumn,
+  UpdateDateColumn,
+  ManyToMany,
+} from 'typeorm';
 import { Role } from './role.entity';
 
 export enum PermissionAction {
@@ -6,7 +13,7 @@ export enum PermissionAction {
   READ = 'read',
   UPDATE = 'update',
   DELETE = 'delete',
-  MANAGE = 'manage'
+  MANAGE = 'manage',
 }
 
 export enum ResourceType {
@@ -20,7 +27,7 @@ export enum ResourceType {
   PORTFOLIO = 'portfolio',
   SUBSCRIPTION = 'subscription',
   LEARNING = 'learning',
-  AI_RESUME = 'ai_resume'
+  AI_RESUME = 'ai_resume',
 }
 
 @Entity('permissions')
@@ -36,13 +43,13 @@ export class Permission {
 
   @Column({
     type: 'enum',
-    enum: PermissionAction
+    enum: PermissionAction,
   })
   action: PermissionAction;
 
   @Column({
     type: 'enum',
-    enum: ResourceType
+    enum: ResourceType,
   })
   resource: ResourceType;
 
@@ -62,20 +69,32 @@ export class Permission {
   updatedAt: Date;
 
   // Relationships
-  @ManyToMany(() => Role, role => role.permissions)
+  @ManyToMany(() => Role, (role) => role.permissions)
   roles: Role[];
 
   // Domain methods
-  static createPermissionName(action: PermissionAction, resource: ResourceType, resourceId?: string): string {
+  static createPermissionName(
+    action: PermissionAction,
+    resource: ResourceType,
+    resourceId?: string,
+  ): string {
     const base = `${action}:${resource}`;
     return resourceId ? `${base}:${resourceId}` : base;
   }
 
   get fullPermissionName(): string {
-    return Permission.createPermissionName(this.action, this.resource, this.resourceId);
+    return Permission.createPermissionName(
+      this.action,
+      this.resource,
+      this.resourceId,
+    );
   }
 
-  matches(action: PermissionAction, resource: ResourceType, resourceId?: string): boolean {
+  matches(
+    action: PermissionAction,
+    resource: ResourceType,
+    resourceId?: string,
+  ): boolean {
     if (this.action !== action || this.resource !== resource) {
       return false;
     }

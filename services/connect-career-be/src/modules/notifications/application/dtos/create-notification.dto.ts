@@ -1,9 +1,9 @@
-import { NotificationChannel } from "../../domain/entities/notification.entity";
+import { NotificationChannel } from '../../domain/entities/notification.entity';
 
 export class CreateNotificationDTO {
-    title: string;
-    message: string;
-    recipient: string;
-    channel: NotificationChannel; 
-    scheduledTime?: Date;
+  title: string;
+  message: string;
+  recipient: string;
+  channel: NotificationChannel;
+  scheduledTime?: Date;
 }

@@ -48,7 +48,7 @@ export class RoleRepository implements IRoleRepository {
   async findWithPermissions(id: string): Promise<Role | null> {
     return this.repository.findOne({
       where: { id },
-      relations: ['permissions']
+      relations: ['permissions'],
     });
   }
 

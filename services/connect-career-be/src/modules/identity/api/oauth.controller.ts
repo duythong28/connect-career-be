@@ -6,12 +6,10 @@ import { AuthenticationService } from '../core/services/authentication.service';
 import * as express from 'express';
 
 @ApiTags('OAuth Authentication')
-@Controller('auth/oauth')
+@Controller('v1/auth/oauth')
 export class OAuthController {
-  constructor(
-    private readonly authService: AuthenticationService,
-  ) {}
-  
+  constructor(private readonly authService: AuthenticationService) {}
+
   @Public()
   @Get('google')
   @UseGuards(AuthGuard('google'))
@@ -34,11 +32,14 @@ export class OAuthController {
         userAgent: req.get('User-Agent'),
       };
 
-      const tokens = await this.authService.handleOAuthLogin(profile, deviceInfo);
-      
+      const tokens = await this.authService.handleOAuthLogin(
+        profile,
+        deviceInfo,
+      );
+
       const frontendUrl = process.env.FRONTEND_URL || 'http://localhost:3000';
       const redirectUrl = `${frontendUrl}/auth/callback?token=${tokens.accessToken}&refresh=${tokens.refreshToken}`;
-      
+
       return res.redirect(redirectUrl);
     } catch (error) {
       const frontendUrl = process.env.FRONTEND_URL || 'http://localhost:3000';
@@ -69,11 +70,14 @@ export class OAuthController {
         userAgent: req.get('User-Agent'),
       };
 
-      const tokens = await this.authService.handleOAuthLogin(profile, deviceInfo);
-      
+      const tokens = await this.authService.handleOAuthLogin(
+        profile,
+        deviceInfo,
+      );
+
       const frontendUrl = process.env.FRONTEND_URL || 'http://localhost:3000';
       const redirectUrl = `${frontendUrl}/auth/callback?token=${tokens.accessToken}&refresh=${tokens.refreshToken}`;
-      
+
       return res.redirect(redirectUrl);
     } catch (error) {
       const frontendUrl = process.env.FRONTEND_URL || 'http://localhost:3000';

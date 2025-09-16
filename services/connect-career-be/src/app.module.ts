@@ -4,6 +4,8 @@ import { TypeOrmModule } from '@nestjs/typeorm';
 import { APP_GUARD } from '@nestjs/core';
 import { IdentityModule } from './modules/identity/identity.module';
 import { JwtAuthGuard } from './modules/identity/api/guards/jwt-auth.guard';
+import { FileSystemModule } from './shared/infrastructure/external-services/file-system/file-system.module';
+import { NotificationsModule } from './modules/notifications/notifications.module';
 
 @Module({
   imports: [
@@ -27,6 +29,8 @@ import { JwtAuthGuard } from './modules/identity/api/guards/jwt-auth.guard';
       inject: [ConfigService],
     }),
     IdentityModule,
+    NotificationsModule,
+    FileSystemModule,
   ],
   providers: [
     {

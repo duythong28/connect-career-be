@@ -8,7 +8,8 @@ import { NotificationStatus } from '../../domain/entities/notification.entity';
 @Injectable()
 @CommandHandler(ScheduleNotificationCommand)
 export class ScheduleNotificationHandler
-  implements ICommandHandler<ScheduleNotificationCommand, NotificationResponseDTO>
+  implements
+    ICommandHandler<ScheduleNotificationCommand, NotificationResponseDTO>
 {
   constructor(
     @Inject(notificationRepository.NOTIFICATION_REPOSITORY)

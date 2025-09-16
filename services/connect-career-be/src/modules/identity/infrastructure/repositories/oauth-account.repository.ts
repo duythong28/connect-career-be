@@ -15,12 +15,15 @@ export class OAuthAccountRepository implements IOAuthAccountRepository {
     return this.repository.findOne({ where: { id } });
   }
 
-  async findByProviderAndAccountId(provider: string, providerAccountId: string): Promise<OAuthAccount | null> {
+  async findByProviderAndAccountId(
+    provider: string,
+    providerAccountId: string,
+  ): Promise<OAuthAccount | null> {
     return this.repository.findOne({
       where: {
         provider: provider as any,
-        providerAccountId
-      }
+        providerAccountId,
+      },
     });
   }
 
@@ -32,8 +35,8 @@ export class OAuthAccountRepository implements IOAuthAccountRepository {
     return this.repository.find({
       where: {
         userId,
-        isActive: true
-      }
+        isActive: true,
+      },
     });
   }
 
@@ -42,7 +45,10 @@ export class OAuthAccountRepository implements IOAuthAccountRepository {
     return this.repository.save(entity);
   }
 
-  async update(id: string, updates: Partial<OAuthAccount>): Promise<OAuthAccount> {
+  async update(
+    id: string,
+    updates: Partial<OAuthAccount>,
+  ): Promise<OAuthAccount> {
     await this.repository.update(id, updates);
     const updated = await this.findById(id);
     if (!updated) {

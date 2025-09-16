@@ -15,14 +15,15 @@ export class RequestException extends CustomException {
     statusCode: HttpStatus = HttpStatus.BAD_REQUEST,
   ) {
     if (messageOrErrorCode instanceof BaseErrorCode) {
-      super(
-        messageOrErrorCode,
-        statusCode
-      );
+      super(messageOrErrorCode, statusCode);
     } else {
       super(
-        new BaseErrorCode(errorCode || HttpStatus.BAD_REQUEST, messageOrErrorCode, 'REQUEST_ERROR'),
-        statusCode
+        new BaseErrorCode(
+          errorCode || HttpStatus.BAD_REQUEST,
+          messageOrErrorCode,
+          'REQUEST_ERROR',
+        ),
+        statusCode,
       );
     }
   }

@@ -1,4 +1,12 @@
-import { Entity, PrimaryGeneratedColumn, Column, CreateDateColumn, UpdateDateColumn, ManyToOne, JoinColumn } from 'typeorm';
+import {
+  Entity,
+  PrimaryGeneratedColumn,
+  Column,
+  CreateDateColumn,
+  UpdateDateColumn,
+  ManyToOne,
+  JoinColumn,
+} from 'typeorm';
 import { User } from './user.entity';
 
 export enum AuthProvider {
@@ -6,7 +14,6 @@ export enum AuthProvider {
   GOOGLE = 'google',
   GITHUB = 'github',
 }
-
 
 @Entity('oauth_accounts')
 export class OAuthAccount {
@@ -19,7 +26,7 @@ export class OAuthAccount {
   @Column({
     type: 'enum',
     enum: AuthProvider,
-    enumName: 'auth_provider' 
+    enumName: 'auth_provider',
   })
   provider: AuthProvider;
 
@@ -51,16 +58,22 @@ export class OAuthAccount {
   updatedAt: Date;
 
   // Relationships
-  @ManyToOne(() => User, user => user.oauthAccounts, { onDelete: 'CASCADE' })
+  @ManyToOne(() => User, (user) => user.oauthAccounts, { onDelete: 'CASCADE' })
   @JoinColumn({ name: 'userId' })
   user: User;
 
   // Domain methods
   get isTokenExpired(): boolean {
-    return this.accessTokenExpires ? this.accessTokenExpires < new Date() : false;
+    return this.accessTokenExpires
+      ? this.accessTokenExpires < new Date()
+      : false;
   }
 
-  updateTokens(accessToken: string, refreshToken?: string, expiresIn?: number): void {
+  updateTokens(
+    accessToken: string,
+    refreshToken?: string,
+    expiresIn?: number,
+  ): void {
     this.accessToken = accessToken;
     if (refreshToken) {
       this.refreshToken = refreshToken;
@@ -82,6 +95,8 @@ export class OAuthAccount {
   }
 
   isExpired(): boolean {
-    return this.accessTokenExpires ? new Date() >= this.accessTokenExpires : false;
+    return this.accessTokenExpires
+      ? new Date() >= this.accessTokenExpires
+      : false;
   }
 }

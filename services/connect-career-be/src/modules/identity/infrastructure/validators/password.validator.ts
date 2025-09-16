@@ -34,28 +34,52 @@ export class PasswordValidator {
   };
 
   private readonly commonPasswords = [
-    'password', '123456', '123456789', 'qwerty', 'abc123',
-    'password123', 'admin', 'letmein', 'welcome', 'monkey',
-    'dragon', 'master', 'shadow', 'superman', 'michael',
-    'football', 'baseball', 'liverpool', 'jordan', 'harley'
+    'password',
+    '123456',
+    '123456789',
+    'qwerty',
+    'abc123',
+    'password123',
+    'admin',
+    'letmein',
+    'welcome',
+    'monkey',
+    'dragon',
+    'master',
+    'shadow',
+    'superman',
+    'michael',
+    'football',
+    'baseball',
+    'liverpool',
+    'jordan',
+    'harley',
   ];
 
   private readonly specialChars = /[!@#$%^&*()_+\-=\[\]{};':"\\|,.<>\/?]/;
 
-  validate(password: string, policy?: Partial<PasswordPolicy>, userInfo?: { email?: string; firstName?: string; lastName?: string }): PasswordValidationResult {
+  validate(
+    password: string,
+    policy?: Partial<PasswordPolicy>,
+    userInfo?: { email?: string; firstName?: string; lastName?: string },
+  ): PasswordValidationResult {
     const activePolicy = { ...this.defaultPolicy, ...policy };
     const errors: string[] = [];
     let score = 0;
 
     // Length validation
     if (password.length < activePolicy.minLength) {
-      errors.push(`Password must be at least ${activePolicy.minLength} characters long`);
+      errors.push(
+        `Password must be at least ${activePolicy.minLength} characters long`,
+      );
     } else {
       score += Math.min(25, (password.length / activePolicy.minLength) * 25);
     }
 
     if (password.length > activePolicy.maxLength) {
-      errors.push(`Password must not exceed ${activePolicy.maxLength} characters`);
+      errors.push(
+        `Password must not exceed ${activePolicy.maxLength} characters`,
+      );
     }
 
     // Character type validation
@@ -80,7 +104,9 @@ export class PasswordValidator {
     if (activePolicy.requireSpecialChars) {
       const specialCharCount = (password.match(this.specialChars) || []).length;
       if (specialCharCount < activePolicy.minSpecialChars) {
-        errors.push(`Password must contain at least ${activePolicy.minSpecialChars} special character(s)`);
+        errors.push(
+          `Password must contain at least ${activePolicy.minSpecialChars} special character(s)`,
+        );
       } else {
         score += Math.min(20, specialCharCount * 5);
       }
@@ -89,7 +115,9 @@ export class PasswordValidator {
     // Common password check
     if (activePolicy.forbidCommonPasswords) {
       const lowerPassword = password.toLowerCase();
-      if (this.commonPasswords.some(common => lowerPassword.includes(common))) {
+      if (
+        this.commonPasswords.some((common) => lowerPassword.includes(common))
+      ) {
         errors.push('Password contains common words or patterns');
         score -= 20;
       }
@@ -100,8 +128,10 @@ export class PasswordValidator {
       const personalInfo = [
         userInfo.email?.split('@')[0],
         userInfo.firstName,
-        userInfo.lastName
-      ].filter(Boolean).map(info => info!.toLowerCase());
+        userInfo.lastName,
+      ]
+        .filter(Boolean)
+        .map((info) => info!.toLowerCase());
 
       const lowerPassword = password.toLowerCase();
       for (const info of personalInfo) {
@@ -136,11 +166,15 @@ export class PasswordValidator {
     return {
       isValid: errors.length === 0,
       errors,
-      score
+      score,
     };
   }
 
-  validateAndThrow(password: string, policy?: Partial<PasswordPolicy>, userInfo?: { email?: string; firstName?: string; lastName?: string }): void {
+  validateAndThrow(
+    password: string,
+    policy?: Partial<PasswordPolicy>,
+    userInfo?: { email?: string; firstName?: string; lastName?: string },
+  ): void {
     const result = this.validate(password, policy, userInfo);
     if (!result.isValid) {
       throw new WeakPasswordException(result.errors);
@@ -159,14 +193,16 @@ export class PasswordValidator {
     const sequences = [
       'abcdefghijklmnopqrstuvwxyz',
       '0123456789',
-      'qwertyuiopasdfghjklzxcvbnm'
+      'qwertyuiopasdfghjklzxcvbnm',
     ];
 
     for (const sequence of sequences) {
       for (let i = 0; i <= sequence.length - 3; i++) {
         const subseq = sequence.substring(i, i + 3);
-        if (password.toLowerCase().includes(subseq) || 
-            password.toLowerCase().includes(subseq.split('').reverse().join(''))) {
+        if (
+          password.toLowerCase().includes(subseq) ||
+          password.toLowerCase().includes(subseq.split('').reverse().join(''))
+        ) {
           return true;
         }
       }

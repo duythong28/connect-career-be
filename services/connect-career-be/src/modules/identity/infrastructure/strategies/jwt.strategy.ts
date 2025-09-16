@@ -20,9 +20,13 @@ export class JwtStrategy extends PassportStrategy(Strategy) {
     private readonly userRepository: identityRepository.IUserRepository,
     private readonly configService: ConfigService,
   ) {
+    // Check if we should ignore expiration in development
+    const isDevelopment = configService.get<string>('NODE_ENV') === 'development';
+    const unlimitedDev = configService.get<boolean>('JWT_UNLIMITED_DEV');
+    
     super({
       jwtFromRequest: ExtractJwt.fromAuthHeaderAsBearerToken(),
-      ignoreExpiration: false,
+      ignoreExpiration: isDevelopment && unlimitedDev,
       secretOrKey: configService.get<string>('JWT_SECRET') || 'your-secret-key',
     });
   }

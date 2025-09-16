@@ -53,6 +53,9 @@ import identityConfig from './infrastructure/config/identity.config';
 import { IdentityExceptionFilter } from './infrastructure/filters/identity-exception.filter';
 import { PasswordValidator } from './infrastructure/validators/password.validator';
 import { DefaultRolesSeeder } from './infrastructure/seeders/default-roles.seeder';
+import { NotificationsModule } from '../notifications/notifications.module';
+import { CqrsModule } from '@nestjs/cqrs';
+import { UserSeeder } from './infrastructure/seeders/user.seeder';
 
 // Repository interfaces
 
@@ -73,6 +76,7 @@ import { DefaultRolesSeeder } from './infrastructure/seeders/default-roles.seede
       useFactory: jwtConfig,
       inject: [ConfigService],
     }),
+    CqrsModule
   ],
   controllers: [IdentityController, RbacController, OAuthController],
   providers: [
@@ -120,6 +124,7 @@ import { DefaultRolesSeeder } from './infrastructure/seeders/default-roles.seede
     IdentityExceptionFilter,
     PasswordValidator,
     DefaultRolesSeeder,
+    UserSeeder
   ],
   exports: [
     AuthenticationService,
@@ -129,6 +134,7 @@ import { DefaultRolesSeeder } from './infrastructure/seeders/default-roles.seede
     PermissionsGuard,
     PasswordValidator,
     DefaultRolesSeeder,
+    UserSeeder
   ],
 })
 export class IdentityModule {}

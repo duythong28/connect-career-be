@@ -14,7 +14,7 @@ export class DefaultRolesSeeder {
   ) {}
 
   async seed(): Promise<void> {
-    this.logger.log('Starting default roles and permissions seeding...');
+    this.logger.log('🚀 Starting admin seeders (roles & permissions)...');
 
     try {
       // Create default permissions
@@ -232,15 +232,22 @@ export class DefaultRolesSeeder {
     ];
 
     for (const permissionData of permissions) {
-      const existing = await this.permissionRepository.findByName(
-        permissionData.name,
-      );
-      if (!existing) {
-        await this.permissionRepository.create({
-          ...permissionData,
-          isSystemPermission: true,
-        });
-        this.logger.log(`Created permission: ${permissionData.name}`);
+      try {
+        const existing = await this.permissionRepository.findByName(
+          permissionData.name,
+        );
+        if (!existing) {
+          await this.permissionRepository.create({
+            ...permissionData,
+            isSystemPermission: true,
+          });
+          this.logger.log(`✓ Created permission: ${permissionData.name}`);
+        } else {
+          this.logger.log(`- Permission already exists: ${permissionData.name}`);
+        }
+      } catch (error) {
+        this.logger.error(`Failed to create permission ${permissionData.name}:`, error);
+        // Continue with other permissions
       }
     }
   }

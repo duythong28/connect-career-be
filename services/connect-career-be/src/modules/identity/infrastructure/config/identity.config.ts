@@ -3,10 +3,11 @@ import { registerAs } from '@nestjs/config';
 export interface IdentityConfig {
   jwt: {
     secret: string;
-    expiresIn: string;
+    expiresIn: string | undefined;
     refreshExpiresIn: string;
     issuer: string;
     audience: string;
+    unlimitedDev: boolean;
   };
   oauth: {
     google: {
@@ -42,17 +43,25 @@ export interface IdentityConfig {
 
 export default registerAs(
   'identity',
-  (): IdentityConfig => ({
-    jwt: {
-      secret:
-        process.env.JWT_SECRET ||
-        'your-super-secret-jwt-key-change-in-production',
-      expiresIn: process.env.JWT_EXPIRES_IN || '15m',
-      refreshExpiresIn: process.env.JWT_REFRESH_EXPIRES_IN || '7d',
-      issuer: process.env.JWT_ISSUER || 'connect-career-api',
-      audience: process.env.JWT_AUDIENCE || 'connect-career-app',
-    },
-    oauth: {
+  (): IdentityConfig => {
+    const isDevelopment = process.env.NODE_ENV === 'development';
+    const unlimitedDev = process.env.JWT_UNLIMITED_DEV === 'true';
+    const expiresIn = isDevelopment && unlimitedDev 
+      ? undefined 
+      : process.env.JWT_EXPIRES_IN || '15m';
+
+    return {
+      jwt: {
+        secret:
+          process.env.JWT_SECRET ||
+          'your-super-secret-jwt-key-change-in-production',
+        expiresIn,
+        refreshExpiresIn: process.env.JWT_REFRESH_EXPIRES_IN || '7d',
+        issuer: process.env.JWT_ISSUER || 'connect-career-api',
+        audience: process.env.JWT_AUDIENCE || 'connect-career-app',
+        unlimitedDev,
+      },
+      oauth: {
       google: {
         clientId: process.env.GOOGLE_CLIENT_ID || '',
         clientSecret: process.env.GOOGLE_CLIENT_SECRET || '',
@@ -93,5 +102,5 @@ export default registerAs(
       loginFailureUrl:
         process.env.FRONTEND_LOGIN_FAILURE_URL || '/login?error=oauth_failed',
     },
-  }),
-);
+  }
+});

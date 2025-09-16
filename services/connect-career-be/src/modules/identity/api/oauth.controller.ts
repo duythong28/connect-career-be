@@ -6,7 +6,7 @@ import { AuthenticationService } from '../core/services/authentication.service';
 import * as express from 'express';
 
 @ApiTags('OAuth Authentication')
-@Controller('auth/oauth')
+@Controller('v1/auth/oauth')
 export class OAuthController {
   constructor(private readonly authService: AuthenticationService) {}
 

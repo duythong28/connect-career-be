@@ -7,8 +7,6 @@ import {
   Body,
   Param,
   UseGuards,
-  HttpCode,
-  HttpStatus,
 } from '@nestjs/common';
 import {
   ApiTags,
@@ -39,7 +37,7 @@ import {
 } from './dtos';
 
 @ApiTags('RBAC - Roles & Permissions')
-@Controller('rbac')
+@Controller('v1/rbac')
 @UseGuards(JwtAuthGuard, RolesGuard, PermissionsGuard)
 @ApiBearerAuth()
 export class RbacController {
@@ -54,7 +52,7 @@ export class RbacController {
     description: 'Roles retrieved successfully',
     type: [RoleResponseDto],
   })
-  async getRoles(): Promise<RoleResponseDto[]> {
+  getRoles(): RoleResponseDto[] {
     // Implementation would fetch all roles
     return [];
   }

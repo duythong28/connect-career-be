@@ -38,9 +38,10 @@ import {
   MfaSetupResponseDto,
   UserProfileDto,
 } from './dtos';
+import { UserMapper } from './mappers/user.mapper';
 
 @ApiTags('Authentication')
-@Controller('auth')
+@Controller('v1/auth')
 @UseGuards(JwtAuthGuard)
 export class IdentityController {
   constructor(
@@ -148,17 +149,7 @@ export class IdentityController {
       throw new NotFoundException('User not found');
     }
 
-    return {
-      id: fullUser.id,
-      email: fullUser.email,
-      username: fullUser.username,
-      firstName: fullUser.firstName,
-      lastName: fullUser.lastName,
-      avatar: fullUser.avatar || fullUser.avatarUrl,
-      emailVerified: fullUser.emailVerified,
-      mfaEnabled: fullUser.mfaEnabled,
-      createdAt: fullUser.createdAt,
-    };
+    return UserMapper.toUserProfileDto(fullUser);
   }
 
   @Patch('change-password')

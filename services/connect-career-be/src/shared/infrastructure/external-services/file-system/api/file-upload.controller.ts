@@ -23,6 +23,7 @@ import * as fileManagementService from '../core/services/file-management.service
 import { CurrentUser } from 'src/modules/identity/api/decorators';
 import { User } from 'src/modules/identity/domain/entities';
 import * as fileRepositoryInterface from '../domain/repositories/interfaces/file.repository.interface';
+import type { Express } from 'express';
 
 export class SignedUploadUrlDto {
   folder?: string;

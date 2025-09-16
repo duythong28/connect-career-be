@@ -3,8 +3,10 @@ import {
   UnauthorizedException,
   BadRequestException,
   Inject,
+  Logger,
 } from '@nestjs/common';
 import { JwtService } from '@nestjs/jwt';
+import { ConfigService } from '@nestjs/config';
 import * as bcrypt from 'bcrypt';
 import * as speakeasy from 'speakeasy';
 import * as qrcode from 'qrcode';
@@ -12,14 +14,13 @@ import { v4 as uuidv4 } from 'uuid';
 import * as identityRepository from '../../domain/repository/identity.repository';
 import {
   User,
-  UserSession,
-  MfaDevice,
-  OAuthAccount,
   UserStatus,
   AuthProvider,
   MfaDeviceType,
   MfaDeviceStatus,
 } from '../../domain/entities';
+import { EventBus } from '@nestjs/cqrs';
+import { UserRegisteredEvent } from '../../domain/events/user-register.event';
 
 export interface LoginCredentials {
   identifier: string; // email or username
@@ -58,6 +59,8 @@ export interface OAuthProfile {
 
 @Injectable()
 export class AuthenticationService {
+  private readonly logger = new Logger(AuthenticationService.name);
+
   constructor(
     @Inject('IUserRepository')
     private readonly userRepository: identityRepository.IUserRepository,
@@ -67,7 +70,11 @@ export class AuthenticationService {
     private readonly mfaDeviceRepository: identityRepository.IMfaDeviceRepository,
     @Inject('IOAuthAccountRepository')
     private readonly oauthAccountRepository: identityRepository.IOAuthAccountRepository,
+    @Inject('IRoleRepository')
+    private readonly roleRepository: identityRepository.IRoleRepository,
     private readonly jwtService: JwtService,
+    private readonly eventBus: EventBus,
+    private readonly configService: ConfigService,
   ) {}
 
   async login(credentials: LoginCredentials): Promise<AuthTokens> {
@@ -108,6 +115,7 @@ export class AuthenticationService {
     username?: string;
     firstName?: string;
     lastName?: string;
+    fullName?: string;
   }): Promise<User> {
     // Check if user already exists
     const existingUser = await this.userRepository.findByEmail(userData.email);
@@ -124,17 +132,32 @@ export class AuthenticationService {
       }
     }
 
-    // Hash password
     const passwordHash = await this.hashPassword(userData.password);
+    const verificationToken = uuidv4();
+    const expiresAt = new Date(Date.now() + 24 * 60 * 60 * 1000);
 
-    // Create user
     const user = await this.userRepository.create({
       ...userData,
       passwordHash,
-      emailVerificationToken: uuidv4(),
+      emailVerificationToken: verificationToken,
+      emailVerificationExpires: expiresAt,
       status: UserStatus.PENDING_VERIFICATION,
     });
-
+    try {
+      const defaultRole = await this.roleRepository.findByName('user');
+      if (defaultRole) {
+        if (!user.roles) {
+          user.roles = [];
+        }
+        user.roles.push(defaultRole);
+        await this.userRepository.update(user.id, user);
+      }
+    } catch (error) {
+      this.logger.warn('Failed to assign default role to user:', error);
+    }
+    this.eventBus.publish(
+      new UserRegisteredEvent(user.fullName!, user.id, user.email, verificationToken, expiresAt),
+    );
     return user;
   }
 
@@ -166,10 +189,8 @@ export class AuthenticationService {
       throw new UnauthorizedException('User not found or inactive');
     }
 
-    // Generate new tokens
     const tokens = await this.generateTokens(user);
 
-    // Update session
     await this.sessionRepository.update(session.id, {
       refreshToken: tokens.refreshToken,
       accessTokenJti: this.extractJtiFromToken(tokens.accessToken),
@@ -351,16 +372,26 @@ export class AuthenticationService {
       jti: uuidv4(),
     };
 
-    const accessToken = await this.jwtService.signAsync(payload, {
-      expiresIn: '15m',
-    });
+    const isDevelopment = this.configService.get<string>('NODE_ENV') === 'development';
+    const unlimitedDev = this.configService.get<boolean>('JWT_UNLIMITED_DEV');
+    
+    const signOptions: any = {};
+    let expiresInSeconds: number;
 
+    if (isDevelopment && unlimitedDev) {
+      expiresInSeconds = 0; // Indicates unlimited
+    } else {
+      signOptions.expiresIn = '15m';
+      expiresInSeconds = 15 * 60; // 15 minutes
+    }
+
+    const accessToken = await this.jwtService.signAsync(payload, signOptions);
     const refreshToken = uuidv4();
 
     return {
       accessToken,
       refreshToken,
-      expiresIn: 15 * 60, // 15 minutes
+      expiresIn: expiresInSeconds,
       tokenType: 'Bearer',
     };
   }

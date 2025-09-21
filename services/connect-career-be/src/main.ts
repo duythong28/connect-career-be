@@ -13,7 +13,7 @@ async function bootstrap() {
 
     const userSeeder = app.get(UserSeeder);
     await userSeeder.seed();
-
+    await userSeeder.verifyAllUserEmails();
   } catch (error) {
     console.error('Failed to run admin seeders:', error);
   }

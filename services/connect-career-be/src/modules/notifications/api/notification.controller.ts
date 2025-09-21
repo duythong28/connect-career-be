@@ -4,7 +4,7 @@ import { ScheduleNotificationCommand } from '../application/commands/schedule-no
 import { NotificationResponseDTO } from '../application/dtos/notification-response.dto';
 import { CommandBus } from '@nestjs/cqrs';
 
-@Controller('notifications')
+@Controller('v1/notifications')
 export class NotificationsController {
   constructor(private readonly commandBus: CommandBus) {}
 

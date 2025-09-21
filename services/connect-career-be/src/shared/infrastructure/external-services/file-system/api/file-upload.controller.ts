@@ -20,7 +20,7 @@ import {
   ApiResponse,
 } from '@nestjs/swagger';
 import * as fileManagementService from '../core/services/file-management.service';
-import { CurrentUser } from 'src/modules/identity/api/decorators';
+import * as decorators from 'src/modules/identity/api/decorators';
 import { User } from 'src/modules/identity/domain/entities';
 import * as fileRepositoryInterface from '../domain/repositories/interfaces/file.repository.interface';
 import type { Express } from 'express';
@@ -50,7 +50,7 @@ export class FileUpdateDto {
 }
 
 @ApiTags('File Management')
-@Controller('files')
+@Controller('v1/files')
 export class FileUploadController {
   constructor(
     private fileManagementService: fileManagementService.FileManagementService,
@@ -85,13 +85,13 @@ export class FileUploadController {
   async uploadFile(
     @UploadedFile() file: Express.Multer.File,
     @Body() options: fileManagementService.FileUploadOptions,
-    @CurrentUser() user: User,
+    @decorators.CurrentUser() user: decorators.CurrentUserPayload,
   ) {
     if (!file) {
       throw new BadRequestException('No file provided');
     }
 
-    return this.fileManagementService.uploadFile(file, options, user);
+    return this.fileManagementService.uploadFile(file, options, user.sub);
   }
 
   @Post('upload-from-url')
@@ -101,7 +101,7 @@ export class FileUploadController {
   @ApiResponse({ status: 201, description: 'File uploaded successfully' })
   async uploadFromUrl(
     @Body() body: { url: string } & fileManagementService.FileUploadOptions,
-    @CurrentUser() user: User,
+    @decorators.CurrentUser() user: User,
   ) {
     const { url, ...options } = body;
     return this.fileManagementService.uploadFromUrl(url, options, user);
@@ -117,7 +117,7 @@ export class FileUploadController {
   })
   generateSignedUploadUrl(
     @Body() dto: SignedUploadUrlDto,
-    @CurrentUser() user: User,
+    @decorators.CurrentUser() user: decorators.CurrentUserPayload,
   ) {
     return this.fileManagementService.generateSignedUploadUrl(dto, user);
   }
@@ -128,7 +128,10 @@ export class FileUploadController {
     status: 200,
     description: 'File information retrieved successfully',
   })
-  async getFile(@Param('id') id: string, @CurrentUser() user: User) {
+  async getFile(
+    @Param('id') id: string,
+    @decorators.CurrentUser() user: decorators.CurrentUserPayload,
+  ) {
     return this.fileManagementService.getFile(id, user);
   }
 
@@ -137,7 +140,7 @@ export class FileUploadController {
   @ApiResponse({ status: 200, description: 'Files retrieved successfully' })
   async getFiles(
     @Query() query: fileRepositoryInterface.FileQueryOptions,
-    @CurrentUser() user: User,
+    @decorators.CurrentUser() user: User,
   ) {
     return this.fileManagementService.getFiles(query, user);
   }
@@ -148,7 +151,7 @@ export class FileUploadController {
   async updateFile(
     @Param('id') id: string,
     @Body() updates: FileUpdateDto,
-    @CurrentUser() user: User,
+    @decorators.CurrentUser() user: decorators.CurrentUserPayload,
   ) {
     return this.fileManagementService.updateFile(id, updates, user);
   }
@@ -162,7 +165,7 @@ export class FileUploadController {
   async generateAuthenticatedUrl(
     @Param('id') id: string,
     @Body() dto: AuthenticatedUrlDto,
-    @CurrentUser() user: User,
+    @decorators.CurrentUser() user: decorators.CurrentUserPayload,
   ) {
     return this.fileManagementService.generateAuthenticatedUrl(id, dto, user);
   }
@@ -175,14 +178,20 @@ export class FileUploadController {
     status: 200,
     description: 'File information retrieved successfully',
   })
-  async getFileInfo(@Param('id') id: string, @CurrentUser() user: User) {
+  async getFileInfo(
+    @Param('id') id: string,
+    @decorators.CurrentUser() user: decorators.CurrentUserPayload,
+  ) {
     return this.fileManagementService.getFileInfo(id, user);
   }
 
   @Delete(':id')
   @ApiOperation({ summary: 'Delete file from cloud storage and database' })
   @ApiResponse({ status: 200, description: 'File deleted successfully' })
-  async deleteFile(@Param('id') id: string, @CurrentUser() user: User) {
+  async deleteFile(
+    @Param('id') id: string,
+    @decorators.CurrentUser() user: decorators.CurrentUserPayload,
+  ) {
     await this.fileManagementService.deleteFile(id, user);
     return { message: 'File deleted successfully' };
   }

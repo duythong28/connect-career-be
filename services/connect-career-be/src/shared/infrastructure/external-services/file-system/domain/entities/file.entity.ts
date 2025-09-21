@@ -31,7 +31,7 @@ export class File {
   @PrimaryGeneratedColumn('uuid')
   id: string;
 
-  @Column({ unique: true })
+  @Column({ unique: true, nullable: true })
   publicId: string;
 
   @Column()
@@ -52,11 +52,11 @@ export class File {
   @Column({ nullable: true })
   height?: number;
 
-  @Column()
-  url: string;
+  @Column({ nullable: true })
+  url?: string;
 
-  @Column()
-  secureUrl: string;
+  @Column({ nullable: true })
+  secureUrl?: string;
 
   @Column({ nullable: true })
   thumbnailUrl?: string;

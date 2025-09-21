@@ -15,6 +15,7 @@ import type {
   FileQueryOptions,
 } from '../../domain/repositories/interfaces/file.repository.interface';
 import { User } from 'src/modules/identity/domain/entities';
+import { CurrentUserPayload } from 'src/modules/identity/api/decorators';
 
 export interface FileUploadOptions {
   folder?: string;
@@ -87,10 +88,9 @@ export class FileManagementService {
   async uploadFile(
     file: Express.Multer.File,
     options: FileUploadOptions,
-    user: User,
+    userId: string,
   ): Promise<File> {
     this.validateFile(file);
-
     // Create file record with uploading status
     const fileRecord = await this.fileRepository.create({
       originalName: file.originalname,
@@ -103,11 +103,11 @@ export class FileManagementService {
       description: options.description,
       isPublic: options.isPublic || false,
       expiresAt: options.expiresAt,
-      uploadedBy: user,
+      uploadedById: userId,
       tags: options.tags || [],
       metadata: {
         ...options.context,
-        uploadedBy: user.email,
+        uploadedBy: userId,
         uploadedAt: new Date().toISOString(),
       },
     });
@@ -122,7 +122,7 @@ export class FileManagementService {
         context: {
           ...options.context,
           file_id: fileRecord.id,
-          user_id: user.id,
+          user_id: userId,
         },
       };
 
@@ -170,8 +170,8 @@ export class FileManagementService {
     const fileRecord = await this.fileRepository.create({
       originalName: url.split('/').pop() || 'unknown',
       fileName: url.split('/').pop() || 'unknown',
-      mimeType: 'application/octet-stream', // Will be determined after upload
-      fileSize: 0, // Will be updated after upload
+      mimeType: 'application/octet-stream',
+      fileSize: 0,
       status: FileStatus.UPLOADING,
       type: FileType.OTHER,
       folder: options.folder || 'uploads',
@@ -240,7 +240,7 @@ export class FileManagementService {
 
   async generateSignedUploadUrl(
     options: FileUploadOptions,
-    user: User,
+    user: CurrentUserPayload,
   ): Promise<{
     signature: string;
     timestamp: number;
@@ -251,9 +251,12 @@ export class FileManagementService {
     resourceType: string;
     fileId: string;
   }> {
-    const fileId =
-      options.publicId ||
-      `file_${Date.now()}_${Math.random().toString(36).substr(2, 9)}`;
+    if (!user?.sub) {
+      throw new BadRequestException('Invalid user context');
+    }
+    const timestamp = Math.round(Date.now() / 1000);
+    const randomId = Math.random().toString(36).substring(2, 11); // Use substring instead of substr
+    const fileId = options.publicId || `file_${timestamp}_${randomId}`;
 
     const uploadParams: SignedUploadParams = {
       folder: options.folder || 'uploads',
@@ -264,7 +267,7 @@ export class FileManagementService {
       context: {
         ...options.context,
         file_id: fileId,
-        user_id: user.id,
+        user_id: user.sub,
         uploaded_by: user.email,
       },
     };
@@ -272,42 +275,42 @@ export class FileManagementService {
     const signedUrl =
       this.fileSystemService.generateSignedUploadUrl(uploadParams);
 
-    await this.fileRepository.create({
-      id: fileId,
+    const fileRecord = await this.fileRepository.create({
       publicId: fileId,
-      originalName: 'pending_upload',
-      fileName: 'pending_upload',
+      originalName: `pending_upload_${fileId}`,
+      fileName: `pending_upload_${fileId}`,
       mimeType: 'application/octet-stream',
       fileSize: 0,
       status: FileStatus.UPLOADING,
       type: FileType.OTHER,
       folder: options.folder || 'uploads',
       description: options.description,
-      isPublic: options.isPublic || false,
+      isPublic: options.isPublic ?? false,
       expiresAt: options.expiresAt,
-      uploadedBy: user,
+      uploadedById: user.sub,
       tags: options.tags || [],
       metadata: {
         ...options.context,
         uploadedBy: user.email,
         uploadedAt: new Date().toISOString(),
         isSignedUpload: true,
+        signedUrlTimestamp: timestamp,
       },
     });
 
     return {
       ...signedUrl,
-      fileId,
+      fileId: fileRecord.id,
     };
   }
 
-  async getFile(id: string, user: User): Promise<File> {
+  async getFile(id: string, user: CurrentUserPayload): Promise<File> {
     const file = await this.fileRepository.findById(id);
     if (!file) {
       throw new NotFoundException('File not found');
     }
 
-    if (file.uploadedBy?.id !== user.id && !file.isPublic) {
+    if (file.uploadedBy?.id !== user.sub && !file.isPublic) {
       throw new BadRequestException('Access denied');
     }
 
@@ -338,14 +341,14 @@ export class FileManagementService {
   async updateFile(
     id: string,
     updates: Partial<File>,
-    user: User,
+    user: CurrentUserPayload,
   ): Promise<File> {
     await this.getFile(id, user);
     const updatedFile = await this.fileRepository.update(id, updates);
     return updatedFile!;
   }
 
-  async deleteFile(id: string, user: User): Promise<void> {
+  async deleteFile(id: string, user: CurrentUserPayload): Promise<void> {
     const file = await this.getFile(id, user);
 
     await this.fileRepository.delete(id);
@@ -366,7 +369,7 @@ export class FileManagementService {
       transformation?: Record<string, unknown>;
       expiresAt?: number;
     },
-    user: User,
+    user: CurrentUserPayload,
   ): Promise<{ url: string }> {
     const file = await this.getFile(id, user);
 
@@ -381,7 +384,7 @@ export class FileManagementService {
 
   async getFileInfo(
     id: string,
-    user: User,
+    user: CurrentUserPayload,
   ): Promise<File & { cloudInfo?: Record<string, unknown> }> {
     const file = await this.getFile(id, user);
 

@@ -180,14 +180,13 @@ export class CloudinaryProvider implements IFileSystemService {
       );
     }
 
+    const signatureParams: Record<string, any> = {
+      folder,
+      public_id: publicId,
+      timestamp,
+    };
     const signature = cloudinary.utils.api_sign_request(
-      {
-        public_id: publicId,
-        folder,
-        resource_type: resourceType,
-        timestamp,
-        ...params,
-      },
+      signatureParams,
       apiSecret,
     );
 

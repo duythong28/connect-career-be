@@ -17,6 +17,6 @@ export class UserMapper {
   }
 
   static toUserProfileDtoArray(users: User[]): UserProfileDto[] {
-    return users.map(user => this.toUserProfileDto(user));
+    return users.map((user) => this.toUserProfileDto(user));
   }
 }

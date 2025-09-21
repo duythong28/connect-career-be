@@ -156,7 +156,13 @@ export class AuthenticationService {
       this.logger.warn('Failed to assign default role to user:', error);
     }
     this.eventBus.publish(
-      new UserRegisteredEvent(user.fullName!, user.id, user.email, verificationToken, expiresAt),
+      new UserRegisteredEvent(
+        user.fullName!,
+        user.id,
+        user.email,
+        verificationToken,
+        expiresAt,
+      ),
     );
     return user;
   }
@@ -229,7 +235,7 @@ export class AuthenticationService {
         issuer: 'ConnectCareer',
       });
 
-      const qrCodeUrl = await qrcode.toDataURL(secret.otpauth_url!);
+      const qrCodeUrl = await qrcode.toDataURL(secret.otpauth_url);
 
       const device = await this.mfaDeviceRepository.create({
         userId: user.id,
@@ -372,17 +378,18 @@ export class AuthenticationService {
       jti: uuidv4(),
     };
 
-    const isDevelopment = this.configService.get<string>('NODE_ENV') === 'development';
+    const isDevelopment =
+      this.configService.get<string>('NODE_ENV') === 'development';
     const unlimitedDev = this.configService.get<boolean>('JWT_UNLIMITED_DEV');
-    
+
     const signOptions: any = {};
     let expiresInSeconds: number;
 
     if (isDevelopment && unlimitedDev) {
       expiresInSeconds = 0; // Indicates unlimited
     } else {
-      signOptions.expiresIn = '15m';
-      expiresInSeconds = 15 * 60; // 15 minutes
+      signOptions.expiresIn = '2d';
+      expiresInSeconds = 2 * 24 * 60 * 60; // 2 days
     }
 
     const accessToken = await this.jwtService.signAsync(payload, signOptions);
@@ -397,7 +404,7 @@ export class AuthenticationService {
   }
 
   private extractJtiFromToken(token: string): string {
-    const decoded = this.jwtService.decode(token) as any;
+    const decoded = this.jwtService.decode(token);
     return decoded?.jti || '';
   }
 

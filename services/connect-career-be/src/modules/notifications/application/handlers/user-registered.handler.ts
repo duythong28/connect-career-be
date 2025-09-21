@@ -9,7 +9,9 @@ import WelcomeEmail from '../../infrastructure/providers/common/template/email_t
 
 @Injectable()
 @EventsHandler(UserRegisteredEvent)
-export class UserRegisteredHandler implements IEventHandler<UserRegisteredEvent> {
+export class UserRegisteredHandler
+  implements IEventHandler<UserRegisteredEvent>
+{
   constructor(
     private readonly providerFactory: ProviderFactory,
     private readonly configService: ConfigService,
@@ -17,16 +19,20 @@ export class UserRegisteredHandler implements IEventHandler<UserRegisteredEvent>
 
   async handle(event: UserRegisteredEvent) {
     console.log('UserRegisteredEvent', event);
-    const appWebUrl = this.configService.get<string>('FRONTEND_URL') || 'https://app.connect-career.com';
+    const appWebUrl =
+      this.configService.get<string>('FRONTEND_URL') ||
+      'https://app.connect-career.com';
     const verifyUrl = `${appWebUrl}/verify-email?token=${encodeURIComponent(event.token)}`;
 
-    const provider = this.providerFactory.createProvider(NotificationChannel.EMAIL);
+    const provider = this.providerFactory.createProvider(
+      NotificationChannel.EMAIL,
+    );
     // Render the React email template to HTML
     const emailHtml = await render(
       WelcomeEmail({
         userFirstname: event.firstName,
         url: verifyUrl,
-      })
+      }),
     );
 
     const title = '[CONNECTCAREER] Xác thực email của bạn';

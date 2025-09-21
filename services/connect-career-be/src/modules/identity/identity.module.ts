@@ -76,7 +76,7 @@ import { UserSeeder } from './infrastructure/seeders/user.seeder';
       useFactory: jwtConfig,
       inject: [ConfigService],
     }),
-    CqrsModule
+    CqrsModule,
   ],
   controllers: [IdentityController, RbacController, OAuthController],
   providers: [
@@ -124,7 +124,7 @@ import { UserSeeder } from './infrastructure/seeders/user.seeder';
     IdentityExceptionFilter,
     PasswordValidator,
     DefaultRolesSeeder,
-    UserSeeder
+    UserSeeder,
   ],
   exports: [
     AuthenticationService,
@@ -134,7 +134,7 @@ import { UserSeeder } from './infrastructure/seeders/user.seeder';
     PermissionsGuard,
     PasswordValidator,
     DefaultRolesSeeder,
-    UserSeeder
+    UserSeeder,
   ],
 })
 export class IdentityModule {}

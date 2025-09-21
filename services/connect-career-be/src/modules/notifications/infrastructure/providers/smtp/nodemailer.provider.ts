@@ -24,11 +24,12 @@ export const NodemailerProvider = {
     };
 
     const transporter = createTransport(options);
-    
+
     // Verify connection async
     transporter.verify().then(
       () => console.log('[NodemailerProvider] SMTP connection verified'),
-      (error) => console.error('[NodemailerProvider] SMTP verification failed:', error)
+      (error) =>
+        console.error('[NodemailerProvider] SMTP verification failed:', error),
     );
 
     return transporter;

@@ -26,8 +26,11 @@ export class SmtpProvider implements INotificationProvider {
 
       const mailOptions = {
         from: {
-          name: this.configService.get<string>('SMTP_FROM_NAME') || 'ConnectCareer',
-          address: this.configService.get<string>('SMTP_FROM_EMAIL') || this.configService.get<string>('SMTP_USER'),
+          name:
+            this.configService.get<string>('SMTP_FROM_NAME') || 'ConnectCareer',
+          address:
+            this.configService.get<string>('SMTP_FROM_EMAIL') ||
+            this.configService.get<string>('SMTP_USER'),
         },
         to: recipient,
         subject: title,
@@ -36,14 +39,18 @@ export class SmtpProvider implements INotificationProvider {
       };
 
       const result = await this.transporter.sendMail(mailOptions);
-      this.logger.log(`Email sent successfully to ${recipient}. MessageId: ${result}`);
-
+      this.logger.log(
+        `Email sent successfully to ${recipient}. MessageId: ${result}`,
+      );
     } catch (error) {
       this.logger.error(`Failed to send email to ${recipient}:`, error);
     }
   }
 
   private stripHtml(html: string): string {
-    return html.replace(/<[^>]*>/g, '').replace(/\s+/g, ' ').trim();
+    return html
+      .replace(/<[^>]*>/g, '')
+      .replace(/\s+/g, ' ')
+      .trim();
   }
 }

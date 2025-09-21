@@ -243,10 +243,15 @@ export class DefaultRolesSeeder {
           });
           this.logger.log(`✓ Created permission: ${permissionData.name}`);
         } else {
-          this.logger.log(`- Permission already exists: ${permissionData.name}`);
+          this.logger.log(
+            `- Permission already exists: ${permissionData.name}`,
+          );
         }
       } catch (error) {
-        this.logger.error(`Failed to create permission ${permissionData.name}:`, error);
+        this.logger.error(
+          `Failed to create permission ${permissionData.name}:`,
+          error,
+        );
         // Continue with other permissions
       }
     }

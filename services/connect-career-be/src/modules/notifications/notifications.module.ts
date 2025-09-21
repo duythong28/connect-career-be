@@ -14,7 +14,11 @@ import { SmsProvider } from './infrastructure/providers/sms/sms.provider';
 import { UserRegisteredHandler } from './application/handlers/user-registered.handler';
 import { NodemailerProvider } from './infrastructure/providers/smtp/nodemailer.provider';
 
-const Handlers = [SendNotificationHandler, ScheduleNotificationHandler, UserRegisteredHandler];
+const Handlers = [
+  SendNotificationHandler,
+  ScheduleNotificationHandler,
+  UserRegisteredHandler,
+];
 
 @Module({
   imports: [CqrsModule, TypeOrmModule.forFeature([NotificationEntity])],

@@ -4,6 +4,7 @@ import { ConfigService } from '@nestjs/config';
 import * as cookieParser from 'cookie-parser';
 import { DefaultRolesSeeder } from './modules/identity/infrastructure/seeders/default-roles.seeder';
 import { UserSeeder } from './modules/identity/infrastructure/seeders/user.seeder';
+import { IndustrySeeder } from './modules/profile/infrastructure/seeders/industry.seeder';
 async function bootstrap() {
   const app = await NestFactory.create(AppModule);
   const configService = app.get(ConfigService);
@@ -14,6 +15,9 @@ async function bootstrap() {
     const userSeeder = app.get(UserSeeder);
     await userSeeder.seed();
     await userSeeder.verifyAllUserEmails();
+
+    const industrySeeder = app.get(IndustrySeeder); // ← THÊM
+    await industrySeeder.seed();
   } catch (error) {
     console.error('Failed to run admin seeders:', error);
   }

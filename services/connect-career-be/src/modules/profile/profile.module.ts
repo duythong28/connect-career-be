@@ -12,7 +12,14 @@ import { IndustrySeeder } from './infrastructure/seeders/industry.seeder';
 import { File } from 'src/shared/infrastructure/external-services/file-system/domain/entities/file.entity';
 
 @Module({
-  imports: [TypeOrmModule.forFeature([Organization, OrganizationLocation, Industry, File])],
+  imports: [
+    TypeOrmModule.forFeature([
+      Organization,
+      OrganizationLocation,
+      Industry,
+      File,
+    ]),
+  ],
   controllers: [OrganizationController],
   providers: [OrganizationRepository, OrganizationService, IndustrySeeder],
   exports: [OrganizationService, OrganizationRepository],

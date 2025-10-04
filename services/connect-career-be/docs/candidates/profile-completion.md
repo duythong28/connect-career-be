@@ -1,4 +1,4 @@
-self-objective
+self-information
 cv
 work experience
 educations

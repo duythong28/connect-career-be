@@ -7,6 +7,7 @@ import { JwtAuthGuard } from './modules/identity/api/guards/jwt-auth.guard';
 import { FileSystemModule } from './shared/infrastructure/external-services/file-system/file-system.module';
 import { NotificationsModule } from './modules/notifications/notifications.module';
 import { CvMakerModule } from './modules/cv-maker/cv-maker.module';
+import { ProfileModule } from './modules/profile/profile.module';
 
 @Module({
   imports: [
@@ -33,6 +34,7 @@ import { CvMakerModule } from './modules/cv-maker/cv-maker.module';
     NotificationsModule,
     FileSystemModule,
     CvMakerModule,
+    ProfileModule,
   ],
   providers: [
     {

@@ -4,7 +4,7 @@ import {
   Injectable,
   NotFoundException,
 } from '@nestjs/common';
-import * as organizationEntity from '../../domain/repository/organization.entity';
+import * as organizationEntity from '../../domain/repository/organization.repository';
 import { Organization } from '../../domain/entities/organization.entity';
 import { CreateOrganizationDto } from '../dtos/create-organization.dto';
 import { UpdateOrganizationDto } from '../dtos/update-organization.dto';

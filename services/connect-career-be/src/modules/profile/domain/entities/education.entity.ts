@@ -58,6 +58,9 @@ export class Education {
   @Column({ type: 'varchar', nullable: true })
   location?: string;
 
+  @Column({ type: 'varchar', nullable: true })
+  fieldOfStudy?: string;
+
   @CreateDateColumn({ type: 'timestamptz' })
   createdAt: Date;
 

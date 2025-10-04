@@ -10,6 +10,7 @@ import re
 import json
 import logging
 from pathlib import Path
+from random import randint
 
 class career_viet_jobscrawler():
     def __init__(self, driver, file_path) -> None:
@@ -47,18 +48,18 @@ class career_viet_jobscrawler():
         info.append(company_img)
 
         # column 1
-        col1 = soup.find("div", class_="col-lg-4 col-sm-6 item-blue").find('p').find_all('a')
+        col1 = soup.find("div", class_="col-lg-4 col-md-4 col-sm-6 item-blue").find('p').find_all('a')
         location = [i.get_text() for i in col1]
 
         # column 2
-        col2 = soup.find_all("div", class_="col-lg-4 col-sm-6 item-blue")[1].find_all('li')
+        col2 = soup.find_all("div", class_="col-lg-4 col-md-4 col-sm-6 item-blue")[1].find_all('li')
         date = col2[0].find('p').get_text()
         
         fields = col2[1].find('p').find_all('a')
         fields_ls = [i.get_text().lstrip().rstrip() for i in fields]
         
         # column 3
-        col3 = soup.find_all("div", class_="col-lg-4 col-sm-6 item-blue")[2].find_all('li')
+        col3 = soup.find_all("div", class_="col-lg-4 col-md-4 col-sm-6 item-blue")[2].find_all('li')
         salary, exp, position, due_date = None, None, None, None
 
         # some attributes maybe don't have values

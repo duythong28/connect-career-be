@@ -16,6 +16,8 @@ import { CandidateProfile } from './domain/entities/candidate-profile.entity';
 import { WorkExperience } from './domain/entities/work-experience.entity';
 import { Education } from './domain/entities/education.entity';
 import { User } from '../identity/domain/entities';
+import { CandidateProfileController } from './api/controllers/candidate.profile.controller';
+import { CandidateProfileService } from './api/services/candidate.profile.service';
 
 @Module({
   imports: [
@@ -30,14 +32,22 @@ import { User } from '../identity/domain/entities';
       Education,
     ]),
   ],
-  controllers: [OrganizationController],
+  controllers: [OrganizationController, CandidateProfileController],
   providers: [
     OrganizationRepository,
     OrganizationService,
+    CandidateProfileService,
     IndustrySeeder,
     LinkedInCompanySeeder,
     LinkedInPeopleSeeder,
   ],
-  exports: [OrganizationService, OrganizationRepository],
+  exports: [
+    OrganizationService,
+    OrganizationRepository,
+    CandidateProfileService,
+    IndustrySeeder,
+    LinkedInCompanySeeder,
+    LinkedInPeopleSeeder,
+  ],
 })
 export class ProfileModule {}

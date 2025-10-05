@@ -7,7 +7,7 @@ import cookieParser from 'cookie-parser';
 // import { IndustrySeeder } from './modules/profile/infrastructure/seeders/industry.seeder';
 // import { LinkedInCompanySeeder } from './modules/profile/infrastructure/seeders/linkedin-company.seeder';
 // import { LinkedInPeopleSeeder } from './modules/profile/infrastructure/seeders/linkedin-people.seeder';
-import { LinkedInJobsSeeder } from './modules/jobs/infrastructure/seeders/linkedin-jobs.seeder';
+// import { LinkedInJobsSeeder } from './modules/jobs/infrastructure/seeders/linkedin-jobs.seeder';
 async function bootstrap() {
   const app = await NestFactory.create(AppModule);
   const configService = app.get(ConfigService);

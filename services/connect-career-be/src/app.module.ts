@@ -8,6 +8,7 @@ import { FileSystemModule } from './shared/infrastructure/external-services/file
 import { NotificationsModule } from './modules/notifications/notifications.module';
 import { CvMakerModule } from './modules/cv-maker/cv-maker.module';
 import { ProfileModule } from './modules/profile/profile.module';
+import { JobsModule } from './modules/jobs/jobs.module';
 
 @Module({
   imports: [
@@ -35,6 +36,7 @@ import { ProfileModule } from './modules/profile/profile.module';
     FileSystemModule,
     CvMakerModule,
     ProfileModule,
+    JobsModule,
   ],
   providers: [
     {

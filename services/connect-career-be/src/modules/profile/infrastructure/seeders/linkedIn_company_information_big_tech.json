@@ -1,0 +1,204 @@
+[
+  {
+    "id": "google",
+    "name": "Google",
+    "country_code": "US",
+    "locations": [
+      "Mountain View, California, US"
+    ],
+    "followers": 30000000,
+    "employees_in_linkedin": 350000,
+    "about": "Google is a global technology leader focused on improving the ways people connect with information. From Search and Ads to Android, YouTube, Maps, Chrome, and Google Cloud, Google builds products and services that make life easier and help businesses grow. The company is a subsidiary of Alphabet Inc.",
+    "specialties": "Search, Ads, Cloud Computing, Artificial Intelligence, Machine Learning, Consumer Electronics, Mobile, Internet Services, Operating Systems",
+    "company_size": "10,001+ employees",
+    "organization_type": "Public Company",
+    "industries": "Technology, Information and Internet",
+    "website": "https://about.google/",
+    "crunchbase_url": "https://www.crunchbase.com/organization/google",
+    "founded": 1998,
+    "company_id": "1441",
+    "employees": [],
+    "headquarters": "Mountain View, California",
+    "image": "https://static.licdn.com/sc/h/3p8co5a7u3qdd77h7v2i9g8lz",
+    "logo": "https://logo.clearbit.com/google.com",
+    "similar": [
+      {
+        "Links": "https://www.linkedin.com/company/meta/",
+        "location": "Menlo Park, California",
+        "subtitle": "Technology, Information and Internet",
+        "title": "Meta"
+      },
+      {
+        "Links": "https://www.linkedin.com/company/apple/",
+        "location": "Cupertino, California",
+        "subtitle": "Consumer Electronics",
+        "title": "Apple"
+      }
+    ],
+    "url": "https://www.linkedin.com/company/google",
+    "slogan": "Organize the world’s information and make it universally accessible and useful.",
+    "formatted_locations": [
+      "Mountain View, California, US"
+    ]
+  },
+  {
+    "id": "microsoft",
+    "name": "Microsoft",
+    "country_code": "US",
+    "locations": [
+      "Redmond, Washington, US"
+    ],
+    "followers": 21000000,
+    "employees_in_linkedin": 220000,
+    "about": "Microsoft is a worldwide leader in software, services, devices, and solutions that help people and businesses realize their full potential. Its product portfolio includes Windows, Microsoft 365, Azure cloud services, Surface devices, and gaming through Xbox.",
+    "specialties": "Cloud Computing, Productivity Software, Operating Systems, Developer Tools, Artificial Intelligence, Business Applications, Enterprise Solutions",
+    "company_size": "10,001+ employees",
+    "organization_type": "Public Company",
+    "industries": "Software Development, Technology",
+    "website": "https://www.microsoft.com/",
+    "crunchbase_url": "https://www.crunchbase.com/organization/microsoft",
+    "founded": 1975,
+    "company_id": "1035",
+    "headquarters": "Redmond, Washington",
+    "logo": "https://logo.clearbit.com/microsoft.com",
+    "similar": [
+      {
+        "Links": "https://www.linkedin.com/company/google/",
+        "location": "Mountain View, California",
+        "subtitle": "Technology, Information and Internet",
+        "title": "Google"
+      },
+      {
+        "Links": "https://www.linkedin.com/company/ibm/",
+        "location": "Armonk, New York",
+        "subtitle": "IT Services and Consulting",
+        "title": "IBM"
+      }
+    ],
+    "url": "https://www.linkedin.com/company/microsoft",
+    "slogan": "Empower every person and every organization on the planet to achieve more.",
+    "formatted_locations": [
+      "Redmond, Washington, US"
+    ]
+  },
+  {
+    "id": "nvidia",
+    "name": "NVIDIA",
+    "country_code": "US",
+    "locations": [
+      "Santa Clara, California, US"
+    ],
+    "followers": 6000000,
+    "employees_in_linkedin": 30000,
+    "about": "NVIDIA pioneered accelerated computing to tackle challenges that otherwise can’t be solved. Its invention of the GPU in 1999 sparked the growth of the PC gaming market and redefined computer graphics. Today, NVIDIA’s AI and deep learning platforms are driving breakthroughs across data centers, autonomous vehicles, healthcare, and more.",
+    "specialties": "Graphics Processing Units, AI, Deep Learning, Data Centers, Gaming, Autonomous Vehicles, High Performance Computing",
+    "company_size": "10,001+ employees",
+    "organization_type": "Public Company",
+    "industries": "Semiconductors, Artificial Intelligence",
+    "website": "https://www.nvidia.com/",
+    "crunchbase_url": "https://www.crunchbase.com/organization/nvidia",
+    "founded": 1993,
+    "company_id": "1471",
+    "headquarters": "Santa Clara, California",
+    "logo": "https://logo.clearbit.com/nvidia.com",
+    "similar": [
+      {
+        "Links": "https://www.linkedin.com/company/amd/",
+        "location": "Santa Clara, California",
+        "subtitle": "Semiconductors",
+        "title": "AMD"
+      },
+      {
+        "Links": "https://www.linkedin.com/company/intel-corporation/",
+        "location": "Santa Clara, California",
+        "subtitle": "Semiconductors",
+        "title": "Intel"
+      }
+    ],
+    "url": "https://www.linkedin.com/company/nvidia",
+    "slogan": "The AI computing company.",
+    "formatted_locations": [
+      "Santa Clara, California, US"
+    ]
+  },
+  {
+    "id": "axon",
+    "name": "Axon",
+    "country_code": "US",
+    "locations": [
+      "Scottsdale, Arizona, US"
+    ],
+    "followers": 270000,
+    "employees_in_linkedin": 3000,
+    "about": "Axon is a global public safety technology company, transforming the future of public safety with connected devices, software, and services. Known for products like the TASER energy weapon and Axon body-worn cameras, Axon delivers cloud-based digital evidence management and real-time situational awareness for law enforcement and public safety agencies worldwide.",
+    "specialties": "Public Safety, Law Enforcement, TASER, Body-Worn Cameras, Digital Evidence, Cloud Software, Situational Awareness",
+    "company_size": "1,001-5,000 employees",
+    "organization_type": "Public Company",
+    "industries": "Public Safety, Technology",
+    "website": "https://www.axon.com/",
+    "crunchbase_url": "https://www.crunchbase.com/organization/axon",
+    "founded": 1993,
+    "company_id": "1872",
+    "headquarters": "Scottsdale, Arizona",
+    "logo": "https://logo.clearbit.com/axon.com",
+    "similar": [
+      {
+        "Links": "https://www.linkedin.com/company/motorola-solutions/",
+        "location": "Chicago, Illinois",
+        "subtitle": "Public Safety and Communications",
+        "title": "Motorola Solutions"
+      },
+      {
+        "Links": "https://www.linkedin.com/company/body-worn/",
+        "location": "United Kingdom",
+        "subtitle": "Body Cameras and Public Safety",
+        "title": "Body Worn"
+      }
+    ],
+    "url": "https://www.linkedin.com/company/axon",
+    "slogan": "Protect life. Capture truth. Accelerate justice.",
+    "formatted_locations": [
+      "Scottsdale, Arizona, US"
+    ]
+  },
+  {
+  "id": "national-australia-bank",
+  "name": "National Australia Bank",
+  "country_code": "AU",
+  "locations": [
+    "Melbourne, Victoria, AU"
+  ],
+  "followers": 480000,
+  "employees_in_linkedin": 35000,
+  "about": "National Australia Bank (NAB) is one of Australia’s Big Four banks and a leading financial services organization. NAB provides a comprehensive range of banking and financial services, including personal, business, and institutional banking, serving millions of customers across Australia, New Zealand, Asia, and the UK. The bank is focused on delivering safe, sustainable, and digital-first banking solutions.",
+  "specialties": "Retail Banking, Business Banking, Corporate Banking, Wealth Management, Financial Services, Digital Banking, Credit Cards, Mortgages, Loans, Investments",
+  "company_size": "10,001+ employees",
+  "organization_type": "Public Company",
+  "industries": "Banking, Financial Services",
+  "website": "https://www.nab.com.au/",
+  "crunchbase_url": "https://www.crunchbase.com/organization/national-australia-bank",
+  "founded": 1982,
+  "company_id": "1287",
+  "headquarters": "Melbourne, Victoria",
+  "logo": "https://logo.clearbit.com/nab.com.au",
+  "similar": [
+    {
+      "Links": "https://www.linkedin.com/company/commonwealth-bank/",
+      "location": "Sydney, Australia",
+      "subtitle": "Banking",
+      "title": "Commonwealth Bank"
+    },
+    {
+      "Links": "https://www.linkedin.com/company/westpac/",
+      "location": "Sydney, Australia",
+      "subtitle": "Banking",
+      "title": "Westpac Group"
+    }
+  ],
+  "url": "https://www.linkedin.com/company/national-australia-bank",
+  "slogan": "More than money.",
+  "formatted_locations": [
+    "Melbourne, Victoria, AU"
+  ]
+  }
+]

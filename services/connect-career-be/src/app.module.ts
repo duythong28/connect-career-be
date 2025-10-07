@@ -9,6 +9,7 @@ import { NotificationsModule } from './modules/notifications/notifications.modul
 import { CvMakerModule } from './modules/cv-maker/cv-maker.module';
 import { ProfileModule } from './modules/profile/profile.module';
 import { JobsModule } from './modules/jobs/jobs.module';
+import { AIModule } from './shared/infrastructure/external-services/ai/ai.module';
 
 @Module({
   imports: [
@@ -37,6 +38,7 @@ import { JobsModule } from './modules/jobs/jobs.module';
     CvMakerModule,
     ProfileModule,
     JobsModule,
+    AIModule,
   ],
   providers: [
     {

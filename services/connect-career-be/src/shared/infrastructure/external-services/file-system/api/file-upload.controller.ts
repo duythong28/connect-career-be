@@ -150,7 +150,7 @@ export class FileUploadController {
   @ApiResponse({ status: 200, description: 'File updated successfully' })
   async updateFile(
     @Param('id') id: string,
-    @Body() updates: FileUpdateDto,
+    @Body() updates: any,
     @decorators.CurrentUser() user: decorators.CurrentUserPayload,
   ) {
     return this.fileManagementService.updateFile(id, updates, user);

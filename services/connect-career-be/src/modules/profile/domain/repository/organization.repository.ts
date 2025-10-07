@@ -109,12 +109,202 @@ export class OrganizationRepository
       .getMany();
   }
   searchOrganizations(searchTerm: string): Promise<Organization[]> {
-    throw new Error('Method not implemented.');
+    const search = `%${searchTerm}%`;
+    return this.repository
+      .createQueryBuilder('org')
+      .leftJoinAndSelect('org.user', 'user')
+      .leftJoinAndSelect('org.locations', 'locations')
+      .leftJoinAndSelect('org.logoFile', 'logoFile')
+      .leftJoinAndSelect('org.bannerFile', 'bannerFile')
+      .leftJoinAndSelect('org.industry', 'industry')
+      .where('org.deletedAt IS NULL')
+      .andWhere('org.isPublic = true')
+      .andWhere('org.isActive = true')
+      .andWhere(
+        `(
+        LOWER(org.name) LIKE LOWER(:search) OR
+        LOWER(org.abbreviation) LIKE LOWER(:search) OR
+        LOWER(org.shortDescription) LIKE LOWER(:search) OR
+        LOWER(org.tagline) LIKE LOWER(:search) OR
+        :searchTerm = ANY(
+          SELECT LOWER(unnest(org.formerNames))
+        )
+      )`,
+        { search, searchTerm: searchTerm.toLowerCase() },
+      )
+      .orderBy(
+        `CASE 
+        WHEN LOWER(org.name) = LOWER(:searchTerm) THEN 1
+        WHEN LOWER(org.abbreviation) = LOWER(:searchTerm) THEN 2
+        WHEN LOWER(org.name) LIKE LOWER(:exactSearch) THEN 3
+        ELSE 4
+      END`,
+        'ASC',
+      )
+      .setParameter('searchTerm', searchTerm.toLowerCase())
+      .setParameter('exactSearch', `${searchTerm.toLowerCase()}%`)
+      .addOrderBy('org.isVerified', 'DESC')
+      .addOrderBy('org.employeeCount', 'DESC', 'NULLS LAST')
+      .addOrderBy('org.createdAt', 'DESC')
+      .limit(50) // Limit search results
+      .getMany();
   }
-  findHiring(): Promise<Organization[]> {
-    throw new Error('Method not implemented.');
+  async findHiring(): Promise<Organization[]> {
+    return this.repository
+      .createQueryBuilder('org')
+      .leftJoinAndSelect('org.user', 'user')
+      .leftJoinAndSelect('org.locations', 'locations')
+      .leftJoinAndSelect('org.logoFile', 'logoFile')
+      .leftJoinAndSelect('org.bannerFile', 'bannerFile')
+      .where('org.deletedAt IS NULL')
+      .andWhere('org.isPublic = true')
+      .andWhere('org.isActive = true')
+      .andWhere('org.isHiring = true')
+      .orderBy('org.isVerified', 'DESC')
+      .addOrderBy('org.createdAt', 'DESC')
+      .getMany();
   }
-  findVerified(): Promise<Organization[]> {
-    throw new Error('Method not implemented.');
+  async findVerified(): Promise<Organization[]> {
+    return this.repository
+      .createQueryBuilder('org')
+      .leftJoinAndSelect('org.user', 'user')
+      .leftJoinAndSelect('org.locations', 'locations')
+      .leftJoinAndSelect('org.logoFile', 'logoFile')
+      .leftJoinAndSelect('org.bannerFile', 'bannerFile')
+      .where('org.deletedAt IS NULL')
+      .andWhere('org.isPublic = true')
+      .andWhere('org.isActive = true')
+      .andWhere('org.isVerified = true')
+      .orderBy('org.employeeCount', 'DESC', 'NULLS LAST')
+      .addOrderBy('org.createdAt', 'DESC')
+      .getMany();
+  }
+
+  /**
+   * Advanced search with multiple filters
+   */
+  async advancedSearch(options: {
+    searchTerm?: string;
+    industryIds?: string[];
+    country?: string;
+    city?: string;
+    organizationSize?: string[];
+    organizationType?: string[];
+    isHiring?: boolean;
+    isVerified?: boolean;
+    minEmployeeCount?: number;
+    maxEmployeeCount?: number;
+    workScheduleTypes?: string[];
+  }): Promise<Organization[]> {
+    const query = this.repository
+      .createQueryBuilder('org')
+      .leftJoinAndSelect('org.user', 'user')
+      .leftJoinAndSelect('org.locations', 'locations')
+      .leftJoinAndSelect('org.logoFile', 'logoFile')
+      .leftJoinAndSelect('org.bannerFile', 'bannerFile')
+      .leftJoinAndSelect('org.industry', 'industry')
+      .where('org.deletedAt IS NULL')
+      .andWhere('org.isPublic = true')
+      .andWhere('org.isActive = true');
+
+    // Text search
+    if (options.searchTerm) {
+      const search = `%${options.searchTerm}%`;
+      query.andWhere(
+        `(
+            LOWER(org.name) LIKE LOWER(:search) OR
+            LOWER(org.abbreviation) LIKE LOWER(:search) OR
+            LOWER(org.shortDescription) LIKE LOWER(:search)
+          )`,
+        { search },
+      );
+    }
+
+    // Industry filter - check if array exists and has elements
+    if (
+      options.industryIds &&
+      Array.isArray(options.industryIds) &&
+      options.industryIds.length > 0
+    ) {
+      query.andWhere('org.industryId IN (:...industryIds)', {
+        industryIds: options.industryIds,
+      });
+    }
+
+    // Location filters
+    if (options.country) {
+      query.andWhere('org.country = :country', { country: options.country });
+    }
+    if (options.city) {
+      query.andWhere('org.city = :city', { city: options.city });
+    }
+
+    // Size filter - check if array exists and has elements
+    if (
+      options.organizationSize &&
+      Array.isArray(options.organizationSize) &&
+      options.organizationSize.length > 0
+    ) {
+      query.andWhere('org.organizationSize IN (:...sizes)', {
+        sizes: options.organizationSize,
+      });
+    }
+
+    // Type filter - check if array exists and has elements
+    if (
+      options.organizationType &&
+      Array.isArray(options.organizationType) &&
+      options.organizationType.length > 0
+    ) {
+      query.andWhere('org.organizationType IN (:...types)', {
+        types: options.organizationType,
+      });
+    }
+
+    // Hiring status
+    if (options.isHiring !== undefined) {
+      query.andWhere('org.isHiring = :isHiring', {
+        isHiring: options.isHiring,
+      });
+    }
+
+    // Verified status
+    if (options.isVerified !== undefined) {
+      query.andWhere('org.isVerified = :isVerified', {
+        isVerified: options.isVerified,
+      });
+    }
+
+    // Employee count range
+    if (options.minEmployeeCount !== undefined) {
+      query.andWhere('org.employeeCount >= :minEmployeeCount', {
+        minEmployeeCount: options.minEmployeeCount,
+      });
+    }
+    if (options.maxEmployeeCount !== undefined) {
+      query.andWhere('org.employeeCount <= :maxEmployeeCount', {
+        maxEmployeeCount: options.maxEmployeeCount,
+      });
+    }
+
+    // Work schedule types - FIXED: Use proper array overlap syntax
+    if (
+      options.workScheduleTypes &&
+      Array.isArray(options.workScheduleTypes) &&
+      options.workScheduleTypes.length > 0
+    ) {
+      // Use ANY with array for PostgreSQL
+      query.andWhere(
+        'EXISTS (SELECT 1 FROM unnest(org.workScheduleTypes) AS schedule WHERE schedule = ANY(:schedules))',
+        { schedules: options.workScheduleTypes },
+      );
+    }
+
+    return query
+      .orderBy('org.isVerified', 'DESC')
+      .addOrderBy('org.employeeCount', 'DESC', 'NULLS LAST')
+      .addOrderBy('org.createdAt', 'DESC')
+      .limit(100)
+      .getMany();
   }
 }

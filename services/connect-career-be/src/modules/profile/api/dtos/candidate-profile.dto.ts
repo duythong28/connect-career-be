@@ -15,6 +15,7 @@ import {
 import { EmploymentType } from '../../domain/entities/work-experience.entity';
 import { Type } from 'class-transformer';
 import { DegreeType } from '../../domain/entities/education.entity';
+import { ProjectStatus } from '../../domain/entities/project.entity';
 
 export class UpdateWorkExperienceDto {
   @ApiPropertyOptional()
@@ -130,6 +131,10 @@ export class UpdateProjectDto {
   @IsOptional()
   @IsUUID()
   id?: string;
+  
+  @ApiProperty()
+  @IsString()
+  title: string;
 
   @ApiProperty()
   @IsString()
@@ -166,6 +171,17 @@ export class UpdateProjectDto {
   @IsArray()
   @IsString({ each: true })
   technologies?: string[];
+
+  @ApiPropertyOptional({ type: [String] })
+  @IsOptional()
+  @IsArray()
+  @IsString({ each: true })
+  features?: string[];
+
+  @ApiPropertyOptional()
+  @IsOptional()
+  @IsEnum(ProjectStatus)
+  status?: ProjectStatus;
 
   @ApiPropertyOptional()
   @IsOptional()

@@ -13,6 +13,7 @@ import {
   PrimaryGeneratedColumn,
   UpdateDateColumn,
 } from 'typeorm';
+import { Industry } from './industry.entity';
 
 export enum OrganizationType {
   CORPORATION = 'corporation',
@@ -97,6 +98,10 @@ export class Organization {
     enum: OrganizationType,
   })
   organizationType: OrganizationType;
+
+  @ManyToOne(() => Industry, { nullable: true })
+  @JoinColumn({ name: 'industryId' })
+  industry?: Industry;
 
   @Column('uuid')
   industryId: string;

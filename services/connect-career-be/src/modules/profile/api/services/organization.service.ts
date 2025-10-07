@@ -8,7 +8,10 @@ import * as organizationEntity from '../../domain/repository/organization.reposi
 import { Organization } from '../../domain/entities/organization.entity';
 import { CreateOrganizationDto } from '../dtos/create-organization.dto';
 import { UpdateOrganizationDto } from '../dtos/update-organization.dto';
-import { OrganizationQueryDto } from '../dtos/organization-query.dto';
+import {
+  OrganizationQueryDto,
+  OrganizationSearchDto,
+} from '../dtos/organization-query.dto';
 import { FindOptionsWhere } from 'typeorm';
 
 @Injectable()
@@ -130,5 +133,77 @@ export class OrganizationService {
       where,
       relations,
     );
+  }
+
+  async searchOrganizations(searchDto: OrganizationSearchDto) {
+    const {
+      search,
+      industryIds,
+      country,
+      city,
+      organizationSize,
+      organizationType,
+      isHiring,
+      isVerified,
+      minEmployeeCount,
+      maxEmployeeCount,
+      workScheduleTypes,
+      page = 1,
+      limit = 20,
+    } = searchDto;
+
+    const organizations = await this.organizationRepository.advancedSearch({
+      searchTerm: search,
+      industryIds,
+      country,
+      city,
+      organizationSize,
+      organizationType,
+      isHiring,
+      isVerified,
+      minEmployeeCount,
+      maxEmployeeCount,
+      workScheduleTypes,
+    });
+    const total = organizations.length;
+    const skip = (page - 1) * limit;
+    const data = organizations.slice(skip, skip + limit);
+
+    return {
+      data,
+      total,
+      page,
+      limit,
+      totalPages: Math.ceil(total / limit),
+      filters: {
+        search,
+        industryIds,
+        country,
+        city,
+        organizationSize,
+        organizationType,
+        isHiring,
+        isVerified,
+        minEmployeeCount,
+        maxEmployeeCount,
+        workScheduleTypes,
+      },
+    };
+  }
+
+  async quickSearch(searchTerm: string, limit: number = 10) {
+    const organizations =
+      await this.organizationRepository.searchOrganizations(searchTerm);
+
+    return organizations.slice(0, limit).map((org) => ({
+      id: org.id,
+      name: org.name,
+      abbreviation: org.abbreviation,
+      logo: org.logoFile?.secureUrl,
+      isVerified: org.isVerified,
+      city: org.city,
+      country: org.country,
+      organizationSize: org.organizationSize,
+    }));
   }
 }

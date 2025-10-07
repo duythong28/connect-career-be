@@ -343,7 +343,23 @@ export class FileManagementService {
     updates: Partial<File>,
     user: CurrentUserPayload,
   ): Promise<File> {
-    await this.getFile(id, user);
+    const existing = await this.getFile(id, user);
+
+    if ((updates as any)?.public_id) {
+      const mapped = this.mapCloudinaryToFilePartial(updates as any);
+
+      const mergedTags = Array.from(
+        new Set([...(existing.tags || []), ...(mapped.tags || [])]),
+      );
+
+      const updated = await this.fileRepository.update(id, {
+        ...mapped,
+        tags: mergedTags,
+        uploadedById: existing.uploadedById || mapped.uploadedById,
+      });
+      return updated!;
+    }
+
     const updatedFile = await this.fileRepository.update(id, updates);
     return updatedFile!;
   }
@@ -400,5 +416,72 @@ export class FileManagementService {
     } catch {
       return file;
     }
+  }
+  private mapCloudinaryToFilePartial(payload: any): Partial<File> {
+    const {
+      public_id,
+      secure_url,
+      url,
+      width,
+      height,
+      bytes,
+      format,
+      resource_type,
+      tags,
+      asset_folder,
+      display_name,
+      original_filename,
+      created_at,
+    } = payload ?? {};
+
+    const mimeFromFormat = (fmt?: string): string => {
+      const f = (fmt || '').toLowerCase();
+      if (f === 'pdf') return 'application/pdf';
+      if (['png', 'jpg', 'jpeg', 'webp', 'gif', 'bmp'].includes(f))
+        return `image/${f === 'jpg' ? 'jpeg' : f}`;
+      if (['mp4', 'mov', 'avi', 'webm'].includes(f)) return `video/${f}`;
+      return f ? `application/${f}` : 'application/octet-stream';
+    };
+
+    const typeFromResource = (): FileType => {
+      if (resource_type === 'image') return FileType.IMAGE;
+      if (resource_type === 'video') return FileType.VIDEO;
+      if (resource_type === 'raw') {
+        if ((format || '').toLowerCase() === 'pdf') return FileType.DOCUMENT;
+        return FileType.OTHER;
+      }
+      if ((format || '').toLowerCase() === 'pdf') return FileType.DOCUMENT;
+      return FileType.OTHER;
+    };
+
+    const base =
+      typeof display_name === 'string'
+        ? display_name
+        : typeof original_filename === 'string'
+          ? original_filename
+          : (public_id || '').split('/').pop() || 'file';
+
+    const fileName = format ? `${base}.${format}` : base;
+    return {
+      publicId: public_id,
+      url,
+      secureUrl: secure_url,
+      width,
+      height,
+      fileSize: bytes,
+      originalName: original_filename || fileName,
+      fileName,
+      mimeType: mimeFromFormat(format),
+      type: typeFromResource(),
+      status: FileStatus.READY,
+      folder: asset_folder,
+      tags: Array.isArray(tags) ? tags : [],
+      description: display_name,
+      isPublic: true,
+      metadata: {
+        ...(payload?.context || {}),
+        cloudinary: { ...payload, created_at },
+      },
+    };
   }
 }

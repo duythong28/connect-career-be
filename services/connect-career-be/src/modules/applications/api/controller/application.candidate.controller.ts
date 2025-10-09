@@ -17,8 +17,6 @@ import * as applicationService from '../services/application.service';
 import { ApplicationStatus } from '../../domain/entities/application.entity';
 import { JwtAuthGuard } from 'src/modules/identity/api/guards/jwt-auth.guard';
 import * as decorators from 'src/modules/identity/api/decorators';
-import { RolesGuard } from 'src/modules/identity/api/guards/roles.guard';
-import { Roles } from 'src/modules/identity/api/decorators/roles.decorator';
 
 @Controller('/v1/candidates/applications')
 @UseGuards(JwtAuthGuard)
@@ -28,8 +26,8 @@ export class ApplicationCandidateController {
   ) {}
 
   @Post()
-  create(@Body() dto: applicationService.CreateApplicationDto) {
-    return this.applicationService.createApplication(dto);
+  create(@Body() dto: applicationService.CreateApplicationDto, @decorators.CurrentUser() currentUser: decorators.CurrentUserPayload) {
+    return this.applicationService.createApplication(dto.SetCandidateId(currentUser.sub));
   }
 
   @Get()
@@ -90,8 +88,6 @@ export class ApplicationCandidateController {
   }
 
   @Get('needing-attention')
-  @UseGuards(RolesGuard)
-  @Roles('HR', 'ADMIN', 'RECRUITER')
   needingAttention() {
     return this.applicationService.getApplicationsNeedingAttention();
   }
@@ -104,7 +100,7 @@ export class ApplicationCandidateController {
     return this.applicationService.getApplicationsByStatus(status, limit);
   }
 
-  @Get('candidate/:candidateId')
+  @Get('candidates/:candidateId')
   byCandidate(
     @Param('candidateId', ParseUUIDPipe) candidateId: string,
     @Query('status') status?: ApplicationStatus,
@@ -123,7 +119,7 @@ export class ApplicationCandidateController {
     );
   }
 
-  @Get('job/:jobId')
+  @Get('jobs/:jobId')
   byJob(
     @Param('jobId', ParseUUIDPipe) jobId: string,
     @Query('status') status?: ApplicationStatus,
@@ -182,8 +178,6 @@ export class ApplicationCandidateController {
   }
 
   @Put(':id/shortlist')
-  @UseGuards(RolesGuard)
-  @Roles('HR', 'ADMIN', 'RECRUITER')
   shortlist(
     @Param('id', ParseUUIDPipe) id: string,
     @decorators.CurrentUser() _u: decorators.CurrentUserPayload,
@@ -195,8 +189,6 @@ export class ApplicationCandidateController {
   }
 
   @Put(':id/flag')
-  @UseGuards(RolesGuard)
-  @Roles('HR', 'ADMIN', 'RECRUITER')
   flag(
     @Param('id', ParseUUIDPipe) id: string,
     @Body() body: { reason: string },
@@ -210,8 +202,6 @@ export class ApplicationCandidateController {
   }
 
   @Put(':id/assign')
-  @UseGuards(RolesGuard)
-  @Roles('HR', 'ADMIN', 'RECRUITER')
   assign(
     @Param('id', ParseUUIDPipe) id: string,
     @Body() body: { assignedToUserId: string },
@@ -225,8 +215,6 @@ export class ApplicationCandidateController {
   }
 
   @Put(':id/reject')
-  @UseGuards(RolesGuard)
-  @Roles('HR', 'ADMIN', 'RECRUITER')
   reject(
     @Param('id', ParseUUIDPipe) id: string,
     @Body() body: { reason: string; feedback: string },
@@ -254,8 +242,6 @@ export class ApplicationCandidateController {
   }
 
   @Put('bulk-update')
-  @UseGuards(RolesGuard)
-  @Roles('HR', 'ADMIN', 'RECRUITER')
   bulk(
     @Body()
     body: {

@@ -16,14 +16,19 @@ import { User } from 'src/modules/identity/domain/entities';
 import { CandidateProfile } from 'src/modules/profile/domain/entities/candidate-profile.entity';
 import { PaginatedResult } from 'src/shared/domain/interfaces/base.repository';
 
-export interface CreateApplicationDto {
+export class CreateApplicationDto {
   jobId: string;
-  candidateId: string;
+  candidateId?: string;
   cvId: string;
   coverLetter?: string;
   notes?: string;
   source?: ApplicationSource;
   referralSource?: string;
+
+  public SetCandidateId(candidateId: string) {
+    this.candidateId = candidateId;
+    return this;
+  }
 }
 
 export interface UpdateApplicationDto {
@@ -109,7 +114,7 @@ export class ApplicationService {
     }
     const application = new Application();
     application.jobId = createDto.jobId;
-    application.candidateId = createDto.candidateId;
+    application.candidateId = createDto.candidateId || '';
     application.cvId = createDto.cvId;
     application.coverLetter = createDto.coverLetter;
     application.notes = createDto.notes;
@@ -409,6 +414,7 @@ export class ApplicationService {
       .leftJoinAndSelect('application.candidate', 'candidate')
       .leftJoinAndSelect('application.candidateProfile', 'candidateProfile')
       .leftJoinAndSelect('application.cv', 'cv')
+      .leftJoinAndSelect('cv.file', 'file')
       .leftJoinAndSelect('application.reviewer', 'reviewer')
       .leftJoinAndSelect('application.interviews', 'interviews')
       .leftJoinAndSelect('application.offers', 'offers')

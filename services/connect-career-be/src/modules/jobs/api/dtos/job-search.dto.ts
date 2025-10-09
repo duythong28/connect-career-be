@@ -51,9 +51,22 @@ export class JobSearchDto extends PaginationDto {
   @IsOptional()
   @IsArray()
   @IsString({ each: true })
-  @Transform(({ value }) =>
-    typeof value === 'string' ? value.split(',') : value,
-  )
+  @Transform(({ value }) => {
+    if (value == null) return undefined;
+    if (typeof value === 'string') {
+      const s = value.trim();
+      console.log(s, typeof s);
+      if (s.startsWith('[') && s.endsWith(']')) {
+        try {
+          const arr = JSON.parse(s);
+          return Array.isArray(arr) ? arr.map(x => String(x).trim()).filter(Boolean) : undefined;
+        } catch { /* ignore */ }
+      }
+      if (Array.isArray(value)) return value;
+      return s.split(',').map(x => x.trim()).filter(Boolean);
+    }
+    return undefined;
+  })
   keywords?: string[];
 
   @IsOptional()
@@ -68,11 +81,11 @@ export class JobSearchDto extends PaginationDto {
 
   @IsOptional()
   @IsString()
-  postedAfter?: string; // ISO date string
+  postedAfter?: string;
 
   @IsOptional()
   @IsString()
-  postedBefore?: string; // ISO date string
+  postedBefore?: string;
 
   @IsOptional()
   @IsString()

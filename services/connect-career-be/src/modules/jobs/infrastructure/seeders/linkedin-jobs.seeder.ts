@@ -84,7 +84,7 @@ export class LinkedInJobsSeeder {
       .readdirSync(seedersDir)
       .filter(
         (file) =>
-          file.startsWith('linkedin_job_listings_information') &&
+          file.startsWith('linkedin_job_listings_information_(') &&
           file.endsWith('.json'),
       )
       .sort();

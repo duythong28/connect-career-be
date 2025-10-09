@@ -8,7 +8,7 @@ import { User } from '../identity/domain/entities';
 import { CandidateProfile } from '../profile/domain/entities/candidate-profile.entity';
 import { CV } from '../cv-maker/domain/entities/cv.entity';
 import { ApplicationService } from './api/services/application.service';
-import { ApplicationController } from './api/controller/application.controller';
+import { ApplicationCandidateController } from './api/controller/application.candidate.controller';
 
 @Module({
   imports: [
@@ -22,7 +22,7 @@ import { ApplicationController } from './api/controller/application.controller';
       CV,
     ]),
   ],
-  controllers: [ApplicationController],
+  controllers: [ApplicationCandidateController],
   providers: [ApplicationService],
   exports: [ApplicationService],
 })

@@ -6,15 +6,29 @@ import { Organization } from '../profile/domain/entities/organization.entity';
 import { User, Role } from '../identity/domain/entities';
 import { Industry } from '../profile/domain/entities/industry.entity';
 import { File } from 'src/shared/infrastructure/external-services/file-system/domain/entities/file.entity';
-import { JobController } from './api/controllers/job.controller';
 import { JobService } from './api/services/job.service';
+import { SavedJob } from './domain/entities/saved-job.entity';
+import { FavoriteJob } from './domain/entities/favorite-job.entity';
+import { SavedJobService } from './api/services/saved-job.service';
+import { Application } from '../applications/domain/entities/application.entity';
+import { JobCandidateController } from './api/controllers/job.candidate.controller';
 
 @Module({
   imports: [
-    TypeOrmModule.forFeature([Job, Organization, User, Role, Industry, File]),
+    TypeOrmModule.forFeature([
+      Job,
+      SavedJob,
+      FavoriteJob,
+      Organization,
+      User,
+      Role,
+      Industry,
+      File,
+      Application,
+    ]),
   ],
-  controllers: [JobController],
-  providers: [JobService, LinkedInJobsSeeder],
-  exports: [JobService, LinkedInJobsSeeder],
+  controllers: [JobCandidateController],
+  providers: [JobService, SavedJobService, LinkedInJobsSeeder],
+  exports: [JobService, SavedJobService, LinkedInJobsSeeder],
 })
 export class JobsModule {}

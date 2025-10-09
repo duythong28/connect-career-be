@@ -2,6 +2,7 @@ import { NestFactory } from '@nestjs/core';
 import { AppModule } from './app.module';
 import { ConfigService } from '@nestjs/config';
 import cookieParser from 'cookie-parser';
+import { ValidationPipe } from '@nestjs/common';
 // import { DefaultRolesSeeder } from './modules/identity/infrastructure/seeders/default-roles.seeder';
 // import { UserSeeder } from './modules/identity/infrastructure/seeders/user.seeder';
 // import { IndustrySeeder } from './modules/profile/infrastructure/seeders/industry.seeder';
@@ -26,7 +27,7 @@ async function bootstrap() {
     // 4. Seed companies
     // const companySeeder = app.get(LinkedInCompanySeeder);
     // await companySeeder.seedFromFile(
-    //   'src/modules/profile/infrastructure/seeders/linkedin_company_information_big_tech.json',
+    //   'src/modules/profile/infrastructure/seeders/linkedin_company_information_2.json',
     // );
     // 5. Seed people profiles
     // const peopleSeeder = app.get(LinkedInPeopleSeeder);
@@ -49,6 +50,11 @@ async function bootstrap() {
     origin: true,
     credentials: true,
   });
+  app.useGlobalPipes(new ValidationPipe({
+    transform: true,
+    whitelist: true,
+    transformOptions: { enableImplicitConversion: true },
+  }));
   await app.listen(port || 8080);
   console.log(`Server running on http://localhost:${port || 8080}/docs`);
 }

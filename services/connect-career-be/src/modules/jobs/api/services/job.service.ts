@@ -84,19 +84,27 @@ export class JobService {
     }
 
     if (keywords && keywords.length > 0) {
-      queryBuilder.andWhere('job.keywords && :keywords', { keywords });
+      if (keywords.length > 0) {
+        queryBuilder.andWhere(`
+          EXISTS (
+            SELECT 1
+            FROM unnest(string_to_array(job.keywords, ',')) kwtxt
+            WHERE lower(btrim(kwtxt)) = ANY(:keywords)
+          )
+        `, { keywords: keywords.map(k => k.toLowerCase()) });
+      }
     }
 
     if (minSalary !== undefined) {
       queryBuilder.andWhere(
-        "(job.salaryDetails->>'minAmount')::numeric >= :minSalary",
+        `COALESCE(("job"."salaryDetails"->>'minAmount')::numeric, 0) >= :minSalary`,
         { minSalary },
       );
     }
 
     if (maxSalary !== undefined) {
       queryBuilder.andWhere(
-        "(job.salaryDetails->>'maxAmount')::numeric <= :maxSalary",
+        `COALESCE(("job"."salaryDetails"->>'maxAmount')::numeric, 0) <= :maxSalary`,
         { maxSalary },
       );
     }
@@ -331,7 +339,7 @@ export class JobService {
     return this.jobRepository
       .createQueryBuilder('job')
       .where('job.status = :status', { status: JobStatus.ACTIVE })
-      .andWhere(':keyword = ANY(job.keywords)', {
+      .andWhere(':keyword = ANY(string_to_array(job.keywords, \',\'))', {
         keyword: keyword.toLowerCase(),
       })
       .limit(limit)

@@ -15,6 +15,10 @@ import { LinkedInCompanySeeder } from './infrastructure/seeders/linkedin-company
 import { CandidateProfile } from './domain/entities/candidate-profile.entity';
 import { WorkExperience } from './domain/entities/work-experience.entity';
 import { Education } from './domain/entities/education.entity';
+import { Project } from './domain/entities/project.entity';
+import { Certification } from './domain/entities/certification.entity';
+import { Award } from './domain/entities/award.entity';
+import { Publication } from './domain/entities/publication.entity';
 import { User } from '../identity/domain/entities';
 import { CandidateProfileController } from './api/controllers/candidate.profile.controller';
 import { CandidateProfileService } from './api/services/candidate.profile.service';
@@ -30,6 +34,11 @@ import { CandidateProfileService } from './api/services/candidate.profile.servic
       CandidateProfile,
       WorkExperience,
       Education,
+      Industry,
+      Project,
+      Certification,
+      Award,
+      Publication,
     ]),
   ],
   controllers: [OrganizationController, CandidateProfileController],

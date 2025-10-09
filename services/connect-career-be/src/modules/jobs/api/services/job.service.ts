@@ -296,7 +296,6 @@ export class JobService {
       .where('job.id != :jobId', { jobId })
       .andWhere('job.status = :status', { status: JobStatus.ACTIVE });
 
-    // Find similar jobs based on keywords
     if (job.keywords && job.keywords.length > 0) {
       queryBuilder.andWhere('job.keywords && :keywords', {
         keywords: job.keywords,

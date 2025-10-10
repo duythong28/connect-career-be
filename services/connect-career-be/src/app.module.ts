@@ -10,6 +10,8 @@ import { CvMakerModule } from './modules/cv-maker/cv-maker.module';
 import { ProfileModule } from './modules/profile/profile.module';
 import { JobsModule } from './modules/jobs/jobs.module';
 import { AIModule } from './shared/infrastructure/external-services/ai/ai.module';
+import { RolesGuard } from './modules/identity/api/guards/roles.guard';
+import { PermissionsGuard } from './modules/identity/api/guards/permissions.guard';
 import { ApplicationsModule } from './modules/applications/applications.module';
 
 @Module({
@@ -46,6 +48,14 @@ import { ApplicationsModule } from './modules/applications/applications.module';
     {
       provide: APP_GUARD,
       useClass: JwtAuthGuard,
+    },
+    {
+      provide: APP_GUARD,
+      useClass: RolesGuard,
+    },
+    {
+      provide: APP_GUARD,
+      useClass: PermissionsGuard,
     },
   ],
 })

@@ -50,11 +50,13 @@ async function bootstrap() {
     origin: true,
     credentials: true,
   });
-  app.useGlobalPipes(new ValidationPipe({
-    transform: true,
-    whitelist: true,
-    transformOptions: { enableImplicitConversion: true },
-  }));
+  app.useGlobalPipes(
+    new ValidationPipe({
+      transform: true,
+      whitelist: true,
+      transformOptions: { enableImplicitConversion: true },
+    }),
+  );
   await app.listen(port || 8080);
   console.log(`Server running on http://localhost:${port || 8080}/docs`);
 }

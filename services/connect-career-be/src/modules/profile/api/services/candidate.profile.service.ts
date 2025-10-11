@@ -1,14 +1,28 @@
-import { Injectable, NotFoundException, BadRequestException } from '@nestjs/common';
+import {
+  Injectable,
+  NotFoundException,
+  BadRequestException,
+} from '@nestjs/common';
 import { InjectRepository } from '@nestjs/typeorm';
 import { CandidateProfile } from '../../domain/entities/candidate-profile.entity';
-import { EmploymentType, WorkExperience } from '../../domain/entities/work-experience.entity';
+import {
+  EmploymentType,
+  WorkExperience,
+} from '../../domain/entities/work-experience.entity';
 import { Education } from '../../domain/entities/education.entity';
 import { Project, ProjectStatus } from '../../domain/entities/project.entity';
 import { Certification } from '../../domain/entities/certification.entity';
 import { Award } from '../../domain/entities/award.entity';
 import { Repository, DataSource } from 'typeorm';
-import { Organization, OrganizationSize, OrganizationType } from '../../domain/entities/organization.entity';
-import { CreateCandidateProfileDto, UpdateCandidateProfileDto } from '../dtos/candidate-profile.dto';
+import {
+  Organization,
+  OrganizationSize,
+  OrganizationType,
+} from '../../domain/entities/organization.entity';
+import {
+  CreateCandidateProfileDto,
+  UpdateCandidateProfileDto,
+} from '../dtos/candidate-profile.dto';
 import { QueryRunner } from 'typeorm/browser';
 import { User } from 'src/modules/identity/domain/entities';
 import { Industry } from '../../domain/entities/industry.entity';
@@ -70,7 +84,9 @@ export class CandidateProfileService {
     return candidateProfile;
   }
 
-  async createCandidateProfile(dto: CreateCandidateProfileDto): Promise<CandidateProfile> {
+  async createCandidateProfile(
+    dto: CreateCandidateProfileDto,
+  ): Promise<CandidateProfile> {
     const queryRunner = this.dataSource.createQueryRunner();
     await queryRunner.connect();
     await queryRunner.startTransaction();
@@ -80,7 +96,9 @@ export class CandidateProfileService {
         where: { userId: dto.userId },
       });
       if (existing) {
-        throw new BadRequestException('Candidate profile already exists for this user');
+        throw new BadRequestException(
+          'Candidate profile already exists for this user',
+        );
       }
 
       const profile = this.candidateProfileRepository.create({
@@ -100,7 +118,10 @@ export class CandidateProfileService {
 
       if (dto.workExperiences && dto.workExperiences.length > 0) {
         for (const expDto of dto.workExperiences) {
-          const org = await this.findOrCreateOrganization(expDto.organizationName, queryRunner);
+          const org = await this.findOrCreateOrganization(
+            expDto.organizationName,
+            queryRunner,
+          );
 
           const experience = this.workExperienceRepository.create({
             candidateProfileId: savedProfile.id,
@@ -119,26 +140,30 @@ export class CandidateProfileService {
       }
 
       if (dto.educations && dto.educations.length > 0) {
-        const educations = dto.educations.map(eduDto =>
+        const educations = dto.educations.map((eduDto) =>
           this.educationRepository.create({
             candidateProfileId: savedProfile.id,
             institutionName: eduDto.institutionName,
             degreeType: eduDto.degreeType,
             fieldOfStudy: eduDto.fieldOfStudy,
             location: eduDto.location,
-            startDate: eduDto.startDate ? new Date(eduDto.startDate) : undefined,
-            graduationDate: eduDto.graduationDate ? new Date(eduDto.graduationDate) : undefined,
+            startDate: eduDto.startDate
+              ? new Date(eduDto.startDate)
+              : undefined,
+            graduationDate: eduDto.graduationDate
+              ? new Date(eduDto.graduationDate)
+              : undefined,
             isCurrent: eduDto.isCurrent || false,
             description: eduDto.description,
             coursework: eduDto.coursework || [],
             honors: eduDto.honors || [],
-          })
+          }),
         );
         await queryRunner.manager.save(educations);
       }
 
       if (dto.projects && dto.projects.length > 0) {
-        const projects = dto.projects.map(projDto =>{
+        const projects = dto.projects.map((projDto) => {
           const newProject = {
             candidateProfileId: savedProfile.id,
             title: projDto.title,
@@ -146,46 +171,53 @@ export class CandidateProfileService {
             description: projDto.description,
             status: projDto.status || ProjectStatus.COMPLETED,
             role: projDto.role,
-            startDate: projDto.startDate ? new Date(projDto.startDate) : undefined,
+            startDate: projDto.startDate
+              ? new Date(projDto.startDate)
+              : undefined,
             endDate: projDto.endDate ? new Date(projDto.endDate) : undefined,
             isCurrent: projDto.isCurrent || false,
             technologies: projDto.technologies || [],
             features: projDto.features || [],
             projectUrl: projDto.projectUrl,
             repositoryUrl: projDto.repositoryUrl,
-          }
-          return this.projectRepository.create(newProject)
-        }
-        );
+          };
+          return this.projectRepository.create(newProject);
+        });
         await queryRunner.manager.save(projects);
       }
 
       // Handle certifications
       if (dto.certifications && dto.certifications.length > 0) {
-        const certifications = dto.certifications.map(certDto =>
+        const certifications = dto.certifications.map((certDto) =>
           this.certificationRepository.create({
             candidateProfileId: savedProfile.id,
             name: certDto.name,
             issuingOrganization: certDto.issuingOrganization,
-            issueDate: certDto.issueDate ? new Date(certDto.issueDate) : undefined,
-            expiryDate: certDto.expiryDate ? new Date(certDto.expiryDate) : undefined,
+            issueDate: certDto.issueDate
+              ? new Date(certDto.issueDate)
+              : undefined,
+            expiryDate: certDto.expiryDate
+              ? new Date(certDto.expiryDate)
+              : undefined,
             credentialId: certDto.credentialId,
             credentialUrl: certDto.credentialUrl,
-          })
+          }),
         );
         await queryRunner.manager.save(certifications);
       }
 
       // Handle awards
       if (dto.awards && dto.awards.length > 0) {
-        const awards = dto.awards.map(awardDto =>
+        const awards = dto.awards.map((awardDto) =>
           this.awardRepository.create({
             candidateProfileId: savedProfile.id,
             title: awardDto.title,
             issuer: awardDto.issuer,
-            dateReceived: awardDto.dateReceived ? new Date(awardDto.dateReceived) : undefined,
+            dateReceived: awardDto.dateReceived
+              ? new Date(awardDto.dateReceived)
+              : undefined,
             description: awardDto.description,
-          })
+          }),
         );
         await queryRunner.manager.save(awards);
       }
@@ -229,7 +261,8 @@ export class CandidateProfileService {
       if (dto.address !== undefined) profile.address = dto.address;
       if (dto.city !== undefined) profile.city = dto.city;
       if (dto.country !== undefined) profile.country = dto.country;
-      if (dto.primaryIndustryId !== undefined) profile.primaryIndustryId = dto.primaryIndustryId;
+      if (dto.primaryIndustryId !== undefined)
+        profile.primaryIndustryId = dto.primaryIndustryId;
       if (dto.skills !== undefined) profile.skills = dto.skills;
       if (dto.languages !== undefined) profile.languages = dto.languages;
       if (dto.socialLinks !== undefined) profile.socialLinks = dto.socialLinks;
@@ -239,11 +272,16 @@ export class CandidateProfileService {
       // Update work experiences (replace all)
       if (dto.workExperiences !== undefined) {
         // Delete existing
-        await queryRunner.manager.delete(WorkExperience, { candidateProfileId: profile.id });
+        await queryRunner.manager.delete(WorkExperience, {
+          candidateProfileId: profile.id,
+        });
 
         // Create new ones
         for (const expDto of dto.workExperiences) {
-          const org = await this.findOrCreateOrganization(expDto.organizationName, queryRunner);
+          const org = await this.findOrCreateOrganization(
+            expDto.organizationName,
+            queryRunner,
+          );
 
           const experience = this.workExperienceRepository.create({
             candidateProfile: profile,
@@ -264,9 +302,11 @@ export class CandidateProfileService {
 
       // Update educations (replace all)
       if (dto.educations !== undefined) {
-        await queryRunner.manager.delete(Education, { candidateProfileId: profile.id });
+        await queryRunner.manager.delete(Education, {
+          candidateProfileId: profile.id,
+        });
 
-        const educations = dto.educations.map(eduDto =>
+        const educations = dto.educations.map((eduDto) =>
           this.educationRepository.create({
             candidateProfile: profile,
             candidateProfileId: profile.id,
@@ -274,22 +314,28 @@ export class CandidateProfileService {
             degreeType: eduDto.degreeType,
             fieldOfStudy: eduDto.fieldOfStudy,
             location: eduDto.location,
-            startDate: eduDto.startDate ? new Date(eduDto.startDate) : undefined,
-            graduationDate: eduDto.graduationDate ? new Date(eduDto.graduationDate) : undefined,
+            startDate: eduDto.startDate
+              ? new Date(eduDto.startDate)
+              : undefined,
+            graduationDate: eduDto.graduationDate
+              ? new Date(eduDto.graduationDate)
+              : undefined,
             isCurrent: eduDto.isCurrent || false,
             description: eduDto.description,
             coursework: eduDto.coursework || [],
             honors: eduDto.honors || [],
-          })
+          }),
         );
         await queryRunner.manager.save(educations);
       }
 
       // Update projects (replace all)
       if (dto.projects !== undefined) {
-        await queryRunner.manager.delete(Project, { candidateProfileId: profile.id });
+        await queryRunner.manager.delete(Project, {
+          candidateProfileId: profile.id,
+        });
 
-        const projects = dto.projects.map(projDto =>{
+        const projects = dto.projects.map((projDto) => {
           const newProject = {
             candidateProfile: profile,
             candidateProfileId: profile.id,
@@ -298,49 +344,61 @@ export class CandidateProfileService {
             description: projDto.description,
             status: projDto.status || ProjectStatus.COMPLETED,
             role: projDto.role,
-            startDate: projDto.startDate ? new Date(projDto.startDate) : undefined,
+            startDate: projDto.startDate
+              ? new Date(projDto.startDate)
+              : undefined,
             endDate: projDto.endDate ? new Date(projDto.endDate) : undefined,
             isCurrent: projDto.isCurrent || false,
             technologies: projDto.technologies || [],
             features: projDto.features || [],
             projectUrl: projDto.projectUrl,
             repositoryUrl: projDto.repositoryUrl,
-          }
+          };
 
-          return this.projectRepository.create(newProject)
+          return this.projectRepository.create(newProject);
         });
         await queryRunner.manager.save(projects);
       }
       if (dto.certifications !== undefined) {
-        await queryRunner.manager.delete(Certification, { candidateProfileId: profile.id });
+        await queryRunner.manager.delete(Certification, {
+          candidateProfileId: profile.id,
+        });
 
-        const certifications = dto.certifications.map(certDto =>
+        const certifications = dto.certifications.map((certDto) =>
           this.certificationRepository.create({
             candidateProfile: profile,
             candidateProfileId: profile.id,
             name: certDto.name,
             issuingOrganization: certDto.issuingOrganization,
-            issueDate: certDto.issueDate ? new Date(certDto.issueDate) : undefined,
-            expiryDate: certDto.expiryDate ? new Date(certDto.expiryDate) : undefined,
+            issueDate: certDto.issueDate
+              ? new Date(certDto.issueDate)
+              : undefined,
+            expiryDate: certDto.expiryDate
+              ? new Date(certDto.expiryDate)
+              : undefined,
             credentialId: certDto.credentialId,
             credentialUrl: certDto.credentialUrl,
-          })
+          }),
         );
         await queryRunner.manager.save(certifications);
       }
 
       if (dto.awards !== undefined) {
-        await queryRunner.manager.delete(Award, { candidateProfileId: profile.id });
+        await queryRunner.manager.delete(Award, {
+          candidateProfileId: profile.id,
+        });
 
-        const awards = dto.awards.map(awardDto =>
+        const awards = dto.awards.map((awardDto) =>
           this.awardRepository.create({
             candidateProfile: profile,
             candidateProfileId: profile.id,
             title: awardDto.title,
             issuer: awardDto.issuer,
-            dateReceived: awardDto.dateReceived ? new Date(awardDto.dateReceived) : undefined,
+            dateReceived: awardDto.dateReceived
+              ? new Date(awardDto.dateReceived)
+              : undefined,
             description: awardDto.description,
-          })
+          }),
         );
         await queryRunner.manager.save(awards);
       }
@@ -359,17 +417,19 @@ export class CandidateProfileService {
     }
   }
 
-  private async findOrCreateOrganization(name: string, queryRunner: QueryRunner): Promise<Organization> {
+  private async findOrCreateOrganization(
+    name: string,
+    queryRunner: QueryRunner,
+  ): Promise<Organization> {
     let org = await queryRunner.manager.findOne(Organization, {
       where: { name },
     });
-    const systemUser = await queryRunner.manager.findOne(User,{
+    const systemUser = await queryRunner.manager.findOne(User, {
       where: { email: 'system@connect-career.com' },
     });
     const industry = await queryRunner.manager.findOne(Industry, {
       where: { name: 'Other' },
     });
-
 
     if (!org) {
       org = this.organizationRepository.create({

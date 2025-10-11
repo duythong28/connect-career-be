@@ -13,7 +13,10 @@ import { CandidateProfileService } from '../services/candidate.profile.service';
 import { JwtAuthGuard } from 'src/modules/identity/api/guards/jwt-auth.guard';
 import * as decorators from 'src/modules/identity/api/decorators';
 import { ApiOperation, ApiResponse } from '@nestjs/swagger';
-import { CreateCandidateProfileDto, UpdateCandidateProfileDto } from '../dtos/candidate-profile.dto';
+import {
+  CreateCandidateProfileDto,
+  UpdateCandidateProfileDto,
+} from '../dtos/candidate-profile.dto';
 
 @Controller('/v1/candidates/profiles')
 @UseGuards(JwtAuthGuard)
@@ -32,7 +35,10 @@ export class CandidateProfileController {
   @Post()
   @ApiOperation({ summary: 'Create candidate profile' })
   @ApiResponse({ status: 201, description: 'Profile created successfully' })
-  @ApiResponse({ status: 400, description: 'Profile already exists or validation error' })
+  @ApiResponse({
+    status: 400,
+    description: 'Profile already exists or validation error',
+  })
   async createCandidateProfile(
     @Body() dto: CreateCandidateProfileDto,
     @decorators.CurrentUser() user: decorators.CurrentUserPayload,
@@ -43,7 +49,9 @@ export class CandidateProfileController {
   }
 
   @Put('/me')
-  @ApiOperation({ summary: 'Update my entire candidate profile (replaces all data)' })
+  @ApiOperation({
+    summary: 'Update my entire candidate profile (replaces all data)',
+  })
   @ApiResponse({ status: 200, description: 'Profile updated successfully' })
   @ApiResponse({ status: 404, description: 'Profile not found' })
   async updateMyCandidateProfile(

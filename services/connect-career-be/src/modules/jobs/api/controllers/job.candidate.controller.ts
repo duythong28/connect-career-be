@@ -20,7 +20,10 @@ import { SaveJobDto, UpdateSavedJobDto } from '../dtos/saved-job.dto';
 
 @Controller('/v1/candidates/jobs/')
 export class JobCandidateController {
-  constructor(private readonly savedJobService: SavedJobService, private readonly jobService: JobService) {}
+  constructor(
+    private readonly savedJobService: SavedJobService,
+    private readonly jobService: JobService,
+  ) {}
 
   /**
    * Search jobs with advanced filters
@@ -137,14 +140,8 @@ export class JobCandidateController {
     @Query('limit', ParseIntPipe) limit: number = 20,
     @Query('folder') folderName?: string,
   ) {
-    return this.savedJobService.getSavedJobs(
-      user.sub,
-      page,
-      limit,
-      folderName,
-    );
+    return this.savedJobService.getSavedJobs(user.sub, page, limit, folderName);
   }
-
 
   /**
    * Get similar jobs
@@ -280,10 +277,7 @@ export class JobCandidateController {
     @decorators.CurrentUser() user: decorators.CurrentUserPayload,
     @Param('jobId', ParseUUIDPipe) jobId: string,
   ) {
-    const isFavorited = await this.savedJobService.isFavorited(
-      user.sub,
-      jobId,
-    );
+    const isFavorited = await this.savedJobService.isFavorited(user.sub, jobId);
     return { jobId, isFavorited };
   }
 
@@ -301,5 +295,4 @@ export class JobCandidateController {
   ) {
     return this.savedJobService.getUserJobStats(user.sub);
   }
-
 }

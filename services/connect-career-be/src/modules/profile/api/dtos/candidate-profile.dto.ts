@@ -131,7 +131,7 @@ export class UpdateProjectDto {
   @IsOptional()
   @IsUUID()
   id?: string;
-  
+
   @ApiProperty()
   @IsString()
   title: string;

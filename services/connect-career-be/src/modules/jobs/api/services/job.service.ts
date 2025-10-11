@@ -85,13 +85,16 @@ export class JobService {
 
     if (keywords && keywords.length > 0) {
       if (keywords.length > 0) {
-        queryBuilder.andWhere(`
+        queryBuilder.andWhere(
+          `
           EXISTS (
             SELECT 1
             FROM unnest(string_to_array(job.keywords, ',')) kwtxt
             WHERE lower(btrim(kwtxt)) = ANY(:keywords)
           )
-        `, { keywords: keywords.map(k => k.toLowerCase()) });
+        `,
+          { keywords: keywords.map((k) => k.toLowerCase()) },
+        );
       }
     }
 
@@ -338,7 +341,7 @@ export class JobService {
     return this.jobRepository
       .createQueryBuilder('job')
       .where('job.status = :status', { status: JobStatus.ACTIVE })
-      .andWhere(':keyword = ANY(string_to_array(job.keywords, \',\'))', {
+      .andWhere(":keyword = ANY(string_to_array(job.keywords, ','))", {
         keyword: keyword.toLowerCase(),
       })
       .limit(limit)

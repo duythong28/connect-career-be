@@ -40,7 +40,7 @@ import { ApplicationsModule } from './modules/applications/applications.module';
     ProfileModule,
     JobsModule,
     AIModule,
-    ApplicationsModule
+    ApplicationsModule,
   ],
   providers: [
     {

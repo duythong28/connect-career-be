@@ -310,7 +310,7 @@ export class FileManagementService {
       throw new NotFoundException('File not found');
     }
 
-    if (file.uploadedBy?.id !== user.sub && !file.isPublic) {
+    if (file.uploadedById !== user.sub) {
       throw new BadRequestException('Access denied');
     }
 

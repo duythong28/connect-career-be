@@ -17,6 +17,7 @@ import * as applicationService from '../services/application.service';
 import { ApplicationStatus } from '../../domain/entities/application.entity';
 import { JwtAuthGuard } from 'src/modules/identity/api/guards/jwt-auth.guard';
 import * as decorators from 'src/modules/identity/api/decorators';
+import { ApiOperation, ApiResponse } from '@nestjs/swagger';
 
 @Controller('/v1/candidates/applications')
 @UseGuards(JwtAuthGuard)
@@ -32,6 +33,51 @@ export class ApplicationCandidateController {
   ) {
     return this.applicationService.createApplication(
       dto.SetCandidateId(currentUser.sub),
+    );
+  }
+  @Get('me')
+  @ApiOperation({ summary: 'Get my applications with pagination' })
+  @ApiResponse({
+    status: 200,
+    description: 'My applications retrieved successfully with pagination',
+  })
+  @ApiResponse({
+    status: 401,
+    description: 'Unauthorized',
+  })
+  async getMyApplicationsPaginated(
+    @decorators.CurrentUser() currentUser: decorators.CurrentUserPayload,
+    @Query('status') status?: ApplicationStatus,
+    @Query('source') source?: string,
+    @Query('appliedAfter') appliedAfter?: string,
+    @Query('appliedBefore') appliedBefore?: string,
+    @Query('hasInterviews', ParseBoolPipe) hasInterviews?: boolean,
+    @Query('hasOffers', ParseBoolPipe) hasOffers?: boolean,
+    @Query('awaitingResponse', ParseBoolPipe) awaitingResponse?: boolean,
+    @Query('search') search?: string,
+    @Query('page', ParseIntPipe) page = 1,
+    @Query('limit', ParseIntPipe) limit = 20,
+    @Query('sortBy') sortBy = 'appliedDate',
+    @Query('sortOrder') sortOrder: 'ASC' | 'DESC' = 'DESC',
+  ) {
+    const filters: applicationService.ApplicationSearchFilters = {
+      candidateId: currentUser.sub,
+      status,
+      source,
+      appliedAfter: appliedAfter ? new Date(appliedAfter) : undefined,
+      appliedBefore: appliedBefore ? new Date(appliedBefore) : undefined,
+      hasInterviews,
+      hasOffers,
+      awaitingResponse,
+      search,
+    };
+
+    return this.applicationService.searchApplications(
+      filters,
+      page,
+      limit,
+      sortBy,
+      sortOrder,
     );
   }
 

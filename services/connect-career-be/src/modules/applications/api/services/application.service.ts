@@ -15,14 +15,26 @@ import { Job } from 'src/modules/jobs/domain/entities/job.entity';
 import { User } from 'src/modules/identity/domain/entities';
 import { CandidateProfile } from 'src/modules/profile/domain/entities/candidate-profile.entity';
 import { PaginatedResult } from 'src/shared/domain/interfaces/base.repository';
+import { IsEnum, IsNotEmpty, IsOptional, IsString } from 'class-validator';
 
 export class CreateApplicationDto {
+  @IsString()
+  @IsNotEmpty()
   jobId: string;
   candidateId?: string;
+  @IsString()
+  @IsNotEmpty()
   cvId: string;
+  @IsString()
+  @IsOptional()
   coverLetter?: string;
+  @IsString()
   notes?: string;
+  @IsEnum(ApplicationSource)
+  @IsOptional()
   source?: ApplicationSource;
+  @IsOptional()
+  @IsString()
   referralSource?: string;
 
   public SetCandidateId(candidateId: string) {

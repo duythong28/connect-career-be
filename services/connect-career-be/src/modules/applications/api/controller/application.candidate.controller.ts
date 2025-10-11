@@ -26,8 +26,13 @@ export class ApplicationCandidateController {
   ) {}
 
   @Post()
-  create(@Body() dto: applicationService.CreateApplicationDto, @decorators.CurrentUser() currentUser: decorators.CurrentUserPayload) {
-    return this.applicationService.createApplication(dto.SetCandidateId(currentUser.sub));
+  create(
+    @Body() dto: applicationService.CreateApplicationDto,
+    @decorators.CurrentUser() currentUser: decorators.CurrentUserPayload,
+  ) {
+    return this.applicationService.createApplication(
+      dto.SetCandidateId(currentUser.sub),
+    );
   }
 
   @Get()

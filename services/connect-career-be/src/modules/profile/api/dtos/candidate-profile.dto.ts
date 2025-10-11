@@ -9,7 +9,6 @@ import {
   IsString,
   IsUrl,
   IsUUID,
-  MaxLength,
   ValidateNested,
 } from 'class-validator';
 import { EmploymentType } from '../../domain/entities/work-experience.entity';
@@ -25,12 +24,10 @@ export class UpdateWorkExperienceDto {
 
   @ApiProperty()
   @IsString()
-  @MaxLength(255)
   jobTitle: string;
 
   @ApiProperty()
   @IsString()
-  @MaxLength(255)
   organizationName: string;
 
   @ApiPropertyOptional()
@@ -77,7 +74,6 @@ export class UpdateEducationDto {
 
   @ApiProperty()
   @IsString()
-  @MaxLength(255)
   institutionName: string;
 
   @ApiProperty()
@@ -138,7 +134,6 @@ export class UpdateProjectDto {
 
   @ApiProperty()
   @IsString()
-  @MaxLength(255)
   name: string;
 
   @ApiPropertyOptional()
@@ -202,12 +197,10 @@ export class UpdateCertificationDto {
 
   @ApiProperty()
   @IsString()
-  @MaxLength(255)
   name: string;
 
   @ApiProperty()
   @IsString()
-  @MaxLength(255)
   issuingOrganization: string;
 
   @ApiPropertyOptional()
@@ -239,12 +232,10 @@ export class UpdateAwardDto {
 
   @ApiProperty()
   @IsString()
-  @MaxLength(255)
   title: string;
 
   @ApiProperty()
   @IsString()
-  @MaxLength(255)
   issuer: string;
 
   @ApiPropertyOptional()

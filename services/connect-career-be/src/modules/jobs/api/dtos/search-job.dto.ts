@@ -59,11 +59,18 @@ export class JobSearchDto extends PaginationDto {
       if (s.startsWith('[') && s.endsWith(']')) {
         try {
           const arr = JSON.parse(s);
-          return Array.isArray(arr) ? arr.map(x => String(x).trim()).filter(Boolean) : undefined;
-        } catch { /* ignore */ }
+          return Array.isArray(arr)
+            ? arr.map((x) => String(x).trim()).filter(Boolean)
+            : undefined;
+        } catch {
+          /* ignore */
+        }
       }
       if (Array.isArray(value)) return value;
-      return s.split(',').map(x => x.trim()).filter(Boolean);
+      return s
+        .split(',')
+        .map((x) => x.trim())
+        .filter(Boolean);
     }
     return undefined;
   })

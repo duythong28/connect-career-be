@@ -12,6 +12,7 @@ import { FavoriteJob } from './domain/entities/favorite-job.entity';
 import { SavedJobService } from './api/services/saved-job.service';
 import { Application } from '../applications/domain/entities/application.entity';
 import { JobCandidateController } from './api/controllers/job.candidate.controller';
+import { JobOrganizationController } from './api/controllers/job.organization.controller';
 
 @Module({
   imports: [
@@ -27,7 +28,7 @@ import { JobCandidateController } from './api/controllers/job.candidate.controll
       Application,
     ]),
   ],
-  controllers: [JobCandidateController],
+  controllers: [JobCandidateController, JobOrganizationController],
   providers: [JobService, SavedJobService, LinkedInJobsSeeder],
   exports: [JobService, SavedJobService, LinkedInJobsSeeder],
 })

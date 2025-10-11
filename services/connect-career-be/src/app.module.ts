@@ -11,6 +11,7 @@ import { ProfileModule } from './modules/profile/profile.module';
 import { JobsModule } from './modules/jobs/jobs.module';
 import { AIModule } from './shared/infrastructure/external-services/ai/ai.module';
 import { ApplicationsModule } from './modules/applications/applications.module';
+import { UserModule } from './modules/user/user.module';
 
 @Module({
   imports: [
@@ -40,7 +41,8 @@ import { ApplicationsModule } from './modules/applications/applications.module';
     ProfileModule,
     JobsModule,
     AIModule,
-    ApplicationsModule
+    ApplicationsModule,
+    UserModule
   ],
   providers: [
     {

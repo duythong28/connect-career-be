@@ -1,14 +1,20 @@
 import { Injectable, NotFoundException } from '@nestjs/common';
 import { InjectRepository } from '@nestjs/typeorm';
-import { Job, JobStatus } from '../../domain/entities/job.entity';
+import { Job, JobSource, JobStatus } from '../../domain/entities/job.entity';
 import { Repository } from 'typeorm';
-import { JobSearchDto } from '../dtos/job-search.dto';
+import { JobSearchDto } from '../dtos/search-job.dto';
 import { PaginatedResult } from 'src/shared/domain/interfaces/base.repository';
+import { CreateJobDto } from '../dtos/create-job.dto';
+import { User } from 'src/modules/identity/domain/entities';
+import { Organization } from 'src/modules/profile/domain/entities/organization.entity';
+import { PaginationDto } from 'src/shared/kernel';
 
 @Injectable()
 export class JobService {
   constructor(
     @InjectRepository(Job) private readonly jobRepository: Repository<Job>,
+    @InjectRepository(User) private readonly userRepository: Repository<User>,
+    @InjectRepository(Organization) private readonly organizationRepository: Repository<Organization>,
   ) {}
 
   async searchJobs(searchJobs: JobSearchDto): Promise<PaginatedResult<Job>> {
@@ -85,13 +91,16 @@ export class JobService {
 
     if (keywords && keywords.length > 0) {
       if (keywords.length > 0) {
-        queryBuilder.andWhere(`
+        queryBuilder.andWhere(
+          `
           EXISTS (
             SELECT 1
             FROM unnest(string_to_array(job.keywords, ',')) kwtxt
             WHERE lower(btrim(kwtxt)) = ANY(:keywords)
           )
-        `, { keywords: keywords.map(k => k.toLowerCase()) });
+        `,
+          { keywords: keywords.map((k) => k.toLowerCase()) },
+        );
       }
     }
 
@@ -338,7 +347,7 @@ export class JobService {
     return this.jobRepository
       .createQueryBuilder('job')
       .where('job.status = :status', { status: JobStatus.ACTIVE })
-      .andWhere(':keyword = ANY(string_to_array(job.keywords, \',\'))', {
+      .andWhere(":keyword = ANY(string_to_array(job.keywords, ','))", {
         keyword: keyword.toLowerCase(),
       })
       .limit(limit)
@@ -376,5 +385,101 @@ export class JobService {
         status: JobStatus.ACTIVE,
       },
     });
+  }
+
+  async createJob(
+    userId: string,
+    createJobDto: CreateJobDto
+  ): Promise<Job> {
+    const user = await this.userRepository.findOne({ where: { id: userId } });
+    if (!user) {
+      throw new NotFoundException(`User with ID ${userId} not found`);
+    }
+    const organization = await this.organizationRepository.findOne({ where: { userId} });
+    if (!organization) {
+      throw new NotFoundException(`Organization with User ID ${userId} not found`);
+    }
+    const jobDataForCreate: Partial<Job> = {
+      ...createJobDto,
+      userId,
+      organizationId: organization.id,
+      source: JobSource.INTERNAL,
+    };
+
+    const job = this.jobRepository.create(jobDataForCreate);
+    return await this.jobRepository.save(job);
+
+  }
+
+  async updateJob(
+    id: string,
+    userId: string,
+    updateJobDto: Partial<CreateJobDto>,
+  ): Promise<Job> {
+    const job = await this.jobRepository.findOne({
+      where: { id, userId },
+    });
+  
+    if (!job) {
+      throw new Error('Job not found or you do not have permission to update it');
+    }
+    Object.assign(job, updateJobDto);
+    
+    if (updateJobDto.status === JobStatus.ACTIVE && job.status !== JobStatus.ACTIVE) {
+      job.postedDate = new Date();
+    }
+    return await this.jobRepository.save(job);
+  }
+  
+  async deleteJob(id: string, userId: string): Promise<void> {
+    const job = await this.jobRepository.findOne({
+      where: { id, userId },
+    });
+  
+    if (!job) {
+      throw new Error('Job not found or you do not have permission to delete it');
+    }
+    await this.jobRepository.remove(job);
+  }
+  
+  async updateJobStatus(
+    id: string,
+    userId: string,
+    status: JobStatus,
+  ): Promise<Job> {
+    const job = await this.jobRepository.findOne({
+      where: { id, userId },
+    });
+    if (!job) {
+      throw new Error('Job not found or you do not have permission to update it');
+    }
+    job.status = status;
+        if (status === JobStatus.ACTIVE && job.status !== JobStatus.ACTIVE) {
+      job.postedDate = new Date();
+    }
+    return await this.jobRepository.save(job);
+  }
+
+  async getJobsByRecruiter(
+    userId: string,
+    paginationDto: PaginationDto,
+  ): Promise<PaginatedResult<Job>> {
+    const { pageNumber = 1, pageSize = 10 } = paginationDto;
+    const skip = (pageNumber - 1) * pageSize;
+    const user = await this.userRepository.findOne({ where: { id: userId } });
+    if (!user) {
+      throw new NotFoundException(`User with ID ${userId} not found`);
+    }
+    const organization = await this.organizationRepository.findOne({ where: { userId } });
+    if (!organization) {
+      throw new NotFoundException(`Organization with User ID ${userId} not found`);
+    }
+    const [jobs, total] = await this.jobRepository.findAndCount({
+      where: { organizationId: organization.id, userId},
+      skip,
+      take: pageSize,
+      order: { createdAt: 'DESC' },
+    });
+    return { data: jobs, total, page: pageNumber, limit: pageSize, totalPages: Math.ceil(total / pageSize) };
   }
 }

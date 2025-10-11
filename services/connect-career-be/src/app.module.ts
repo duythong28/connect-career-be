@@ -13,6 +13,7 @@ import { AIModule } from './shared/infrastructure/external-services/ai/ai.module
 import { RolesGuard } from './modules/identity/api/guards/roles.guard';
 import { PermissionsGuard } from './modules/identity/api/guards/permissions.guard';
 import { ApplicationsModule } from './modules/applications/applications.module';
+import { UserModule } from './modules/user/user.module';
 
 @Module({
   imports: [
@@ -42,7 +43,8 @@ import { ApplicationsModule } from './modules/applications/applications.module';
     ProfileModule,
     JobsModule,
     AIModule,
-    ApplicationsModule
+    ApplicationsModule,
+    UserModule
   ],
   providers: [
     {

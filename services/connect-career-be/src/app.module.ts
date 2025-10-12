@@ -42,7 +42,7 @@ import { UserModule } from './modules/user/user.module';
     JobsModule,
     AIModule,
     ApplicationsModule,
-    UserModule
+    UserModule,
   ],
   providers: [
     {

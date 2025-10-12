@@ -3,6 +3,7 @@ import {
   Controller,
   Get,
   Param,
+  Patch,
   Post,
   Query,
   UseGuards,
@@ -17,6 +18,7 @@ import {
   OrganizationSearchDto,
 } from '../dtos/organization-query.dto';
 import { ApiOperation, ApiQuery, ApiResponse } from '@nestjs/swagger';
+import { UpdateOrganizationDto } from '../dtos/update-organization.dto';
 
 @Controller('/v1/organizations')
 export class OrganizationController {
@@ -81,5 +83,11 @@ export class OrganizationController {
   @ApiOperation({ summary: 'Get organization by ID' })
   async getOrganizationById(@Param('id') id: string) {
     return this.organizationService.getOrganizationById(id);
+  }
+
+  @Patch(':id')
+  @UseGuards(JwtAuthGuard)
+  async updateOrganization(@Param('id') id: string, @Body() updateOrganizationDto: UpdateOrganizationDto, @CurrentUser() user: decorators.CurrentUserPayload) {
+    return this.organizationService.updateOrganizationById(user.sub, id, updateOrganizationDto);
   }
 }

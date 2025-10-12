@@ -39,9 +39,14 @@ export class OrganizationService {
   }
 
   async updateOrganizationById(
+    userId: string,
     id: string,
     dto: UpdateOrganizationDto,
   ): Promise<Organization> {
+    // const existingOrganization = await this.organizationRepository.findByUserId(userId);
+    // if (!existingOrganization) {
+    //   throw new NotFoundException('Organization not found');
+    // }
     const organization = await this.organizationRepository.findById(id);
     if (!organization) {
       throw new NotFoundException('Organization not found');

@@ -28,6 +28,7 @@ export class UpdateWorkExperienceDto {
 
   @ApiProperty()
   @IsString()
+  @IsOptional()
   organizationName: string;
 
   @ApiPropertyOptional()

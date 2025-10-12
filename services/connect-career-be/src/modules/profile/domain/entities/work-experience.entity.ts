@@ -38,7 +38,7 @@ export class WorkExperience {
   @Column({ type: 'varchar', length: 255 })
   jobTitle: string;
 
-  @OneToOne(() => Organization)
+  @ManyToOne(() => Organization)
   @JoinColumn({ name: 'organizationId' })
   organization: Organization;
 

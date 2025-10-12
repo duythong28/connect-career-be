@@ -27,6 +27,12 @@ export class OrganizationRepository
   ) {
     super(repository);
   }
+  async findById(id: string): Promise<Organization | null> {
+    return this.repository.findOne({
+      where: { id },
+      relations: ['user', 'locations', 'logoFile', 'industry'],
+    });
+  }
   async findByUserId(userId: string): Promise<Organization | null> {
     return this.repository.findOne({
       where: { userId },

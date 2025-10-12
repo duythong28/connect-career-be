@@ -25,6 +25,7 @@ import { CandidateProfileService } from './api/services/candidate.profile.servic
 import { OrganizationRBACController } from './api/controllers/organization-rbac.controller';
 import { OrganizationRBACService } from './api/services/organization-rbac.service';
 import { OrganizationInvitation, OrganizationMembership, OrganizationPermission, OrganizationRole } from './domain/entities/organization-memberships.entity';
+import { OrganizationRBACMigrationService } from './infrastructure/organization-rbac-migration.service';
 
 @Module({
   imports: [
@@ -61,6 +62,7 @@ import { OrganizationInvitation, OrganizationMembership, OrganizationPermission,
     LinkedInCompanySeeder,
     LinkedInPeopleSeeder,
     OrganizationRBACService,
+    OrganizationRBACMigrationService,
   ],
   exports: [
     OrganizationService,

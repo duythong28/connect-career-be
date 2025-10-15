@@ -17,13 +17,24 @@ import { Offer } from './offer.entity';
 import { Interview, InterviewStatus } from './interview.entity';
 
 export enum ApplicationStatus {
+  LEAD = 'lead',
   NEW = 'new',
+  UNDER_REVIEW = 'under-review',
   SCREENING = 'screening',
-  INTERVIEW = 'interview',
-  OFFER = 'offer',
+  SHORTLISTED = 'shortlisted',
+  INTERVIEW_SCHEDULED = 'interview-scheduled',
+  INTERVIEW_IN_PROGRESS = 'interview-in-progress',
+  INTERVIEW_COMPLETED = 'interview-completed',
+  REFERENCE_CHECK = 'reference-check',
+  OFFER_PENDING = 'offer-pending',
+  OFFER_SENT = 'offer-sent',
+  OFFER_ACCEPTED = 'offer-accepted',
+  OFFER_REJECTED = 'offer_rejected',
+  NEGOTIATING = 'negotiating',
   HIRED = 'hired',
   REJECTED = 'rejected',
   WITHDRAWN = 'withdrawn',
+  ON_HOLD = 'on-hold',
 }
 
 export enum InterviewType {
@@ -40,11 +51,20 @@ export enum ApplicationSource {
   LINKEDIN = 'linkedin',
   REFERRED = 'referred',
   JOB_BOARD = 'job-board',
+  MANUAL = 'manual',
+  AGENCY = 'agency',
+  CAMPUS = 'campus',
   COMPANY_WEBSITE = 'company-website',
   RECRUITER = 'recruiter',
   OTHER = 'other',
 }
 
+export enum ApplicationPriority {
+  LOW = 'low',
+  MEDIUM = 'medium',
+  HIGH = 'high',
+  URGENT = 'urgent',
+}
 export interface ApplicationFeedback {
   rating: number;
   comment: string;
@@ -500,7 +520,7 @@ export class Application {
 
     this.interviews.push(newSchedule);
     this.totalInterviews++;
-    this.status = ApplicationStatus.INTERVIEW;
+    this.status = ApplicationStatus.INTERVIEW_SCHEDULED;
 
     const upcomingInterviews = this.interviews
       .filter(

@@ -21,9 +21,13 @@ export enum JobType {
   OTHER = 'other',
 }
 export enum JobStatus {
-  ACTIVE = 'active',
-  CLOSED = 'closed',
   DRAFT = 'draft',
+  PENDING_APPROVAL = 'pending-approval',
+  ACTIVE = 'active',
+  PAUSED = 'paused',
+  CLOSED = 'closed',
+  EXPIRED = 'expired',
+  CANCELLED = 'cancelled',
   ARCHIVED = 'archived',
 }
 

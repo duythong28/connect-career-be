@@ -8,6 +8,8 @@ import { CreateJobDto } from '../dtos/create-job.dto';
 import { User } from 'src/modules/identity/domain/entities';
 import { Organization } from 'src/modules/profile/domain/entities/organization.entity';
 import { PaginationDto } from 'src/shared/kernel';
+import { JobStateMachineFactory } from '../../domain/state-machine/job-state-machine.factory';
+import { JobTransitionContext } from './job-state-machine.interface';
 
 @Injectable()
 export class JobService {
@@ -16,6 +18,7 @@ export class JobService {
     @InjectRepository(User) private readonly userRepository: Repository<User>,
     @InjectRepository(Organization)
     private readonly organizationRepository: Repository<Organization>,
+    private readonly stateMachineFactory: JobStateMachineFactory,
   ) {}
 
   async searchJobs(searchJobs: JobSearchDto): Promise<PaginatedResult<Job>> {
@@ -501,5 +504,122 @@ export class JobService {
       limit: pageSize,
       totalPages: Math.ceil(total / pageSize),
     };
+  }
+
+  async updateJobStatusWithContextByStateMachine(
+    id: string,
+    userId: string,
+    newStatus: JobStatus,
+    context?: JobTransitionContext,
+  ): Promise<Job> {
+    const job = await this.jobRepository.findOne({ where: { id, userId } });
+    if (!job) {
+      throw new Error(
+        'Job not found or you do not have permission to update it',
+      );
+    }
+
+    const stateMachine = this.stateMachineFactory.createStateMachine(job);
+    const transitionContext: JobTransitionContext = {
+      userId,
+      ...context,
+    };
+    await stateMachine.transitionTo(newStatus, transitionContext);
+    return await this.jobRepository.save(job);
+  }
+
+  async getJobStateInfo(
+    id: string,
+    userId: string,
+  ): Promise<{
+    currentState: JobStatus;
+    availableTransitions: JobStatus[];
+    canTransitionTo: (targetState: JobStatus) => boolean;
+  }> {
+    const job = await this.jobRepository.findOne({ where: { id, userId } });
+    if (!job) {
+      throw new Error(
+        'Job not found or you do not have permission to update it',
+      );
+    }
+    const stateMachine = this.stateMachineFactory.createStateMachine(job);
+    return {
+      currentState: stateMachine.getCurrentState(),
+      availableTransitions: stateMachine.getAvailableTransitions(),
+      canTransitionTo: (targetState: JobStatus) =>
+        stateMachine.canTransitionTo(targetState),
+    };
+  }
+
+  async pauseJob(id: string, userId: string, reason?: string): Promise<Job> {
+    return this.updateJobStatusWithContextByStateMachine(
+      id,
+      userId,
+      JobStatus.PAUSED,
+      {
+        reason,
+        userId: userId,
+      },
+    );
+  }
+
+  async resumeJob(id: string, userId: string): Promise<Job> {
+    return this.updateJobStatusWithContextByStateMachine(
+      id,
+      userId,
+      JobStatus.ACTIVE,
+    );
+  }
+
+  async submitForApproval(id: string, userId: string): Promise<Job> {
+    return this.updateJobStatusWithContextByStateMachine(
+      id,
+      userId,
+      JobStatus.PENDING_APPROVAL,
+    );
+  }
+
+  async approveJob(id: string, userId: string): Promise<Job> {
+    return this.updateJobStatusWithContextByStateMachine(
+      id,
+      userId,
+      JobStatus.ACTIVE,
+    );
+  }
+
+  async requestChanges(
+    id: string,
+    userId: string,
+    reason: string,
+  ): Promise<Job> {
+    return this.updateJobStatusWithContextByStateMachine(
+      id,
+      userId,
+      JobStatus.DRAFT,
+      {
+        reason,
+        userId: userId,
+      },
+    );
+  }
+
+  async cancelJob(id: string, userId: string, reason: string): Promise<Job> {
+    return this.updateJobStatusWithContextByStateMachine(
+      id,
+      userId,
+      JobStatus.CANCELLED,
+      {
+        reason,
+        userId: userId,
+      },
+    );
+  }
+
+  async archiveJob(id: string, userId: string): Promise<Job> {
+    return this.updateJobStatusWithContextByStateMachine(
+      id,
+      userId,
+      JobStatus.ARCHIVED,
+    );
   }
 }

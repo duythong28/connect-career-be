@@ -6,6 +6,7 @@ import {
   HttpCode,
   HttpStatus,
   Param,
+  ParseUUIDPipe,
   Post,
   Put,
   Query,
@@ -28,6 +29,7 @@ import {
   InviteUserDto,
   UpdateMemberRoleDto,
 } from '../dtos/organization.rbac.dto';
+import { OrganizationRBACMigrationService } from '../../infrastructure/organization-rbac-migration.service';
 
 @ApiTags('Organization RBAC')
 @Controller('/v1/organizations-rbac')
@@ -36,6 +38,7 @@ import {
 export class OrganizationRBACController {
   constructor(
     private readonly organizationRBACService: OrganizationRBACService,
+    private readonly organizationRBACMigrationService: OrganizationRBACMigrationService,
   ) {}
 
   @Post('with-rbac')
@@ -280,5 +283,17 @@ export class OrganizationRBACController {
   @ApiResponse({ status: 204, description: 'Invitation declined successfully' })
   async declineInvitationByToken(@Body() body: { token: string }) {
     await this.organizationRBACService.declineInvitation(body.token);
+  }
+
+  @Post('migrate-existing-organizations')
+  @ApiOperation({ summary: 'Migrate existing organizations to RBAC (temporary endpoint)' })
+  async migrateExistingOrganizations(@Query('organizationId') organizationId: string) {
+    await this.organizationRBACMigrationService.migrateOrganization(organizationId);
+  }
+
+  @Post('migrate-all-organizations')
+  @ApiOperation({ summary: 'Migrate all organizations to RBAC (temporary endpoint)' })
+  async migrateAllOrganizations() {
+    await this.organizationRBACMigrationService.migrateAllOrganizations();
   }
 }

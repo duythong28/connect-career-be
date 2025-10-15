@@ -1,5 +1,5 @@
 // services/connect-career-be/src/modules/profile/infrastructure/migrations/organization-rbac-migration.service.ts
-import { Injectable, Logger } from '@nestjs/common';
+import { Injectable, Logger, NotFoundException } from '@nestjs/common';
 import { InjectRepository } from '@nestjs/typeorm';
 import { Repository } from 'typeorm';
 import { User } from 'src/modules/identity/domain/entities';
@@ -44,7 +44,7 @@ export class OrganizationRBACMigrationService {
       this.logger.log(`Found ${organizations.length} organizations to migrate`);
 
       for (const organization of organizations) {
-        await this.migrateOrganization(organization);
+        await this.migrateOrganization(organization.id);
         this.logger.log(`✅ Migrated organization: ${organization.name} (${organization.id})`);
       }
 
@@ -104,7 +104,13 @@ export class OrganizationRBACMigrationService {
   /**
    * Migrate a single organization
    */
-  private async migrateOrganization(organization: Organization): Promise<void> {
+  async migrateOrganization(organizationId: string): Promise<void> {
+    const organization = await this.organizationRepository.findOne({
+      where: { id: organizationId },
+    });
+    if (!organization) {
+      throw new NotFoundException('Organization not found');
+    }
     // Step 1: Create default roles for this organization
     await this.createDefaultRolesForOrganization(organization.id);
 

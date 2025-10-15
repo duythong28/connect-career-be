@@ -48,8 +48,6 @@ export class Offer {
   @PrimaryGeneratedColumn('uuid')
   id: string;
 
-  // ==================== RELATIONSHIPS ====================
-
   @ManyToOne(() => Application, { eager: true })
   @JoinColumn({ name: 'applicationId' })
   application: Application;
@@ -103,7 +101,28 @@ export class Offer {
     enum: SalaryPeriod,
     default: SalaryPeriod.YEARLY,
   })
+
   salaryPeriod: SalaryPeriod;
+  @Column('uuid', { nullable: true })
+  @Index()
+  previousOfferId?: string;
+
+  @ManyToOne(() => Offer, { nullable: true })
+  @JoinColumn({ name: 'previousOfferId' })
+  previousOffer?: Offer;
+
+  @Column('uuid', { nullable: true })
+  @Index()
+  supersededByOfferId?: string;
+
+  @ManyToOne(() => Offer, { nullable: true })
+  @JoinColumn({ name: 'supersededByOfferId' })
+  supersededByOffer?: Offer;
+
+  @Column('uuid', { nullable: true })
+  @Index()
+  rootOfferId?: string;
+
 
   @Column({ type: 'decimal', precision: 12, scale: 2, nullable: true })
   signingBonus?: number;
@@ -112,7 +131,7 @@ export class Offer {
   performanceBonus?: number;
 
   @Column({ type: 'varchar', length: 255, nullable: true })
-  equity?: string; // e.g., "10,000 stock options"
+  equity?: string; 
 
   @Column({ type: 'decimal', precision: 5, scale: 2, nullable: true })
   equityPercentage?: number;
@@ -121,13 +140,13 @@ export class Offer {
   relocationBonus?: number;
 
   @Column({ type: 'decimal', precision: 12, scale: 2, nullable: true })
-  totalCompensation?: number; // Calculated total
+  totalCompensation?: number; 
 
   @Column('simple-array', { nullable: true })
-  benefits?: string[]; // ['Health Insurance', '401k', 'PTO', etc.]
+  benefits?: string[]; 
 
   @Column({ type: 'int', nullable: true })
-  ptoDays?: number; // Paid time off days
+  ptoDays?: number; 
 
   @Column({ type: 'varchar', length: 255, nullable: true })
   healthInsurance?: string;
@@ -343,5 +362,44 @@ export class Offer {
       ? this.getFormattedAmount()
       : 'No maximum';
     return `${min} - ${max}`;
+  }
+
+  static reviseFrom(prev: Offer, overrides: Partial<Offer>): Offer {
+    const next = new Offer();
+    next.applicationId = prev.applicationId;
+    next.offeredBy = prev.offeredBy;
+    next.offerType = prev.offerType === OfferType.INITIAL ? OfferType.REVISED : prev.offerType;
+    next.version = prev.version + 1;
+
+    next.details = prev.details;
+    next.amount = prev.amount;
+    next.currency = prev.currency;
+    next.baseSalary = prev.baseSalary;
+    next.salaryPeriod = prev.salaryPeriod;
+    next.signingBonus = prev.signingBonus;
+    next.performanceBonus = prev.performanceBonus;
+    next.equity = prev.equity;
+    next.equityPercentage = prev.equityPercentage;
+    next.relocationBonus = prev.relocationBonus;
+    next.totalCompensation = prev.totalCompensation;
+    next.benefits = prev.benefits;
+    next.ptoDays = prev.ptoDays;
+    next.healthInsurance = prev.healthInsurance;
+    next.retirementPlan = prev.retirementPlan;
+    next.otherBenefits = prev.otherBenefits;
+    next.isNegotiable = prev.isNegotiable;
+    next.minAcceptableAmount = prev.minAcceptableAmount;
+    next.maxAcceptableAmount = prev.maxAcceptableAmount;
+    next.negotiationRounds = prev.negotiationRounds;
+    next.conditions = prev.conditions;
+    next.responseDeadlineDays = prev.responseDeadlineDays;
+    next.requiresSignature = prev.requiresSignature;
+
+    next.previousOfferId = prev.id;
+    next.rootOfferId = prev.rootOfferId ?? prev.id;
+
+    Object.assign(next, overrides);
+
+    return next;
   }
 }

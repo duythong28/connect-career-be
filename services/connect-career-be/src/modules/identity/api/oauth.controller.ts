@@ -16,7 +16,6 @@ export class OAuthController {
   @ApiOperation({ summary: 'Initiate Google OAuth login' })
   @ApiResponse({ status: 302, description: 'Redirect to Google OAuth' })
   async googleAuth(@Req() req) {
-    // This route initiates the Google OAuth flow
   }
 
   @Public()
@@ -63,6 +62,43 @@ export class OAuthController {
   @ApiOperation({ summary: 'Handle GitHub OAuth callback' })
   @ApiResponse({ status: 302, description: 'Redirect to frontend with tokens' })
   async githubAuthRedirect(@Req() req, @Res() res: express.Response) {
+    try {
+      const profile = req.user;
+      const deviceInfo = {
+        ipAddress: req.ip,
+        userAgent: req.get('User-Agent'),
+      };
+
+      const tokens = await this.authService.handleOAuthLogin(
+        profile,
+        deviceInfo,
+      );
+
+      const frontendUrl = process.env.FRONTEND_URL || 'http://localhost:3000';
+      const redirectUrl = `${frontendUrl}/auth/callback?token=${tokens.accessToken}&refresh=${tokens.refreshToken}`;
+
+      return res.redirect(redirectUrl);
+    } catch (error) {
+      const frontendUrl = process.env.FRONTEND_URL || 'http://localhost:3000';
+      const errorUrl = `${frontendUrl}/auth/callback?error=oauth_failed`;
+      return res.redirect(errorUrl);
+    }
+  }
+
+  @Public()
+  @Get('linkedin')
+  @UseGuards(AuthGuard('linkedin'))
+  @ApiOperation({ summary: 'Initiate LinkedIn OAuth login' })
+  @ApiResponse({ status: 302, description: 'Redirect to LinkedIn OAuth' })
+  async linkedinAuth(@Req() req) {
+  }
+
+  @Public()
+  @Get('linkedin/callback')
+  @UseGuards(AuthGuard('linkedin'))
+  @ApiOperation({ summary: 'Handle LinkedIn OAuth callback' })
+  @ApiResponse({ status: 302, description: 'Redirect to frontend with tokens' })
+  async linkedinAuthRedirect(@Req() req, @Res() res: express.Response) {
     try {
       const profile = req.user;
       const deviceInfo = {

@@ -64,13 +64,10 @@ export class OrganizationRBACService {
       isVerified: true,
     });
     try {
-      // Create default permissions
       await this.createDefaultPermissions();
 
-      // Create default roles for this organization
       await this.createDefaultRolesForOrganization(organization.id);
 
-      // Add creator as owner
       const ownerRole = await this.roleRepository.findOne({
         where: { name: 'owner', organizationId: organization.id },
       });
@@ -82,10 +79,6 @@ export class OrganizationRBACService {
           userId,
         );
       }
-
-      this.logger.log(
-        `Organization ${organization.id} created with owner ${userId}`,
-      );
       return organization;
     } catch (error) {
       this.logger.error(

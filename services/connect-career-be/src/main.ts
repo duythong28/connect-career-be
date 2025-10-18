@@ -43,8 +43,8 @@ async function bootstrap() {
     // const hiringPipelineSeeder = app.get(HiringPipelineSeeder);
     // await hiringPipelineSeeder.seed();
     // 8. Seed applications
-    const applicationSeeder = app.get(ApplicationSeeder);
-    await applicationSeeder.seed();
+    // const applicationSeeder = app.get(ApplicationSeeder);
+    // await applicationSeeder.seed();
   } catch (error: unknown) {
     console.error('Failed to run seeders:', error instanceof Error ? error.message : String(error));
   }

@@ -45,6 +45,8 @@ export class JobService {
     const queryBuilder = this.jobRepository
       .createQueryBuilder('job')
       .leftJoinAndSelect('job.organization', 'organization')
+      .leftJoinAndSelect('organization.logoFile', 'logoFile')
+      .leftJoinAndSelect('organization.industry', 'industry')
       .leftJoinAndSelect('job.user', 'user');
     queryBuilder.where('job.status = :status', { status });
 
@@ -162,14 +164,13 @@ export class JobService {
   async getJobById(id: string): Promise<Job> {
     const job = await this.jobRepository.findOne({
       where: { id },
-      relations: ['organization', 'user'],
+      relations: ['organization', 'user', 'organization.logoFile', 'organization.industry'],
     });
 
     if (!job) {
       throw new NotFoundException(`Job with ID ${id} not found`);
     }
 
-    // Increment views count
     await this.incrementViews(id);
 
     return job;
@@ -178,7 +179,7 @@ export class JobService {
   async getJobsByOrganization(organizationId: string): Promise<Job[]> {
     return this.jobRepository.find({
       where: { organizationId },
-      relations: ['organization', 'user'],
+      relations: ['organization', 'user', 'organization.logoFile', 'organization.industry'],
       order: { postedDate: 'DESC' },
     });
   }
@@ -186,7 +187,7 @@ export class JobService {
   async getJobsByUserId(userId: string): Promise<Job[]> {
     return this.jobRepository.find({
       where: { userId },
-      relations: ['organization'],
+      relations: ['organization', 'organization.logoFile', 'organization.industry'],
       order: { postedDate: 'DESC' },
     });
   }
@@ -196,7 +197,7 @@ export class JobService {
   }
 
   async incrementApplications(jobId: string): Promise<void> {
-    const job = await this.jobRepository.findOne({ where: { id: jobId } });
+    const job = await this.jobRepository.findOne({ where: { id: jobId }, relations: ['organization', 'organization.logoFile', 'organization.industry'] });
 
     if (!job) {
       throw new NotFoundException(`Job with ID ${jobId} not found`);
@@ -317,9 +318,6 @@ export class JobService {
 
     // Add secondary similarity factors
     queryBuilder
-      .orWhere('job.companyName = :companyName', {
-        companyName: job.companyName,
-      })
       .orWhere('job.location ILIKE :location', {
         location: `%${job.location}%`,
       })
@@ -332,7 +330,7 @@ export class JobService {
   async getLatestJobs(limit: number = 10): Promise<Job[]> {
     return this.jobRepository.find({
       where: { status: JobStatus.ACTIVE },
-      relations: ['organization'],
+      relations: ['organization', 'organization.logoFile', 'organization.industry'],
       order: { postedDate: 'DESC' },
       take: limit,
     });
@@ -341,7 +339,7 @@ export class JobService {
   async getFeaturedJobs(limit: number = 10): Promise<Job[]> {
     return this.jobRepository.find({
       where: { status: JobStatus.ACTIVE },
-      relations: ['organization'],
+      relations: ['organization', 'organization.logoFile', 'organization.industry'],
       order: { applications: 'DESC', views: 'DESC' },
       take: limit,
     });
@@ -492,7 +490,8 @@ export class JobService {
       );
     }
     const [jobs, total] = await this.jobRepository.findAndCount({
-      where: { organizationId: organization.id, userId },
+      where: { organizationId: organization.id, userId},
+      relations: ['organization', 'organization.logoFile', 'organization.industry'],
       skip,
       take: pageSize,
       order: { createdAt: 'DESC' },

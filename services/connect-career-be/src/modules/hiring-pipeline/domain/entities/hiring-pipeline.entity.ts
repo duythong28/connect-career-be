@@ -12,20 +12,23 @@ import {
 import { PipelineStage } from './pipeline-stage.entity';
 import { Job } from 'src/modules/jobs/domain/entities/job.entity';
 import { PipelineTransition } from './pipeline-transition.entity';
+import { Organization } from 'src/modules/profile/domain/entities/organization.entity';
 
 @Entity('hiring_pipelines')
-@Index(['jobId', 'name'], { unique: true })
 export class HiringPipeline {
   @PrimaryGeneratedColumn('uuid')
   id: string;
 
   @Column('uuid')
   @Index()
-  jobId: string;
+  organizationId: string;
 
-  @ManyToOne(() => Job, { onDelete: 'CASCADE' })
-  @JoinColumn({ name: 'jobId' })
-  job: Job;
+  @ManyToOne(() => Organization, { onDelete: 'CASCADE' })
+  @JoinColumn({ name: 'organizationId' })
+  organization: Organization;
+
+  @OneToMany(() => Job, (job) => job.hiringPipeline)
+  jobs: Job[];
 
   @Column({ type: 'varchar', length: 120 })
   name: string;

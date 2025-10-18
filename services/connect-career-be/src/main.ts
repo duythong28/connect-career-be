@@ -3,6 +3,7 @@ import { AppModule } from './app.module';
 import { ConfigService } from '@nestjs/config';
 import cookieParser from 'cookie-parser';
 import { ValidationPipe } from '@nestjs/common';
+import { HiringPipelineSeeder } from './modules/hiring-pipeline/infrastructure/seeders/hiring-pipeline.seeder';
 // import { DefaultRolesSeeder } from './modules/identity/infrastructure/seeders/default-roles.seeder';
 // import { UserSeeder } from './modules/identity/infrastructure/seeders/user.seeder';
 // import { IndustrySeeder } from './modules/profile/infrastructure/seeders/industry.seeder';
@@ -37,6 +38,10 @@ async function bootstrap() {
     // 6. Seed jobs (will auto-create organizations and HR users)
     // const jobsSeeder = app.get(LinkedInJobsSeeder);
     // await jobsSeeder.seedAllFiles();
+    // 7. Seed hiring pipelines
+    // const hiringPipelineSeeder = app.get(HiringPipelineSeeder);
+    // await hiringPipelineSeeder.seed();
+    
   } catch (error: unknown) {
     console.error(
       'Failed to run seeders:',

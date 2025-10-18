@@ -8,23 +8,29 @@ import {
   IsNotEmpty,
   IsOptional,
   IsString,
+  IsUUID,
   Min,
 } from 'class-validator';
 import { PipelineStageType } from '../../domain/entities/pipeline-stage.entity';
 
 export class CreatePipelineDto {
-  @ApiProperty()
+  @ApiProperty() 
   @IsString()
   name: string;
-
+  
   @ApiProperty()
-  @IsString()
-  jobId: string;
+  @IsUUID()
+  organizationId: string;
+  
+  @ApiPropertyOptional() 
+  @IsOptional() 
+  @IsString() 
+  description?: string;
 
   @ApiPropertyOptional()
   @IsOptional()
-  @IsString()
-  description?: string;
+  @IsBoolean()
+  isDefault?: boolean;
 }
 
 export class UpdatePipelineDto {
@@ -32,18 +38,39 @@ export class UpdatePipelineDto {
   @IsOptional()
   @IsString()
   name?: string;
-
-  @ApiPropertyOptional()
-  @IsOptional()
-  @IsString()
+  
+  @ApiPropertyOptional() 
+  @IsOptional() 
+  @IsString() 
   description?: string;
 
   @ApiPropertyOptional()
   @IsOptional()
   @IsBoolean()
   active?: boolean;
+
+  @ApiPropertyOptional()
+  @IsOptional()
+  @IsBoolean()
+  isDefault?: boolean;
+
+  @ApiPropertyOptional()
+  @IsOptional()
+  @IsString()
+  category?: string;
 }
 
+export class AssignJobToPipelineDto {
+  @ApiProperty()
+  @IsUUID()
+  jobId: string;
+}
+
+export class RemoveJobFromPipelineDto {
+  @ApiProperty()
+  @IsUUID()
+  jobId: string;
+}
 export class CreateStageDto {
   @ApiProperty()
   @IsString()

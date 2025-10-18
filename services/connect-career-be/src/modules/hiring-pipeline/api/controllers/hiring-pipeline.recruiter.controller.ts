@@ -28,10 +28,13 @@ import {
   CreateTransitionDto,
   UpdateTransitionDto,
   PipelineValidationResultDto,
+  AssignJobToPipelineDto,
+  RemoveJobFromPipelineDto,
 } from '../dtos/hiring-pipeline.dto';
 import { HiringPipeline } from '../../domain/entities/hiring-pipeline.entity';
 import { PipelineStage } from '../../domain/entities/pipeline-stage.entity';
 import { PipelineTransition } from '../../domain/entities/pipeline-transition.entity';
+import { Job } from 'src/modules/jobs/domain/entities/job.entity';
 
 @ApiTags('Hiring Pipeline - Recruiter')
 @ApiBearerAuth()
@@ -55,52 +58,42 @@ export class HiringPipelineRecruiterController {
   })
   async createPipeline(
     @Body() createPipelineDto: CreatePipelineDto,
-  ): Promise<HiringPipeline> {
+  ): Promise<HiringPipeline | null> {
     return this.hiringPipelineRecruiterService.createPipeline(
       createPipelineDto,
     );
   }
 
   @Get()
-  @ApiOperation({ summary: 'Get all hiring pipelines for job' })
-  @ApiQuery({ name: 'jobId', required: true, type: String })
-  @ApiQuery({
-    name: 'page',
-    required: false,
-    type: Number,
-    description: 'Page number',
-  })
-  @ApiQuery({
-    name: 'limit',
-    required: false,
-    type: Number,
-    description: 'Items per page',
-  })
+  @ApiOperation({ summary: 'Get all hiring pipelines for organization' })
+  @ApiQuery({ name: 'organizationId', required: true, type: String })
+  @ApiQuery({ name: 'page', required: false, type: Number, description: 'Page number' })
+  @ApiQuery({ name: 'limit', required: false, type: Number, description: 'Items per page' })
   @ApiResponse({ status: 200, description: 'Pipelines retrieved successfully' })
   async findAllPipelines(
-    @Query('jobId') jobId: string,
+    @Query('organizationId') organizationId: string,
     @Query('page') page?: number,
     @Query('limit') limit?: number,
   ) {
     return this.hiringPipelineRecruiterService.findAllPipelines(
-      jobId,
+      organizationId,
       page ? Number(page) : 1,
       limit ? Number(limit) : 10,
     );
   }
-
+  
   @Get('active')
-  @ApiOperation({ summary: 'Get all active hiring pipelines for job' })
-  @ApiQuery({ name: 'jobId', required: true, type: String })
+  @ApiOperation({ summary: 'Get all active hiring pipelines for organization' })
+  @ApiQuery({ name: 'organizationId', required: true, type: String })
   @ApiResponse({
     status: 200,
     description: 'Active pipelines retrieved successfully',
   })
   async findActivePipelines(
-    @Query('jobId') jobId: string,
+    @Query('organizationId') organizationId: string,
   ): Promise<HiringPipeline[]> {
-    return this.hiringPipelineRecruiterService.findActivePipelines(jobId);
-  }
+    return this.hiringPipelineRecruiterService.findActivePipelines(organizationId);
+  }  
 
   @Get(':id')
   @ApiOperation({ summary: 'Get hiring pipeline by ID' })
@@ -350,4 +343,60 @@ export class HiringPipelineRecruiterController {
   async deleteTransition(@Param('id') id: string): Promise<void> {
     return this.hiringPipelineRecruiterService.deleteTransition(id);
   }
+
+  @Get('jobs/:jobId')
+  @ApiOperation({ summary: 'Get hiring pipeline for a specific job' })
+  @ApiParam({ name: 'jobId', description: 'Job ID' })
+  @ApiResponse({
+    status: 200,
+    description: 'Pipeline retrieved successfully',
+    type: HiringPipeline,
+  })
+  @ApiResponse({ status: 404, description: 'Pipeline not found for this job' })
+  async getPipelineByJobId(@Param('jobId') jobId: string): Promise<HiringPipeline | null> {
+    return this.hiringPipelineRecruiterService.findPipelineByJobId(jobId);
+  }
+
+  @Get(':id/jobs')
+  @ApiOperation({ summary: 'Get all jobs assigned to a pipeline' })
+  @ApiParam({ name: 'id', description: 'Pipeline ID' })
+  @ApiResponse({
+    status: 200,
+    description: 'Jobs retrieved successfully',
+    type: [Job],
+  })
+  async getJobsForPipeline(@Param('id') id: string): Promise<Job[]> {
+    return this.hiringPipelineRecruiterService.getJobsForPipeline(id);
+  }
+
+  @Post(':id/jobs/assign')
+  @ApiOperation({ summary: 'Assign job to hiring pipeline' })
+  @ApiParam({ name: 'id', description: 'Pipeline ID' })
+  @ApiResponse({
+    status: 200,
+    description: 'Job assigned successfully',
+    type: HiringPipeline,
+  })
+  async assignJobToPipeline(
+    @Param('id') id: string,
+    @Body() assignDto: AssignJobToPipelineDto,
+  ): Promise<HiringPipeline> {
+    return this.hiringPipelineRecruiterService.assignJobToPipeline(id, assignDto);
+  }
+
+  @Post(':id/jobs/remove')
+  @ApiOperation({ summary: 'Remove job from hiring pipeline' })
+  @ApiParam({ name: 'id', description: 'Pipeline ID' })
+  @ApiResponse({
+    status: 200,
+    description: 'Job removed successfully',
+    type: HiringPipeline,
+  })
+  async removeJobFromPipeline(
+    @Param('id') id: string,
+    @Body() removeDto: RemoveJobFromPipelineDto,
+  ): Promise<HiringPipeline> {
+    return this.hiringPipelineRecruiterService.removeJobFromPipeline(id, removeDto.jobId);
+  }
+
 }

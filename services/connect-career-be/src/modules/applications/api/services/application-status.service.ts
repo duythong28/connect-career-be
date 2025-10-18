@@ -11,8 +11,8 @@ import {
 } from '../../domain/entities/application.entity';
 import { HiringPipeline } from '../../../hiring-pipeline/domain/entities/hiring-pipeline.entity';
 import { PipelineStage } from '../../../hiring-pipeline/domain/entities/pipeline-stage.entity';
-import { PipelineTransition } from '../../../hiring-pipeline/domain/entities/pipeline-transition.entity';
 import { ChangeApplicationStageDto } from '../dtos/application-detail.dto';
+import { Job } from 'src/modules/jobs/domain/entities/job.entity';
 
 @Injectable()
 export class ApplicationStatusService {
@@ -21,10 +21,8 @@ export class ApplicationStatusService {
     private readonly applicationRepository: Repository<Application>,
     @InjectRepository(HiringPipeline)
     private readonly pipelineRepository: Repository<HiringPipeline>,
-    @InjectRepository(PipelineStage)
-    private readonly stageRepository: Repository<PipelineStage>,
-    @InjectRepository(PipelineTransition)
-    private readonly transitionRepository: Repository<PipelineTransition>,
+    @InjectRepository(Job)
+    private readonly jobRepository: Repository<Job>,
   ) {}
 
   async changeApplicationStage(
@@ -41,10 +39,12 @@ export class ApplicationStatusService {
     }
 
     // Get the job's active hiring pipeline
-    const pipeline = await this.pipelineRepository.findOne({
-      where: { jobId: application.jobId, active: true },
-      relations: ['stages', 'transitions'],
+    // eslint-disable-next-line @typescript-eslint/no-unsafe-assignment
+    const job = await this.jobRepository.findOne({
+      where: { id: application.jobId },
+      relations: ['hiringPipeline'],
     });
+    const pipeline = job?.hiringPipeline;
 
     if (!pipeline) {
       throw new BadRequestException(
@@ -52,7 +52,6 @@ export class ApplicationStatusService {
       );
     }
 
-    // Find the target stage
     const targetStage = pipeline.stages.find(
       (stage) => stage.key === changeDto.stageKey,
     );
@@ -62,7 +61,6 @@ export class ApplicationStatusService {
       );
     }
 
-    // Get current stage
     const currentStage = await this.getCurrentApplicationStage(
       application,
       pipeline,
@@ -115,7 +113,7 @@ export class ApplicationStatusService {
     }
 
     const pipeline = await this.pipelineRepository.findOne({
-      where: { jobId: application.jobId, active: true },
+      where: { jobs: { id: application.jobId } },
       relations: ['stages', 'transitions'],
     });
 
@@ -144,7 +142,6 @@ export class ApplicationStatusService {
     application: Application,
     pipeline: HiringPipeline,
   ): Promise<PipelineStage | null> {
-    // Find stage that matches current application status
     return (
       pipeline.stages.find(
         (stage) =>
@@ -179,11 +176,11 @@ export class ApplicationStatusService {
     }
   }
 
-  private validateStageTransition(
+  private async validateStageTransition(
     pipeline: HiringPipeline,
     fromStageKey: string,
     toStageKey: string,
-  ): void {
+  ): Promise<void> {
     // Check if transition exists in pipeline
     const transition = pipeline.transitions.find(
       (t) => t.fromStageKey === fromStageKey && t.toStageKey === toStageKey,

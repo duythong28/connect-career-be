@@ -126,10 +126,9 @@ export class ApplicationStatusService {
       pipeline,
     );
     if (!currentStage) {
-      return pipeline.stages.filter((stage) => stage.order === 1); // Return first stage
+      return pipeline.stages.filter((stage) => stage.order === 1);
     }
 
-    // Find stages that can be transitioned to from current stage
     const availableTransitions = pipeline.transitions.filter(
       (t) => t.fromStageKey === currentStage.key,
     );

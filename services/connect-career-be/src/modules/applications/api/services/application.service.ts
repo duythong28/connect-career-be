@@ -16,6 +16,13 @@ import { User } from 'src/modules/identity/domain/entities';
 import { CandidateProfile } from 'src/modules/profile/domain/entities/candidate-profile.entity';
 import { PaginatedResult } from 'src/shared/domain/interfaces/base.repository';
 import { IsEnum, IsNotEmpty, IsOptional, IsString } from 'class-validator';
+import { JobStatusService } from 'src/modules/jobs/api/services/job-status.service';
+import {
+  Interview,
+  InterviewStatus,
+} from '../../domain/entities/interview.entity';
+import { Offer, OfferStatus } from '../../domain/entities/offer.entity';
+import { CandidateSnapshotDto } from '../dtos/application-detail.dto';
 
 export class CreateApplicationDto {
   @IsString()
@@ -91,6 +98,11 @@ export class ApplicationService {
     private readonly userRepository: Repository<User>,
     @InjectRepository(CandidateProfile)
     private readonly candidateProfileRepository: Repository<CandidateProfile>,
+    @InjectRepository(Interview)
+    private readonly interviewRepository: Repository<Interview>,
+    @InjectRepository(Offer)
+    private readonly offerRepository: Repository<Offer>,
+    private readonly jobStatusService: JobStatusService,
   ) {}
 
   async createApplication(
@@ -246,23 +258,16 @@ export class ApplicationService {
     app.addStatusHistory(status, userId, reason);
     app.updateCalculatedFields();
     await this.applicationRepository.save(app);
+    if (status === ApplicationStatus.HIRED) {
+      await this.jobStatusService.updateJobStatusBasedOnApplications(app.jobId);
+    }
+
+    return this.getApplicationById(id);
     return this.getApplicationById(id);
   }
 
   async shortlistApplication(id: string, userId: string): Promise<Application> {
     return this.updateApplication(id, { isShortlisted: true }, userId);
-  }
-
-  async flagApplication(
-    id: string,
-    reason: string,
-    userId: string,
-  ): Promise<Application> {
-    return this.updateApplication(
-      id,
-      { isFlagged: true, flagReason: reason },
-      userId,
-    );
   }
 
   async assignApplication(
@@ -500,5 +505,191 @@ export class ApplicationService {
         { search: `%${f.search}%` },
       );
     }
+  }
+
+  async getApplicationDetailById(id: string): Promise<Application | null> {
+    return this.applicationRepository.findOne({
+      where: { id },
+      relations: [
+        'candidate',
+        'job',
+        'candidateProfile',
+        'cv',
+        'interviews',
+        'offers',
+        'reviewer',
+      ],
+    });
+  }
+
+  async buildCandidateSnapshot(candidateId: string): Promise<CandidateSnapshotDto> {
+    const candidate = await this.userRepository.findOne({
+      where: { id: candidateId },
+    });
+
+    const candidateProfile = await this.candidateProfileRepository.findOne({
+      where: { userId: candidateId },
+    });
+
+    return {
+      name: candidate?.firstName + ' ' + candidate?.lastName,
+      email: candidate?.email || '',
+      phone: candidate?.phoneNumber,
+      currentTitle: candidateProfile?.workExperiences[0]?.jobTitle,
+      currentCompany: candidateProfile?.workExperiences[0]?.organization.name,
+      location: candidateProfile?.address || '',
+      avatarUrl: candidateProfile?.user.avatarUrl,
+    };
+  }
+
+  async updateCandidateSnapshot(applicationId: string): Promise<Application | null> {
+    const application = await this.applicationRepository.findOne({
+      where: { id: applicationId },
+    });
+
+    if (!application) {
+      throw new NotFoundException('Application not found');
+    }
+
+    const snapshot = await this.buildCandidateSnapshot(application.candidateId);
+
+    await this.applicationRepository.update(applicationId, {
+      candidateSnapshot: snapshot,
+    });
+
+    return this.applicationRepository.findOne({ where: { id: applicationId } });
+  }
+
+  async updateApplicationNotes(
+    applicationId: string,
+    notes: string,
+    updatedBy: string,
+  ): Promise<Application | null> {
+    const application = await this.applicationRepository.findOne({
+      where: { id: applicationId },
+    });
+
+    if (!application) {
+      throw new NotFoundException('Application not found');
+    }
+
+    await this.applicationRepository.update(applicationId, { notes });
+
+    return this.applicationRepository.findOne({ where: { id: applicationId } });
+  }
+
+  async flagApplication(
+    applicationId: string,
+    reason: string,
+    flaggedBy: string,
+  ): Promise<Application | null> {
+    const application = await this.applicationRepository.findOne({
+      where: { id: applicationId },
+    });
+
+    if (!application) {
+      throw new NotFoundException('Application not found');
+    }
+
+    await this.applicationRepository.update(applicationId, {
+      isFlagged: true,
+      flagReason: reason,
+    });
+
+    return this.applicationRepository.findOne({ where: { id: applicationId } });
+  }
+
+  async unflagApplication(applicationId: string): Promise<Application | null> {
+    const application = await this.applicationRepository.findOne({
+      where: { id: applicationId },
+    });
+
+    if (!application) {
+      throw new NotFoundException('Application not found');
+    }
+
+    await this.applicationRepository.update(applicationId, {
+      isFlagged: false,
+      flagReason: undefined,
+    });
+
+    return this.applicationRepository.findOne({ where: { id: applicationId } });
+  }
+
+  async addTags(applicationId: string, tags: string[]): Promise<Application | null> {
+    const application = await this.applicationRepository.findOne({
+      where: { id: applicationId },
+    });
+
+    if (!application) {
+      throw new NotFoundException('Application not found');
+    }
+
+    const existingTags = application.tags || [];
+    const newTags = [...new Set([...existingTags, ...tags])];
+
+    await this.applicationRepository.update(applicationId, { tags: newTags });
+
+    return this.applicationRepository.findOne({ where: { id: applicationId } });
+  }
+
+  async removeTags(
+    applicationId: string,
+    tags: string[],
+  ): Promise<Application | null> {
+    const application = await this.applicationRepository.findOne({
+      where: { id: applicationId },
+    });
+
+    if (!application) {
+      throw new NotFoundException('Application not found');
+    }
+
+    const existingTags = application.tags || [];
+    const newTags = existingTags.filter((tag) => !tags.includes(tag));
+
+    await this.applicationRepository.update(applicationId, { tags: newTags });
+
+    return this.applicationRepository.findOne({ where: { id: applicationId } });
+  }
+
+  async hireCandidate(
+    applicationId: string,
+    hiredBy: string,
+  ): Promise<Application> {
+    const application = await this.getApplicationById(applicationId);
+
+    // Update application to hired
+    await this.updateApplicationStatus(
+      applicationId,
+      ApplicationStatus.HIRED,
+      hiredBy,
+      'Candidate hired',
+    );
+
+    // Close any pending offers
+    if (application.currentOfferId) {
+      await this.offerRepository.update(application.currentOfferId, {
+        status: OfferStatus.ACCEPTED,
+      });
+    }
+
+    // Cancel any pending interviews
+    const pendingInterviews = await this.interviewRepository.find({
+      where: {
+        applicationId,
+        status: InterviewStatus.SCHEDULED,
+      },
+    });
+
+    for (const interview of pendingInterviews) {
+      await this.interviewRepository.update(interview.id, {
+        status: InterviewStatus.CANCELLED,
+        cancellationReason: 'Candidate hired',
+        cancelledAt: new Date(),
+      });
+    }
+
+    return this.getApplicationById(applicationId);
   }
 }

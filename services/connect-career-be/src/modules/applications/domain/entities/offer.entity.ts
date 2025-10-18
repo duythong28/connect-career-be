@@ -101,7 +101,6 @@ export class Offer {
     enum: SalaryPeriod,
     default: SalaryPeriod.YEARLY,
   })
-
   salaryPeriod: SalaryPeriod;
   @Column('uuid', { nullable: true })
   @Index()
@@ -123,7 +122,6 @@ export class Offer {
   @Index()
   rootOfferId?: string;
 
-
   @Column({ type: 'decimal', precision: 12, scale: 2, nullable: true })
   signingBonus?: number;
 
@@ -131,7 +129,7 @@ export class Offer {
   performanceBonus?: number;
 
   @Column({ type: 'varchar', length: 255, nullable: true })
-  equity?: string; 
+  equity?: string;
 
   @Column({ type: 'decimal', precision: 5, scale: 2, nullable: true })
   equityPercentage?: number;
@@ -140,13 +138,13 @@ export class Offer {
   relocationBonus?: number;
 
   @Column({ type: 'decimal', precision: 12, scale: 2, nullable: true })
-  totalCompensation?: number; 
+  totalCompensation?: number;
 
   @Column('simple-array', { nullable: true })
-  benefits?: string[]; 
+  benefits?: string[];
 
   @Column({ type: 'int', nullable: true })
-  ptoDays?: number; 
+  ptoDays?: number;
 
   @Column({ type: 'varchar', length: 255, nullable: true })
   healthInsurance?: string;
@@ -368,7 +366,8 @@ export class Offer {
     const next = new Offer();
     next.applicationId = prev.applicationId;
     next.offeredBy = prev.offeredBy;
-    next.offerType = prev.offerType === OfferType.INITIAL ? OfferType.REVISED : prev.offerType;
+    next.offerType =
+      prev.offerType === OfferType.INITIAL ? OfferType.REVISED : prev.offerType;
     next.version = prev.version + 1;
 
     next.details = prev.details;

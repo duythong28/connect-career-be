@@ -14,8 +14,6 @@ import { Application } from '../applications/domain/entities/application.entity'
 import { JobCandidateController } from './api/controllers/job.candidate.controller';
 import { JobOrganizationController } from './api/controllers/job.organization.controller';
 import { JobStateMachineFactory } from './domain/state-machine/job-state-machine.factory';
-import { DraftStateStrategy } from './domain/state-machine/strategies/draft-state.strategy';
-import { PendingApprovalStateStrategy } from './domain/state-machine/strategies/pending-approval-state.strategy';
 import { ActiveStateStrategy } from './domain/state-machine/strategies/active-state.strategy';
 import { PausedStateStrategy } from './domain/state-machine/strategies/paused-state.strategy';
 import { ClosedStateStrategy } from './domain/state-machine/strategies/closed-state.strategy';
@@ -43,8 +41,6 @@ import { ArchivedStateStrategy } from './domain/state-machine/strategies/archive
     SavedJobService,
     LinkedInJobsSeeder,
     JobStateMachineFactory,
-    DraftStateStrategy,
-    PendingApprovalStateStrategy,
     ActiveStateStrategy,
     PausedStateStrategy,
     ClosedStateStrategy,
@@ -52,6 +48,11 @@ import { ArchivedStateStrategy } from './domain/state-machine/strategies/archive
     CancelledStateStrategy,
     ArchivedStateStrategy,
   ],
-  exports: [JobService, SavedJobService, LinkedInJobsSeeder, JobStateMachineFactory],
+  exports: [
+    JobService,
+    SavedJobService,
+    LinkedInJobsSeeder,
+    JobStateMachineFactory,
+  ],
 })
 export class JobsModule {}

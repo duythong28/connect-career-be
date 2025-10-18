@@ -41,8 +41,9 @@ export class OrganizationService {
       isPublic: false,
       isVerified: false,
     };
-    
-    const organization = await this.organizationRepository.create(organizationData);
+
+    const organization =
+      await this.organizationRepository.create(organizationData);
     const ownerRole = await this.roleRepository.findOne({
       where: { name: 'owner', organizationId: organization.id },
     });

@@ -102,20 +102,24 @@ export class Interview {
     templateVersion?: number;
 
     entries: Array<{
-      key: string;                      
+      key: string;
       value: number | boolean | string | string[];
       comment?: string;
     }>;
 
     computed?: {
-      overallScore?: number;           
+      overallScore?: number;
       sectionScores?: Record<string, number>;
     };
 
     rating?: number;
     strengths?: string[];
     weaknesses?: string[];
-    recommendation?: 'strongly_recommend' | 'recommend' | 'neutral' | 'not_recommend';
+    recommendation?:
+      | 'strongly_recommend'
+      | 'recommend'
+      | 'neutral'
+      | 'not_recommend';
     comments?: string;
   };
 

@@ -87,7 +87,15 @@ export class OrganizationController {
 
   @Patch(':id')
   @UseGuards(JwtAuthGuard)
-  async updateOrganization(@Param('id') id: string, @Body() updateOrganizationDto: UpdateOrganizationDto, @CurrentUser() user: decorators.CurrentUserPayload) {
-    return this.organizationService.updateOrganizationById(user.sub, id, updateOrganizationDto);
+  async updateOrganization(
+    @Param('id') id: string,
+    @Body() updateOrganizationDto: UpdateOrganizationDto,
+    @CurrentUser() user: decorators.CurrentUserPayload,
+  ) {
+    return this.organizationService.updateOrganizationById(
+      user.sub,
+      id,
+      updateOrganizationDto,
+    );
   }
 }

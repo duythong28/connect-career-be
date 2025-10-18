@@ -286,13 +286,21 @@ export class OrganizationRBACController {
   }
 
   @Post('migrate-existing-organizations')
-  @ApiOperation({ summary: 'Migrate existing organizations to RBAC (temporary endpoint)' })
-  async migrateExistingOrganizations(@Query('organizationId') organizationId: string) {
-    await this.organizationRBACMigrationService.migrateOrganization(organizationId);
+  @ApiOperation({
+    summary: 'Migrate existing organizations to RBAC (temporary endpoint)',
+  })
+  async migrateExistingOrganizations(
+    @Query('organizationId') organizationId: string,
+  ) {
+    await this.organizationRBACMigrationService.migrateOrganization(
+      organizationId,
+    );
   }
 
   @Post('migrate-all-organizations')
-  @ApiOperation({ summary: 'Migrate all organizations to RBAC (temporary endpoint)' })
+  @ApiOperation({
+    summary: 'Migrate all organizations to RBAC (temporary endpoint)',
+  })
   async migrateAllOrganizations() {
     await this.organizationRBACMigrationService.migrateAllOrganizations();
   }

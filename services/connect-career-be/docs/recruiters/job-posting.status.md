@@ -1,12 +1,6 @@
 ```mermaid
 stateDiagram-v2
     [*] --> DRAFT
-    DRAFT --> PENDING_APPROVAL: Submit for Review
-    DRAFT --> CANCELLED: Delete Draft
-
-    PENDING_APPROVAL --> ACTIVE: Approve Job
-    PENDING_APPROVAL --> DRAFT: Request Changes
-
     ACTIVE --> PAUSED: Pause Applications
     ACTIVE --> CLOSED: Close Manually
     ACTIVE --> EXPIRED: Auto-expires

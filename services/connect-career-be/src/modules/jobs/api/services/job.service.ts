@@ -571,38 +571,6 @@ export class JobService {
     );
   }
 
-  async submitForApproval(id: string, userId: string): Promise<Job> {
-    return this.updateJobStatusWithContextByStateMachine(
-      id,
-      userId,
-      JobStatus.PENDING_APPROVAL,
-    );
-  }
-
-  async approveJob(id: string, userId: string): Promise<Job> {
-    return this.updateJobStatusWithContextByStateMachine(
-      id,
-      userId,
-      JobStatus.ACTIVE,
-    );
-  }
-
-  async requestChanges(
-    id: string,
-    userId: string,
-    reason: string,
-  ): Promise<Job> {
-    return this.updateJobStatusWithContextByStateMachine(
-      id,
-      userId,
-      JobStatus.DRAFT,
-      {
-        reason,
-        userId: userId,
-      },
-    );
-  }
-
   async cancelJob(id: string, userId: string, reason: string): Promise<Job> {
     return this.updateJobStatusWithContextByStateMachine(
       id,

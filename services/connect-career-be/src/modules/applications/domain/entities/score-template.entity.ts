@@ -1,10 +1,17 @@
-import { Column, CreateDateColumn, Entity, Index, PrimaryGeneratedColumn, UpdateDateColumn } from 'typeorm';
+import {
+  Column,
+  CreateDateColumn,
+  Entity,
+  Index,
+  PrimaryGeneratedColumn,
+  UpdateDateColumn,
+} from 'typeorm';
 
 export enum ScorecardFieldType {
-  RATING = 'rating',       
-  YES_NO = 'yes_no',       
-  TEXT = 'text',           
-  MULTI_SELECT = 'multi_select', 
+  RATING = 'rating',
+  YES_NO = 'yes_no',
+  TEXT = 'text',
+  MULTI_SELECT = 'multi_select',
 }
 
 @Entity('scorecard_templates')
@@ -25,14 +32,14 @@ export class ScorecardTemplate {
 
   @Column({ type: 'jsonb' })
   fields: Array<{
-    key: string;                
-    label: string;              
-    type: ScorecardFieldType;   
+    key: string;
+    label: string;
+    type: ScorecardFieldType;
     required?: boolean;
     weight?: number;
-    scaleMin?: number;          
-    scaleMax?: number;          
-    options?: string[];         
+    scaleMin?: number;
+    scaleMax?: number;
+    options?: string[];
     helpText?: string;
   }>;
 

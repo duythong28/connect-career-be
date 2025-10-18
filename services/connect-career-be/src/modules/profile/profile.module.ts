@@ -24,7 +24,12 @@ import { CandidateProfileController } from './api/controllers/candidate.profile.
 import { CandidateProfileService } from './api/services/candidate.profile.service';
 import { OrganizationRBACController } from './api/controllers/organization-rbac.controller';
 import { OrganizationRBACService } from './api/services/organization-rbac.service';
-import { OrganizationInvitation, OrganizationMembership, OrganizationPermission, OrganizationRole } from './domain/entities/organization-memberships.entity';
+import {
+  OrganizationInvitation,
+  OrganizationMembership,
+  OrganizationPermission,
+  OrganizationRole,
+} from './domain/entities/organization-memberships.entity';
 import { OrganizationRBACMigrationService } from './infrastructure/organization-rbac-migration.service';
 
 @Module({
@@ -46,7 +51,7 @@ import { OrganizationRBACMigrationService } from './infrastructure/organization-
       OrganizationMembership,
       OrganizationRole,
       OrganizationPermission,
-      OrganizationInvitation, 
+      OrganizationInvitation,
     ]),
   ],
   controllers: [

@@ -2,8 +2,6 @@ import { Injectable } from '@nestjs/common';
 import { Job, JobStatus } from '../entities/job.entity';
 import { JobStateStrategy } from './job-state-strategy.interface';
 import { ActiveStateStrategy } from './strategies/active-state.strategy';
-import { PendingApprovalStateStrategy } from './strategies/pending-approval-state.strategy';
-import { DraftStateStrategy } from './strategies/draft-state.strategy';
 import { PausedStateStrategy } from './strategies/paused-state.strategy';
 import { ClosedStateStrategy } from './strategies/closed-state.strategy';
 import { ExpiredStateStrategy } from './strategies/expired-state.strategy';
@@ -16,8 +14,6 @@ import { JobStateMachineImpl } from './job-state-machine.impl';
 export class JobStateMachineFactory {
   private readonly strategies: Map<JobStatus, JobStateStrategy>;
   constructor(
-    private readonly draftStrategy: DraftStateStrategy,
-    private readonly pendingApprovalStrategy: PendingApprovalStateStrategy,
     private readonly activeStrategy: ActiveStateStrategy,
     private readonly pausedStrategy: PausedStateStrategy,
     private readonly closedStrategy: ClosedStateStrategy,
@@ -26,8 +22,6 @@ export class JobStateMachineFactory {
     private readonly archivedStrategy: ArchivedStateStrategy,
   ) {
     this.strategies = new Map<JobStatus, JobStateStrategy>([
-      [JobStatus.DRAFT, this.draftStrategy as unknown as JobStateStrategy],
-      [JobStatus.PENDING_APPROVAL, this.pendingApprovalStrategy as JobStateStrategy],
       [JobStatus.ACTIVE, this.activeStrategy as JobStateStrategy],
       [JobStatus.PAUSED, this.pausedStrategy as JobStateStrategy],
       [JobStatus.CLOSED, this.closedStrategy],

@@ -15,8 +15,7 @@ export class OAuthController {
   @UseGuards(AuthGuard('google'))
   @ApiOperation({ summary: 'Initiate Google OAuth login' })
   @ApiResponse({ status: 302, description: 'Redirect to Google OAuth' })
-  async googleAuth(@Req() req) {
-  }
+  async googleAuth(@Req() req) {}
 
   @Public()
   @Get('google/callback')
@@ -90,8 +89,7 @@ export class OAuthController {
   @UseGuards(AuthGuard('linkedin'))
   @ApiOperation({ summary: 'Initiate LinkedIn OAuth login' })
   @ApiResponse({ status: 302, description: 'Redirect to LinkedIn OAuth' })
-  async linkedinAuth(@Req() req) {
-  }
+  async linkedinAuth(@Req() req) {}
 
   @Public()
   @Get('linkedin/callback')

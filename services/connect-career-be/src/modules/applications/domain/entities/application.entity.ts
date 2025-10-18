@@ -94,6 +94,8 @@ export interface StatusHistory {
   changedBy: string;
   reason?: string;
   notes?: string;
+  stageKey?: string;
+  stageName?: string;
 }
 
 export interface ScreeningAssessment {

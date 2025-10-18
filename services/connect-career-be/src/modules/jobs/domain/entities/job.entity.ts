@@ -21,8 +21,6 @@ export enum JobType {
   OTHER = 'other',
 }
 export enum JobStatus {
-  DRAFT = 'draft',
-  PENDING_APPROVAL = 'pending-approval',
   ACTIVE = 'active',
   PAUSED = 'paused',
   CLOSED = 'closed',
@@ -194,6 +192,9 @@ export class Job {
       url?: string;
     };
   };
+
+  @Column({ type: 'int', nullable: true })
+  applicationsLimit?: number;
 
   @Column({ type: 'timestamp', default: () => 'CURRENT_TIMESTAMP' })
   createdAt: Date;

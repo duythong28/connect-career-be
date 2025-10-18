@@ -12,6 +12,7 @@ import { JobsModule } from './modules/jobs/jobs.module';
 import { AIModule } from './shared/infrastructure/external-services/ai/ai.module';
 import { ApplicationsModule } from './modules/applications/applications.module';
 import { UserModule } from './modules/user/user.module';
+import { HiringPipelineModule } from './modules/hiring-pipeline/hiring-pipeline.module';
 
 @Module({
   imports: [
@@ -42,6 +43,7 @@ import { UserModule } from './modules/user/user.module';
     JobsModule,
     AIModule,
     ApplicationsModule,
+    HiringPipelineModule,
     UserModule,
   ],
   providers: [

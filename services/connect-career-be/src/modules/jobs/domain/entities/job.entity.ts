@@ -22,8 +22,10 @@ export enum JobType {
 }
 export enum JobStatus {
   ACTIVE = 'active',
+  PAUSED = 'paused',
   CLOSED = 'closed',
-  DRAFT = 'draft',
+  EXPIRED = 'expired',
+  CANCELLED = 'cancelled',
   ARCHIVED = 'archived',
 }
 
@@ -190,6 +192,9 @@ export class Job {
       url?: string;
     };
   };
+
+  @Column({ type: 'int', nullable: true })
+  applicationsLimit?: number;
 
   @Column({ type: 'timestamp', default: () => 'CURRENT_TIMESTAMP' })
   createdAt: Date;

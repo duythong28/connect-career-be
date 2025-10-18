@@ -13,6 +13,13 @@ import { SavedJobService } from './api/services/saved-job.service';
 import { Application } from '../applications/domain/entities/application.entity';
 import { JobCandidateController } from './api/controllers/job.candidate.controller';
 import { JobOrganizationController } from './api/controllers/job.organization.controller';
+import { JobStateMachineFactory } from './domain/state-machine/job-state-machine.factory';
+import { ActiveStateStrategy } from './domain/state-machine/strategies/active-state.strategy';
+import { PausedStateStrategy } from './domain/state-machine/strategies/paused-state.strategy';
+import { ClosedStateStrategy } from './domain/state-machine/strategies/closed-state.strategy';
+import { ExpiredStateStrategy } from './domain/state-machine/strategies/expired-state.strategy';
+import { CancelledStateStrategy } from './domain/state-machine/strategies/cancelled-state.strategy';
+import { ArchivedStateStrategy } from './domain/state-machine/strategies/archived-state.strategy';
 
 @Module({
   imports: [
@@ -29,7 +36,23 @@ import { JobOrganizationController } from './api/controllers/job.organization.co
     ]),
   ],
   controllers: [JobCandidateController, JobOrganizationController],
-  providers: [JobService, SavedJobService, LinkedInJobsSeeder],
-  exports: [JobService, SavedJobService, LinkedInJobsSeeder],
+  providers: [
+    JobService,
+    SavedJobService,
+    LinkedInJobsSeeder,
+    JobStateMachineFactory,
+    ActiveStateStrategy,
+    PausedStateStrategy,
+    ClosedStateStrategy,
+    ExpiredStateStrategy,
+    CancelledStateStrategy,
+    ArchivedStateStrategy,
+  ],
+  exports: [
+    JobService,
+    SavedJobService,
+    LinkedInJobsSeeder,
+    JobStateMachineFactory,
+  ],
 })
 export class JobsModule {}

@@ -98,15 +98,29 @@ export class Interview {
 
   @Column({ type: 'jsonb', nullable: true })
   feedback?: {
-    rating: number;
-    strengths: string[];
-    weaknesses: string[];
-    recommendation:
+    templateId?: string;
+    templateVersion?: number;
+
+    entries: Array<{
+      key: string;
+      value: number | boolean | string | string[];
+      comment?: string;
+    }>;
+
+    computed?: {
+      overallScore?: number;
+      sectionScores?: Record<string, number>;
+    };
+
+    rating?: number;
+    strengths?: string[];
+    weaknesses?: string[];
+    recommendation?:
       | 'strongly_recommend'
       | 'recommend'
       | 'neutral'
       | 'not_recommend';
-    comments: string;
+    comments?: string;
   };
 
   @Column({ type: 'timestamp', nullable: true })

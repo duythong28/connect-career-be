@@ -56,6 +56,8 @@ import { DefaultRolesSeeder } from './infrastructure/seeders/default-roles.seede
 import { NotificationsModule } from '../notifications/notifications.module';
 import { CqrsModule } from '@nestjs/cqrs';
 import { UserSeeder } from './infrastructure/seeders/user.seeder';
+import { LinkedInStrategy } from './infrastructure/strategies/linkedin.strategy';
+import { GitHubStrategy } from './infrastructure/strategies/github.strategy';
 
 // Repository interfaces
 
@@ -114,6 +116,8 @@ import { UserSeeder } from './infrastructure/seeders/user.seeder';
     JwtStrategy,
     LocalStrategy,
     GoogleStrategy,
+    GitHubStrategy,
+    LinkedInStrategy,
 
     // Guards
     JwtAuthGuard,

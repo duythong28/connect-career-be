@@ -49,7 +49,6 @@ export class UpdateUserDto {
   avatarUrl?: string;
 }
 
-
 export class UserProfileDto {
   @ApiProperty({ description: 'User ID' })
   id: string;

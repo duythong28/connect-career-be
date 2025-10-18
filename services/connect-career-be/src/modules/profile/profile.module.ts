@@ -22,6 +22,15 @@ import { Publication } from './domain/entities/publication.entity';
 import { User } from '../identity/domain/entities';
 import { CandidateProfileController } from './api/controllers/candidate.profile.controller';
 import { CandidateProfileService } from './api/services/candidate.profile.service';
+import { OrganizationRBACController } from './api/controllers/organization-rbac.controller';
+import { OrganizationRBACService } from './api/services/organization-rbac.service';
+import {
+  OrganizationInvitation,
+  OrganizationMembership,
+  OrganizationPermission,
+  OrganizationRole,
+} from './domain/entities/organization-memberships.entity';
+import { OrganizationRBACMigrationService } from './infrastructure/organization-rbac-migration.service';
 
 @Module({
   imports: [
@@ -39,9 +48,17 @@ import { CandidateProfileService } from './api/services/candidate.profile.servic
       Certification,
       Award,
       Publication,
+      OrganizationMembership,
+      OrganizationRole,
+      OrganizationPermission,
+      OrganizationInvitation,
     ]),
   ],
-  controllers: [OrganizationController, CandidateProfileController],
+  controllers: [
+    OrganizationController,
+    CandidateProfileController,
+    OrganizationRBACController,
+  ],
   providers: [
     OrganizationRepository,
     OrganizationService,
@@ -49,6 +66,8 @@ import { CandidateProfileService } from './api/services/candidate.profile.servic
     IndustrySeeder,
     LinkedInCompanySeeder,
     LinkedInPeopleSeeder,
+    OrganizationRBACService,
+    OrganizationRBACMigrationService,
   ],
   exports: [
     OrganizationService,

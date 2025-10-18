@@ -14,6 +14,13 @@ import {
   UpdateDateColumn,
 } from 'typeorm';
 import { Industry } from './industry.entity';
+import {
+  InvitationStatus,
+  MembershipStatus,
+  OrganizationInvitation,
+  OrganizationMembership,
+  OrganizationRole,
+} from './organization-memberships.entity';
 
 export enum OrganizationType {
   CORPORATION = 'corporation',
@@ -306,6 +313,21 @@ export class Organization {
   })
   locations: OrganizationLocation[];
 
+  @OneToMany(
+    () => OrganizationMembership,
+    (membership) => membership.organization,
+  )
+  memberships: OrganizationMembership[];
+
+  @OneToMany(() => OrganizationRole, (role) => role.organization)
+  roles: OrganizationRole[];
+
+  @OneToMany(
+    () => OrganizationInvitation,
+    (invitation) => invitation.organization,
+  )
+  invitations: OrganizationInvitation[];
+
   @CreateDateColumn({ type: 'timestamptz' })
   createdAt: Date;
 
@@ -331,6 +353,20 @@ export class Organization {
 
   unverify(): void {
     this.isVerified = false;
+  }
+
+  getMembers(): OrganizationMembership[] {
+    return (
+      this.memberships?.filter((m) => m.status === MembershipStatus.ACTIVE) ||
+      []
+    );
+  }
+
+  getActiveInvitations(): OrganizationInvitation[] {
+    return (
+      this.invitations?.filter((i) => i.status === InvitationStatus.PENDING) ||
+      []
+    );
   }
 }
 

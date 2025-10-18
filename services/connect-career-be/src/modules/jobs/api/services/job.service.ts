@@ -8,13 +8,17 @@ import { CreateJobDto } from '../dtos/create-job.dto';
 import { User } from 'src/modules/identity/domain/entities';
 import { Organization } from 'src/modules/profile/domain/entities/organization.entity';
 import { PaginationDto } from 'src/shared/kernel';
+import { JobStateMachineFactory } from '../../domain/state-machine/job-state-machine.factory';
+import { JobTransitionContext } from './job-state-machine.interface';
 
 @Injectable()
 export class JobService {
   constructor(
     @InjectRepository(Job) private readonly jobRepository: Repository<Job>,
     @InjectRepository(User) private readonly userRepository: Repository<User>,
-    @InjectRepository(Organization) private readonly organizationRepository: Repository<Organization>,
+    @InjectRepository(Organization)
+    private readonly organizationRepository: Repository<Organization>,
+    private readonly stateMachineFactory: JobStateMachineFactory,
   ) {}
 
   async searchJobs(searchJobs: JobSearchDto): Promise<PaginatedResult<Job>> {
@@ -41,6 +45,8 @@ export class JobService {
     const queryBuilder = this.jobRepository
       .createQueryBuilder('job')
       .leftJoinAndSelect('job.organization', 'organization')
+      .leftJoinAndSelect('organization.logoFile', 'logoFile')
+      .leftJoinAndSelect('organization.industry', 'industry')
       .leftJoinAndSelect('job.user', 'user');
     queryBuilder.where('job.status = :status', { status });
 
@@ -158,14 +164,13 @@ export class JobService {
   async getJobById(id: string): Promise<Job> {
     const job = await this.jobRepository.findOne({
       where: { id },
-      relations: ['organization', 'user'],
+      relations: ['organization', 'user', 'organization.logoFile', 'organization.industry'],
     });
 
     if (!job) {
       throw new NotFoundException(`Job with ID ${id} not found`);
     }
 
-    // Increment views count
     await this.incrementViews(id);
 
     return job;
@@ -174,7 +179,7 @@ export class JobService {
   async getJobsByOrganization(organizationId: string): Promise<Job[]> {
     return this.jobRepository.find({
       where: { organizationId },
-      relations: ['organization', 'user'],
+      relations: ['organization', 'user', 'organization.logoFile', 'organization.industry'],
       order: { postedDate: 'DESC' },
     });
   }
@@ -182,7 +187,7 @@ export class JobService {
   async getJobsByUserId(userId: string): Promise<Job[]> {
     return this.jobRepository.find({
       where: { userId },
-      relations: ['organization'],
+      relations: ['organization', 'organization.logoFile', 'organization.industry'],
       order: { postedDate: 'DESC' },
     });
   }
@@ -192,7 +197,7 @@ export class JobService {
   }
 
   async incrementApplications(jobId: string): Promise<void> {
-    const job = await this.jobRepository.findOne({ where: { id: jobId } });
+    const job = await this.jobRepository.findOne({ where: { id: jobId }, relations: ['organization', 'organization.logoFile', 'organization.industry'] });
 
     if (!job) {
       throw new NotFoundException(`Job with ID ${jobId} not found`);
@@ -313,9 +318,6 @@ export class JobService {
 
     // Add secondary similarity factors
     queryBuilder
-      .orWhere('job.companyName = :companyName', {
-        companyName: job.companyName,
-      })
       .orWhere('job.location ILIKE :location', {
         location: `%${job.location}%`,
       })
@@ -328,7 +330,7 @@ export class JobService {
   async getLatestJobs(limit: number = 10): Promise<Job[]> {
     return this.jobRepository.find({
       where: { status: JobStatus.ACTIVE },
-      relations: ['organization'],
+      relations: ['organization', 'organization.logoFile', 'organization.industry'],
       order: { postedDate: 'DESC' },
       take: limit,
     });
@@ -337,7 +339,7 @@ export class JobService {
   async getFeaturedJobs(limit: number = 10): Promise<Job[]> {
     return this.jobRepository.find({
       where: { status: JobStatus.ACTIVE },
-      relations: ['organization'],
+      relations: ['organization', 'organization.logoFile', 'organization.industry'],
       order: { applications: 'DESC', views: 'DESC' },
       take: limit,
     });
@@ -387,17 +389,18 @@ export class JobService {
     });
   }
 
-  async createJob(
-    userId: string,
-    createJobDto: CreateJobDto
-  ): Promise<Job> {
+  async createJob(userId: string, createJobDto: CreateJobDto): Promise<Job> {
     const user = await this.userRepository.findOne({ where: { id: userId } });
     if (!user) {
       throw new NotFoundException(`User with ID ${userId} not found`);
     }
-    const organization = await this.organizationRepository.findOne({ where: { userId} });
+    const organization = await this.organizationRepository.findOne({
+      where: { userId },
+    });
     if (!organization) {
-      throw new NotFoundException(`Organization with User ID ${userId} not found`);
+      throw new NotFoundException(
+        `Organization with User ID ${userId} not found`,
+      );
     }
     const jobDataForCreate: Partial<Job> = {
       ...createJobDto,
@@ -408,7 +411,6 @@ export class JobService {
 
     const job = this.jobRepository.create(jobDataForCreate);
     return await this.jobRepository.save(job);
-
   }
 
   async updateJob(
@@ -419,29 +421,36 @@ export class JobService {
     const job = await this.jobRepository.findOne({
       where: { id, userId },
     });
-  
+
     if (!job) {
-      throw new Error('Job not found or you do not have permission to update it');
+      throw new Error(
+        'Job not found or you do not have permission to update it',
+      );
     }
     Object.assign(job, updateJobDto);
-    
-    if (updateJobDto.status === JobStatus.ACTIVE && job.status !== JobStatus.ACTIVE) {
+
+    if (
+      updateJobDto.status === JobStatus.ACTIVE &&
+      job.status !== JobStatus.ACTIVE
+    ) {
       job.postedDate = new Date();
     }
     return await this.jobRepository.save(job);
   }
-  
+
   async deleteJob(id: string, userId: string): Promise<void> {
     const job = await this.jobRepository.findOne({
       where: { id, userId },
     });
-  
+
     if (!job) {
-      throw new Error('Job not found or you do not have permission to delete it');
+      throw new Error(
+        'Job not found or you do not have permission to delete it',
+      );
     }
     await this.jobRepository.remove(job);
   }
-  
+
   async updateJobStatus(
     id: string,
     userId: string,
@@ -451,10 +460,12 @@ export class JobService {
       where: { id, userId },
     });
     if (!job) {
-      throw new Error('Job not found or you do not have permission to update it');
+      throw new Error(
+        'Job not found or you do not have permission to update it',
+      );
     }
     job.status = status;
-        if (status === JobStatus.ACTIVE && job.status !== JobStatus.ACTIVE) {
+    if (status === JobStatus.ACTIVE && job.status !== JobStatus.ACTIVE) {
       job.postedDate = new Date();
     }
     return await this.jobRepository.save(job);
@@ -470,16 +481,112 @@ export class JobService {
     if (!user) {
       throw new NotFoundException(`User with ID ${userId} not found`);
     }
-    const organization = await this.organizationRepository.findOne({ where: { userId } });
+    const organization = await this.organizationRepository.findOne({
+      where: { userId },
+    });
     if (!organization) {
-      throw new NotFoundException(`Organization with User ID ${userId} not found`);
+      throw new NotFoundException(
+        `Organization with User ID ${userId} not found`,
+      );
     }
     const [jobs, total] = await this.jobRepository.findAndCount({
       where: { organizationId: organization.id, userId},
+      relations: ['organization', 'organization.logoFile', 'organization.industry'],
       skip,
       take: pageSize,
       order: { createdAt: 'DESC' },
     });
-    return { data: jobs, total, page: pageNumber, limit: pageSize, totalPages: Math.ceil(total / pageSize) };
+    return {
+      data: jobs,
+      total,
+      page: pageNumber,
+      limit: pageSize,
+      totalPages: Math.ceil(total / pageSize),
+    };
+  }
+
+  async updateJobStatusWithContextByStateMachine(
+    id: string,
+    userId: string,
+    newStatus: JobStatus,
+    context?: JobTransitionContext,
+  ): Promise<Job> {
+    const job = await this.jobRepository.findOne({ where: { id, userId } });
+    if (!job) {
+      throw new Error(
+        'Job not found or you do not have permission to update it',
+      );
+    }
+
+    const stateMachine = this.stateMachineFactory.createStateMachine(job);
+    const transitionContext: JobTransitionContext = {
+      userId,
+      ...context,
+    };
+    await stateMachine.transitionTo(newStatus, transitionContext);
+    return await this.jobRepository.save(job);
+  }
+
+  async getJobStateInfo(
+    id: string,
+    userId: string,
+  ): Promise<{
+    currentState: JobStatus;
+    availableTransitions: JobStatus[];
+    canTransitionTo: (targetState: JobStatus) => boolean;
+  }> {
+    const job = await this.jobRepository.findOne({ where: { id, userId } });
+    if (!job) {
+      throw new Error(
+        'Job not found or you do not have permission to update it',
+      );
+    }
+    const stateMachine = this.stateMachineFactory.createStateMachine(job);
+    return {
+      currentState: stateMachine.getCurrentState(),
+      availableTransitions: stateMachine.getAvailableTransitions(),
+      canTransitionTo: (targetState: JobStatus) =>
+        stateMachine.canTransitionTo(targetState),
+    };
+  }
+
+  async pauseJob(id: string, userId: string, reason?: string): Promise<Job> {
+    return this.updateJobStatusWithContextByStateMachine(
+      id,
+      userId,
+      JobStatus.PAUSED,
+      {
+        reason,
+        userId: userId,
+      },
+    );
+  }
+
+  async resumeJob(id: string, userId: string): Promise<Job> {
+    return this.updateJobStatusWithContextByStateMachine(
+      id,
+      userId,
+      JobStatus.ACTIVE,
+    );
+  }
+
+  async cancelJob(id: string, userId: string, reason: string): Promise<Job> {
+    return this.updateJobStatusWithContextByStateMachine(
+      id,
+      userId,
+      JobStatus.CANCELLED,
+      {
+        reason,
+        userId: userId,
+      },
+    );
+  }
+
+  async archiveJob(id: string, userId: string): Promise<Job> {
+    return this.updateJobStatusWithContextByStateMachine(
+      id,
+      userId,
+      JobStatus.ARCHIVED,
+    );
   }
 }

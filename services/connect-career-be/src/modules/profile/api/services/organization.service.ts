@@ -12,12 +12,18 @@ import {
   OrganizationQueryDto,
   OrganizationSearchDto,
 } from '../dtos/organization-query.dto';
-import { FindOptionsWhere } from 'typeorm';
+import { FindOptionsWhere, Repository } from 'typeorm';
+import { OrganizationRBACService } from './organization-rbac.service';
+import { InjectRepository } from '@nestjs/typeorm';
+import { OrganizationRole } from '../../domain/entities/organization-memberships.entity';
 
 @Injectable()
 export class OrganizationService {
   constructor(
     private readonly organizationRepository: organizationEntity.OrganizationRepository,
+    @InjectRepository(OrganizationRole)
+    private readonly roleRepository: Repository<OrganizationRole>,
+    private readonly organizationRBACService: OrganizationRBACService,
   ) {}
 
   async createOrganization(
@@ -35,13 +41,32 @@ export class OrganizationService {
       isPublic: false,
       isVerified: false,
     };
-    return this.organizationRepository.create(organizationData);
+
+    const organization =
+      await this.organizationRepository.create(organizationData);
+    const ownerRole = await this.roleRepository.findOne({
+      where: { name: 'owner', organizationId: organization.id },
+    });
+    if (ownerRole) {
+      await this.organizationRBACService.addMemberToOrganization(
+        organization.id,
+        userId,
+        ownerRole.id,
+        userId,
+      );
+    }
+    return organization;
   }
 
   async updateOrganizationById(
+    userId: string,
     id: string,
     dto: UpdateOrganizationDto,
   ): Promise<Organization> {
+    // const existingOrganization = await this.organizationRepository.findByUserId(userId);
+    // if (!existingOrganization) {
+    //   throw new NotFoundException('Organization not found');
+    // }
     const organization = await this.organizationRepository.findById(id);
     if (!organization) {
       throw new NotFoundException('Organization not found');

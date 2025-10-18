@@ -9,6 +9,7 @@ import {
 } from 'typeorm';
 import { JobPosting } from '../../infrastructure/types/job_linkedin.types';
 import { User } from 'src/modules/identity/domain/entities';
+import { HiringPipeline } from 'src/modules/hiring-pipeline/domain/entities/hiring-pipeline.entity';
 
 export enum JobType {
   FULL_TIME = 'full_time',
@@ -22,8 +23,10 @@ export enum JobType {
 }
 export enum JobStatus {
   ACTIVE = 'active',
+  PAUSED = 'paused',
   CLOSED = 'closed',
-  DRAFT = 'draft',
+  EXPIRED = 'expired',
+  CANCELLED = 'cancelled',
   ARCHIVED = 'archived',
 }
 
@@ -38,9 +41,9 @@ export enum JobSeniorityLevel {
 }
 
 export enum JobSource {
-  INTERNAL = 'internal', // Created by employers in the system
-  LINKEDIN = 'linkedin', // Imported from LinkedIn
-  EXTERNAL = 'external', // Other external sources
+  INTERNAL = 'internal',
+  LINKEDIN = 'linkedin',
+  EXTERNAL = 'external',
 }
 @Entity('jobs')
 export class Job {
@@ -190,6 +193,16 @@ export class Job {
       url?: string;
     };
   };
+  
+  @ManyToOne(() => HiringPipeline, (pipeline) => pipeline.jobs, { nullable: true })
+  @JoinColumn({ name: 'hiringPipelineId' })
+  hiringPipeline: HiringPipeline;
+
+  @Column('uuid', { nullable: true })
+  hiringPipelineId?: string;
+  
+  @Column({ type: 'int', nullable: true })
+  applicationsLimit?: number;
 
   @Column({ type: 'timestamp', default: () => 'CURRENT_TIMESTAMP' })
   createdAt: Date;

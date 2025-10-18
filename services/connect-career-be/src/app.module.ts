@@ -14,6 +14,7 @@ import { RolesGuard } from './modules/identity/api/guards/roles.guard';
 import { PermissionsGuard } from './modules/identity/api/guards/permissions.guard';
 import { ApplicationsModule } from './modules/applications/applications.module';
 import { UserModule } from './modules/user/user.module';
+import { HiringPipelineModule } from './modules/hiring-pipeline/hiring-pipeline.module';
 
 @Module({
   imports: [
@@ -44,7 +45,8 @@ import { UserModule } from './modules/user/user.module';
     JobsModule,
     AIModule,
     ApplicationsModule,
-    UserModule
+    HiringPipelineModule,
+    UserModule,
   ],
   providers: [
     {

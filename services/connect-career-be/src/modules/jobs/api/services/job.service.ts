@@ -164,7 +164,12 @@ export class JobService {
   async getJobById(id: string): Promise<Job> {
     const job = await this.jobRepository.findOne({
       where: { id },
-      relations: ['organization', 'user', 'organization.logoFile', 'organization.industry'],
+      relations: [
+        'organization',
+        'user',
+        'organization.logoFile',
+        'organization.industry',
+      ],
     });
 
     if (!job) {
@@ -179,7 +184,12 @@ export class JobService {
   async getJobsByOrganization(organizationId: string): Promise<Job[]> {
     return this.jobRepository.find({
       where: { organizationId },
-      relations: ['organization', 'user', 'organization.logoFile', 'organization.industry'],
+      relations: [
+        'organization',
+        'user',
+        'organization.logoFile',
+        'organization.industry',
+      ],
       order: { postedDate: 'DESC' },
     });
   }
@@ -187,7 +197,11 @@ export class JobService {
   async getJobsByUserId(userId: string): Promise<Job[]> {
     return this.jobRepository.find({
       where: { userId },
-      relations: ['organization', 'organization.logoFile', 'organization.industry'],
+      relations: [
+        'organization',
+        'organization.logoFile',
+        'organization.industry',
+      ],
       order: { postedDate: 'DESC' },
     });
   }
@@ -197,7 +211,14 @@ export class JobService {
   }
 
   async incrementApplications(jobId: string): Promise<void> {
-    const job = await this.jobRepository.findOne({ where: { id: jobId }, relations: ['organization', 'organization.logoFile', 'organization.industry'] });
+    const job = await this.jobRepository.findOne({
+      where: { id: jobId },
+      relations: [
+        'organization',
+        'organization.logoFile',
+        'organization.industry',
+      ],
+    });
 
     if (!job) {
       throw new NotFoundException(`Job with ID ${jobId} not found`);
@@ -330,7 +351,11 @@ export class JobService {
   async getLatestJobs(limit: number = 10): Promise<Job[]> {
     return this.jobRepository.find({
       where: { status: JobStatus.ACTIVE },
-      relations: ['organization', 'organization.logoFile', 'organization.industry'],
+      relations: [
+        'organization',
+        'organization.logoFile',
+        'organization.industry',
+      ],
       order: { postedDate: 'DESC' },
       take: limit,
     });
@@ -339,7 +364,11 @@ export class JobService {
   async getFeaturedJobs(limit: number = 10): Promise<Job[]> {
     return this.jobRepository.find({
       where: { status: JobStatus.ACTIVE },
-      relations: ['organization', 'organization.logoFile', 'organization.industry'],
+      relations: [
+        'organization',
+        'organization.logoFile',
+        'organization.industry',
+      ],
       order: { applications: 'DESC', views: 'DESC' },
       take: limit,
     });
@@ -490,8 +519,12 @@ export class JobService {
       );
     }
     const [jobs, total] = await this.jobRepository.findAndCount({
-      where: { organizationId: organization.id, userId},
-      relations: ['organization', 'organization.logoFile', 'organization.industry'],
+      where: { organizationId: organization.id, userId },
+      relations: [
+        'organization',
+        'organization.logoFile',
+        'organization.industry',
+      ],
       skip,
       take: pageSize,
       order: { createdAt: 'DESC' },

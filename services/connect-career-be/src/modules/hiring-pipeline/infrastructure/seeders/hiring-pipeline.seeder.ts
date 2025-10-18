@@ -2,9 +2,18 @@ import { Injectable, Logger } from '@nestjs/common';
 import { InjectRepository } from '@nestjs/typeorm';
 import { Repository } from 'typeorm';
 import { HiringPipeline } from '../../domain/entities/hiring-pipeline.entity';
-import { PipelineStage, PipelineStageType } from '../../domain/entities/pipeline-stage.entity';
+import {
+  PipelineStage,
+  PipelineStageType,
+} from '../../domain/entities/pipeline-stage.entity';
 import { PipelineTransition } from '../../domain/entities/pipeline-transition.entity';
-import { Job, JobSeniorityLevel, JobSource, JobStatus, JobType } from 'src/modules/jobs/domain/entities/job.entity';
+import {
+  Job,
+  JobSeniorityLevel,
+  JobSource,
+  JobStatus,
+  JobType,
+} from 'src/modules/jobs/domain/entities/job.entity';
 import { Organization } from 'src/modules/profile/domain/entities/organization.entity';
 
 @Injectable()
@@ -46,7 +55,10 @@ export class HiringPipelineSeeder {
     }
   }
 
-  private async createSampleData(): Promise<{ organization: Organization | null; job: Job | null }> {
+  private async createSampleData(): Promise<{
+    organization: Organization | null;
+    job: Job | null;
+  }> {
     // Create or find a sample organization
     const organization = await this.organizationRepository.findOne({
       where: { name: 'Cloud Thinker' },
@@ -54,9 +66,9 @@ export class HiringPipelineSeeder {
 
     // Create or find a sample job
     let job = await this.jobRepository.findOne({
-      where: { 
+      where: {
         title: 'Senior Backend Engineer',
-        organizationId: organization?.id 
+        organizationId: organization?.id,
       },
     });
 
@@ -66,8 +78,10 @@ export class HiringPipelineSeeder {
         organizationId: organization?.id,
         userId: organization?.userId,
         location: 'San Francisco, CA (Remote)',
-        description: 'We are looking for a Senior Backend Engineer to join our team and help build scalable, high-performance systems.',
-        summary: 'Senior Backend Engineer position with focus on system design and architecture',
+        description:
+          'We are looking for a Senior Backend Engineer to join our team and help build scalable, high-performance systems.',
+        summary:
+          'Senior Backend Engineer position with focus on system design and architecture',
         type: JobType.FULL_TIME,
         seniorityLevel: JobSeniorityLevel.MID_SENIOR,
         jobFunction: 'Engineering',
@@ -94,13 +108,16 @@ export class HiringPipelineSeeder {
     return { organization, job };
   }
 
-  private async createSeniorBackendEngineerPipeline(organizationId: string): Promise<void> {    
+  private async createSeniorBackendEngineerPipeline(
+    organizationId: string,
+  ): Promise<void> {
     // Create the pipeline
     const pipeline = this.pipelineRepository.create({
       organizationId: organizationId,
       name: 'Senior Backend Engineer Pipeline',
       active: true,
-      description: 'Standard pipeline for Senior Backend Engineer (L5+). Focuses on system design, leadership, and deep technical expertise.',
+      description:
+        'Standard pipeline for Senior Backend Engineer (L5+). Focuses on system design, leadership, and deep technical expertise.',
     });
 
     await this.pipelineRepository.save(pipeline);
@@ -285,12 +302,15 @@ export class HiringPipelineSeeder {
     this.logger.log('Created pipeline transitions');
   }
 
-  private async createFrontendEngineerPipeline(organizationId: string): Promise<void> {
+  private async createFrontendEngineerPipeline(
+    organizationId: string,
+  ): Promise<void> {
     const pipeline = this.pipelineRepository.create({
       organizationId: organizationId,
       name: 'Frontend Engineer Pipeline',
       active: true,
-      description: 'Pipeline for Frontend Engineers focusing on React, TypeScript, and user experience.',
+      description:
+        'Pipeline for Frontend Engineers focusing on React, TypeScript, and user experience.',
     });
 
     await this.pipelineRepository.save(pipeline);
@@ -443,12 +463,15 @@ export class HiringPipelineSeeder {
     this.logger.log('Created Frontend Engineer pipeline');
   }
 
-  private async createProductManagerPipeline(organizationId: string): Promise<void> {
+  private async createProductManagerPipeline(
+    organizationId: string,
+  ): Promise<void> {
     const pipeline = this.pipelineRepository.create({
       organizationId: organizationId,
       name: 'Product Manager Pipeline',
       active: true,
-      description: 'Pipeline for Product Managers focusing on strategy, user research, and cross-functional collaboration.',
+      description:
+        'Pipeline for Product Managers focusing on strategy, user research, and cross-functional collaboration.',
     });
 
     await this.pipelineRepository.save(pipeline);
@@ -623,12 +646,15 @@ export class HiringPipelineSeeder {
     this.logger.log('Created Product Manager pipeline');
   }
 
-  private async createDataScientistPipeline(organizationId: string): Promise<void> {
+  private async createDataScientistPipeline(
+    organizationId: string,
+  ): Promise<void> {
     const pipeline = this.pipelineRepository.create({
       organizationId: organizationId,
       name: 'Data Scientist Pipeline',
       active: true,
-      description: 'Pipeline for Data Scientists focusing on machine learning, statistics, and data analysis.',
+      description:
+        'Pipeline for Data Scientists focusing on machine learning, statistics, and data analysis.',
     });
 
     await this.pipelineRepository.save(pipeline);

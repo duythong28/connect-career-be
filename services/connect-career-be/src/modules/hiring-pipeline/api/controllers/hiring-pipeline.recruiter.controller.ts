@@ -67,8 +67,18 @@ export class HiringPipelineRecruiterController {
   @Get()
   @ApiOperation({ summary: 'Get all hiring pipelines for organization' })
   @ApiQuery({ name: 'organizationId', required: true, type: String })
-  @ApiQuery({ name: 'page', required: false, type: Number, description: 'Page number' })
-  @ApiQuery({ name: 'limit', required: false, type: Number, description: 'Items per page' })
+  @ApiQuery({
+    name: 'page',
+    required: false,
+    type: Number,
+    description: 'Page number',
+  })
+  @ApiQuery({
+    name: 'limit',
+    required: false,
+    type: Number,
+    description: 'Items per page',
+  })
   @ApiResponse({ status: 200, description: 'Pipelines retrieved successfully' })
   async findAllPipelines(
     @Query('organizationId') organizationId: string,
@@ -81,7 +91,7 @@ export class HiringPipelineRecruiterController {
       limit ? Number(limit) : 10,
     );
   }
-  
+
   @Get('active')
   @ApiOperation({ summary: 'Get all active hiring pipelines for organization' })
   @ApiQuery({ name: 'organizationId', required: true, type: String })
@@ -92,8 +102,10 @@ export class HiringPipelineRecruiterController {
   async findActivePipelines(
     @Query('organizationId') organizationId: string,
   ): Promise<HiringPipeline[]> {
-    return this.hiringPipelineRecruiterService.findActivePipelines(organizationId);
-  }  
+    return this.hiringPipelineRecruiterService.findActivePipelines(
+      organizationId,
+    );
+  }
 
   @Get(':id')
   @ApiOperation({ summary: 'Get hiring pipeline by ID' })
@@ -353,7 +365,9 @@ export class HiringPipelineRecruiterController {
     type: HiringPipeline,
   })
   @ApiResponse({ status: 404, description: 'Pipeline not found for this job' })
-  async getPipelineByJobId(@Param('jobId') jobId: string): Promise<HiringPipeline | null> {
+  async getPipelineByJobId(
+    @Param('jobId') jobId: string,
+  ): Promise<HiringPipeline | null> {
     return this.hiringPipelineRecruiterService.findPipelineByJobId(jobId);
   }
 
@@ -381,7 +395,10 @@ export class HiringPipelineRecruiterController {
     @Param('id') id: string,
     @Body() assignDto: AssignJobToPipelineDto,
   ): Promise<HiringPipeline> {
-    return this.hiringPipelineRecruiterService.assignJobToPipeline(id, assignDto);
+    return this.hiringPipelineRecruiterService.assignJobToPipeline(
+      id,
+      assignDto,
+    );
   }
 
   @Post(':id/jobs/remove')
@@ -396,7 +413,9 @@ export class HiringPipelineRecruiterController {
     @Param('id') id: string,
     @Body() removeDto: RemoveJobFromPipelineDto,
   ): Promise<HiringPipeline> {
-    return this.hiringPipelineRecruiterService.removeJobFromPipeline(id, removeDto.jobId);
+    return this.hiringPipelineRecruiterService.removeJobFromPipeline(
+      id,
+      removeDto.jobId,
+    );
   }
-
 }

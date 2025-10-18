@@ -1,7 +1,10 @@
 import { Injectable, NotFoundException } from '@nestjs/common';
 import { InjectRepository } from '@nestjs/typeorm';
 import { Repository } from 'typeorm';
-import { Application, CommunicationLog } from '../../domain/entities/application.entity';
+import {
+  Application,
+  CommunicationLog,
+} from '../../domain/entities/application.entity';
 import { LogCommunicationDto } from '../dtos/communication.dto';
 
 @Injectable()

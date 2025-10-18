@@ -15,6 +15,7 @@ import {
 } from 'typeorm';
 import { Offer } from './offer.entity';
 import { Interview, InterviewStatus } from './interview.entity';
+import { PipelineStage } from 'src/modules/hiring-pipeline/domain/entities/pipeline-stage.entity';
 
 export enum ApplicationStatus {
   LEAD = 'lead',
@@ -145,6 +146,16 @@ export interface WithdrawalDetails {
   feedback?: string;
 }
 
+export interface PipelineStageHistory {
+  stageId: string;
+  stageKey: string;
+  stageName: string;
+  changedAt: Date;
+  changedBy: string;
+  reason?: string;
+  previousStageKey?: string;
+  transitionAction?: string;
+}
 @Entity('applications')
 @Index(['jobId', 'candidateId'], { unique: true })
 @Index(['candidateId', 'status'])
@@ -291,6 +302,17 @@ export class Application {
 
   @Column({ type: 'jsonb', nullable: true })
   withdrawalDetails?: WithdrawalDetails;
+
+  @Column({ type: 'varchar', nullable: true })
+  @Index()
+  currentStageKey?: string;
+
+  @Column({ type: 'varchar', nullable: true })
+  currentStageName?: string;
+
+  // Add pipeline stage history (separate from status history)
+  @Column({ type: 'jsonb', nullable: true })
+  pipelineStageHistory?: PipelineStageHistory[];
 
   @Column({
     type: 'enum',
@@ -572,5 +594,32 @@ export class Application {
       matchingScore: parseFloat(this.matchingScore.toString()),
       feedback: this.feedback,
     };
+  }
+
+  addPipelineStageHistory(
+    newStage: PipelineStage,
+    changedBy: string,
+    reason?: string,
+    actionName?: string,
+  ): void {
+    if (!this.pipelineStageHistory) {
+      this.pipelineStageHistory = [];
+    }
+
+    const currentStageKey = this.currentStageKey;
+
+    this.pipelineStageHistory.push({
+      stageId: newStage.id,
+      stageKey: newStage.key,
+      stageName: newStage.name,
+      changedAt: new Date(),
+      changedBy,
+      reason,
+      previousStageKey: currentStageKey,
+      transitionAction: actionName,
+    });
+
+    this.currentStageKey = newStage.key;
+    this.currentStageName = newStage.name;
   }
 }

@@ -14,17 +14,17 @@ import {
 import { PipelineStageType } from '../../domain/entities/pipeline-stage.entity';
 
 export class CreatePipelineDto {
-  @ApiProperty() 
+  @ApiProperty()
   @IsString()
   name: string;
-  
+
   @ApiProperty()
   @IsUUID()
   organizationId: string;
-  
-  @ApiPropertyOptional() 
-  @IsOptional() 
-  @IsString() 
+
+  @ApiPropertyOptional()
+  @IsOptional()
+  @IsString()
   description?: string;
 
   @ApiPropertyOptional()
@@ -38,10 +38,10 @@ export class UpdatePipelineDto {
   @IsOptional()
   @IsString()
   name?: string;
-  
-  @ApiPropertyOptional() 
-  @IsOptional() 
-  @IsString() 
+
+  @ApiPropertyOptional()
+  @IsOptional()
+  @IsString()
   description?: string;
 
   @ApiPropertyOptional()

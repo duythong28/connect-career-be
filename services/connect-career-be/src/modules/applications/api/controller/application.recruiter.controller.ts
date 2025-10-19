@@ -40,6 +40,7 @@ import {
 } from '../dtos/offer.dto';
 import { LogCommunicationDto } from '../dtos/communication.dto';
 import { JwtAuthGuard } from '../../../identity/api/guards/jwt-auth.guard';
+import * as decorators from 'src/modules/identity/api/decorators';
 
 @ApiTags('Application Management - Recruiter')
 @ApiBearerAuth()
@@ -145,8 +146,9 @@ export class ApplicationRecruiterController {
   async changeApplicationStage(
     @Param('id') id: string,
     @Body() changeDto: ChangeApplicationStageDto,
+    @decorators.CurrentUser() user: decorators.CurrentUserPayload,
   ): Promise<any> {
-    return this.applicationStatusService.changeApplicationStage(id, changeDto);
+    return this.applicationStatusService.changeApplicationStage(id, changeDto, user.sub);
   }
 
   @Get(':id/available-stages')

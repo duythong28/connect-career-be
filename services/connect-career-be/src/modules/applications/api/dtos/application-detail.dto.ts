@@ -111,10 +111,6 @@ export class ChangeApplicationStageDto {
   @IsOptional()
   @IsString()
   notes?: string;
-
-  @ApiProperty()
-  @IsString()
-  changedBy: string;
 }
 
 export class UpdateApplicationNotesDto {

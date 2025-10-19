@@ -28,6 +28,7 @@ export class ApplicationStatusService {
   async changeApplicationStage(
     applicationId: string,
     changeDto: ChangeApplicationStageDto,
+    changedBy: string,
   ): Promise<Application> {
     const application = await this.applicationRepository.findOne({
       where: { id: applicationId },
@@ -40,7 +41,7 @@ export class ApplicationStatusService {
 
     const job = await this.jobRepository.findOne({
       where: { id: application.jobId },
-      relations: ['hiringPipeline'],
+      relations: ['hiringPipeline','hiringPipeline.stages'],
     });
     const pipeline = job?.hiringPipeline;
 
@@ -53,6 +54,7 @@ export class ApplicationStatusService {
     const targetStage = pipeline.stages.find(
       (stage) => stage.key === changeDto.stageKey,
     );
+    console.log(targetStage);
     if (!targetStage) {
       throw new BadRequestException(
         `Stage '${changeDto.stageKey}' not found in the hiring pipeline`,
@@ -63,6 +65,7 @@ export class ApplicationStatusService {
       application,
       pipeline,
     );
+    console.log(currentStage);
 
     // Validate stage transition
     if (currentStage) {
@@ -85,7 +88,7 @@ export class ApplicationStatusService {
     statusHistory.push({
       status: newStatus,
       changedAt: new Date(),
-      changedBy: changeDto.changedBy,
+      changedBy: changedBy,
       reason: changeDto.notes,
       stageKey: targetStage.key,
       stageName: targetStage.name,
@@ -94,7 +97,7 @@ export class ApplicationStatusService {
 
     application.addPipelineStageHistory(
       targetStage,
-      changeDto.changedBy,
+      changedBy,
       changeDto.notes,
     );
     // Update calculated fields
@@ -183,7 +186,6 @@ export class ApplicationStatusService {
     fromStageKey: string,
     toStageKey: string,
   ): Promise<void> {
-    // Check if transition exists in pipeline
     const transition = pipeline.transitions.find(
       (t) => t.fromStageKey === fromStageKey && t.toStageKey === toStageKey,
     );

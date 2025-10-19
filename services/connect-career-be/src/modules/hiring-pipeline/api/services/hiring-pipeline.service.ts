@@ -103,7 +103,7 @@ export class HiringPipelineRecruiterService {
     return this.pipelineRepository.find({
       where: { organizationId, active: true },
       relations: ['jobs', 'stages', 'transitions'],
-      order: { name: 'ASC' },
+      order: { createdAt: 'ASC' },
     });
   }
 
@@ -162,12 +162,13 @@ export class HiringPipelineRecruiterService {
   }
 
   async deletePipeline(id: string): Promise<void> {
-    const pipeline = await this.findPipelineById(id);
-
-    await this.jobRepository.update(
-      { hiringPipelineId: id },
-      { hiringPipelineId: undefined },
-    );
+    await this.findPipelineById(id);
+    await this.jobRepository
+    .createQueryBuilder()
+    .update()
+    .set({ hiringPipelineId: null as unknown as string })
+    .where('hiringPipelineId = :pipelineId', { pipelineId: id })
+    .execute();
 
     await this.stageRepository.delete({ pipelineId: id });
     await this.transitionRepository.delete({ pipelineId: id });

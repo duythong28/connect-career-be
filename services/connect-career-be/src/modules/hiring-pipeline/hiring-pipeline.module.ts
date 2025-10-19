@@ -8,6 +8,7 @@ import { PipelineTransition } from './domain/entities/pipeline-transition.entity
 import { HiringPipelineSeeder } from './infrastructure/seeders/hiring-pipeline.seeder';
 import { Job } from '../jobs/domain/entities/job.entity';
 import { Organization } from '../profile/domain/entities/organization.entity';
+import { HiringPipelineV2RecruiterController } from './api/controllers/hiring-pipeline.v2.recruiter.controller';
 
 @Module({
   imports: [
@@ -19,7 +20,10 @@ import { Organization } from '../profile/domain/entities/organization.entity';
       Job,
     ]),
   ],
-  controllers: [HiringPipelineRecruiterController],
+  controllers: [
+    HiringPipelineRecruiterController,
+    HiringPipelineV2RecruiterController,
+  ],
   providers: [HiringPipelineRecruiterService, HiringPipelineSeeder],
   exports: [HiringPipelineRecruiterService, HiringPipelineSeeder],
 })

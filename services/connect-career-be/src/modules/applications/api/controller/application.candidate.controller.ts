@@ -173,11 +173,11 @@ export class ApplicationCandidateController {
   @Get('jobs/:jobId')
   byJob(
     @Param('jobId', ParseUUIDPipe) jobId: string,
-    @Query('status') status?: ApplicationStatus
+    @Query('status') status?: ApplicationStatus,
   ) {
     const filters: Partial<applicationService.ApplicationSearchFilters> = {
       jobId,
-      status
+      status,
     };
     return this.applicationService.getApplicationsByJob(jobId, filters);
   }

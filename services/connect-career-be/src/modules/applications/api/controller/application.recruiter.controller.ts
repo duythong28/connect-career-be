@@ -148,7 +148,11 @@ export class ApplicationRecruiterController {
     @Body() changeDto: ChangeApplicationStageDto,
     @decorators.CurrentUser() user: decorators.CurrentUserPayload,
   ): Promise<any> {
-    return this.applicationStatusService.changeApplicationStage(id, changeDto, user.sub);
+    return this.applicationStatusService.changeApplicationStage(
+      id,
+      changeDto,
+      user.sub,
+    );
   }
 
   @Get(':id/available-stages')

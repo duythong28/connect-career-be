@@ -21,7 +21,7 @@ import { RequestException } from '../exceptions/request.exception';
 export class GlobalExceptionFilter implements ExceptionFilter {
   private readonly logger = new Logger(GlobalExceptionFilter.name);
   private readonly isProduction = process.env.ENVIRONMENT === 'prod';
-  constructor(private readonly i18n: I18nService) { }
+  constructor(private readonly i18n: I18nService) {}
 
   async catch(exception: unknown, host: ArgumentsHost) {
     const ctx = host.switchToHttp();
@@ -33,7 +33,9 @@ export class GlobalExceptionFilter implements ExceptionFilter {
     const requestPath = request.path;
     const requestMethod = request.method;
 
-    this.logger.error(`Error handling request ${requestId} ${requestMethod} ${requestPath}`);
+    this.logger.error(
+      `Error handling request ${requestId} ${requestMethod} ${requestPath}`,
+    );
     this.logger.error(exception instanceof Error ? exception.stack : exception);
 
     try {
@@ -49,12 +51,14 @@ export class GlobalExceptionFilter implements ExceptionFilter {
         return this.handleRequestException(exception, response);
       }
 
-
       if (exception instanceof HttpException) {
         return this.handleHttpException(exception, response);
       }
 
-      if (exception instanceof TypeORMError || exception instanceof QueryFailedError) {
+      if (
+        exception instanceof TypeORMError ||
+        exception instanceof QueryFailedError
+      ) {
         return this.handleDatabaseException(exception, response);
       }
 
@@ -77,16 +81,19 @@ export class GlobalExceptionFilter implements ExceptionFilter {
    * @param args Optional arguments for the translation
    * @returns The translated message or the original message if translation fails
    */
-  private async translateErrorMessage(key: string, args?: Record<string, any>): Promise<string> {
+  private async translateErrorMessage(
+    key: string,
+    args?: Record<string, any>,
+  ): Promise<string> {
     if (!key || !this.i18n) {
       return args?.message || key || 'Unknown error';
     }
 
     try {
       const keyFormats = [
-        `common.${key}`,                // With common namespace
-        key,                            // Original key
-        key.includes('.') ? key : `common.errors.${key}` // Full path if needed
+        `common.${key}`, // With common namespace
+        key, // Original key
+        key.includes('.') ? key : `common.errors.${key}`, // Full path if needed
       ];
 
       for (const formatKey of keyFormats) {
@@ -94,7 +101,11 @@ export class GlobalExceptionFilter implements ExceptionFilter {
           const translated = await this.i18n.translate(formatKey, { args });
 
           // Check if translation was successful (not returning the key itself)
-          if (translated && translated !== formatKey && typeof translated === 'string') {
+          if (
+            translated &&
+            translated !== formatKey &&
+            typeof translated === 'string'
+          ) {
             return translated;
           }
         } catch {
@@ -105,7 +116,9 @@ export class GlobalExceptionFilter implements ExceptionFilter {
       // If no translation found, return message from args or the original key
       return args?.message || key;
     } catch (error) {
-      this.logger.debug(`Translation error for key "${key}": ${error instanceof Error ? error.message : String(error)}`);
+      this.logger.debug(
+        `Translation error for key "${key}": ${error instanceof Error ? error.message : String(error)}`,
+      );
       return args?.message || key || 'Unknown error';
     }
   }
@@ -113,15 +126,24 @@ export class GlobalExceptionFilter implements ExceptionFilter {
   /**
    * Handle domain exceptions - these are business logic errors from the domain layer
    */
-  private async handleDomainException(exception: DomainException, response: Response) {
+  private async handleDomainException(
+    exception: DomainException,
+    response: Response,
+  ) {
     const errorCode = exception.errorCode;
     const statusCode = errorCode.statusCode || HttpStatus.BAD_REQUEST;
 
     let message: string;
     if (typeof errorCode.code === 'number') {
-      message = await this.translateErrorMessage(`errors.${errorCode.code}`, errorCode);
+      message = await this.translateErrorMessage(
+        `errors.${errorCode.code}`,
+        errorCode,
+      );
     } else {
-      message = await this.translateErrorMessage(`errors.domain.${errorCode.name || errorCode.code}`, errorCode);
+      message = await this.translateErrorMessage(
+        `errors.domain.${errorCode.name || errorCode.code}`,
+        errorCode,
+      );
     }
 
     if (!this.isProduction) {
@@ -134,21 +156,30 @@ export class GlobalExceptionFilter implements ExceptionFilter {
       statusCode,
       code: errorCode.code,
       message,
-      type: 'domain_error'
+      type: 'domain_error',
     };
 
     return response.status(statusCode).json(responseBody);
   }
 
-  private async handleCustomException(exception: CustomException, response: Response) {
+  private async handleCustomException(
+    exception: CustomException,
+    response: Response,
+  ) {
     const errorCode = exception.errorCode;
     const statusCode = errorCode.statusCode || HttpStatus.BAD_REQUEST;
 
     let message: string;
     if (typeof errorCode.code === 'number') {
-      message = await this.translateErrorMessage(`errors.${errorCode.code}`, errorCode);
+      message = await this.translateErrorMessage(
+        `errors.${errorCode.code}`,
+        errorCode,
+      );
     } else {
-      message = await this.translateErrorMessage(`errors.custom.${errorCode.name || errorCode.code}`, errorCode);
+      message = await this.translateErrorMessage(
+        `errors.custom.${errorCode.name || errorCode.code}`,
+        errorCode,
+      );
     }
 
     if (!this.isProduction) {
@@ -161,7 +192,7 @@ export class GlobalExceptionFilter implements ExceptionFilter {
       statusCode,
       code: errorCode.code,
       message,
-      type: 'custom_error'
+      type: 'custom_error',
     };
 
     if (exception instanceof EnrichingDomainException) {
@@ -173,7 +204,10 @@ export class GlobalExceptionFilter implements ExceptionFilter {
     return response.status(statusCode).json(responseBody);
   }
 
-  private async handleHttpException(exception: HttpException, response: Response) {
+  private async handleHttpException(
+    exception: HttpException,
+    response: Response,
+  ) {
     const statusCode = exception.getStatus();
     const responseBody = exception.getResponse();
 
@@ -181,39 +215,56 @@ export class GlobalExceptionFilter implements ExceptionFilter {
       success: false,
       timestamp: new Date().toISOString(),
       statusCode,
-      type: 'http_error'
+      type: 'http_error',
     };
 
     if (typeof responseBody === 'string') {
-      formattedResponse.message = await this.translateErrorMessage(`errors.http.${statusCode}`, {
-        message: responseBody
-      });
+      formattedResponse.message = await this.translateErrorMessage(
+        `errors.http.${statusCode}`,
+        {
+          message: responseBody,
+        },
+      );
 
       if (!this.isProduction) {
-        this.logger.debug(`HTTP exception: ${statusCode} - ${formattedResponse.message}`);
+        this.logger.debug(
+          `HTTP exception: ${statusCode} - ${formattedResponse.message}`,
+        );
       }
     } else if (responseBody && typeof responseBody === 'object') {
-      const { message, error, details, code } = responseBody as Record<string, any>;
+      const { message, error, details, code } = responseBody as Record<
+        string,
+        any
+      >;
 
       if (code) {
         formattedResponse.code = code;
       }
 
       if (Array.isArray(message)) {
-        formattedResponse.message = await this.translateErrorMessage('errors.validation.failed');
+        formattedResponse.message = await this.translateErrorMessage(
+          'errors.validation.failed',
+        );
         formattedResponse.details = message;
 
         if (!this.isProduction) {
-          this.logger.debug(`Validation exception: ${statusCode} - ${formattedResponse.message}`);
+          this.logger.debug(
+            `Validation exception: ${statusCode} - ${formattedResponse.message}`,
+          );
         }
       } else {
         const errorMessage = message || error;
-        formattedResponse.message = await this.translateErrorMessage(`errors.http.${statusCode}`, {
-          message: errorMessage
-        });
+        formattedResponse.message = await this.translateErrorMessage(
+          `errors.http.${statusCode}`,
+          {
+            message: errorMessage,
+          },
+        );
 
         if (!this.isProduction) {
-          this.logger.debug(`HTTP exception: ${statusCode} - ${formattedResponse.message}`);
+          this.logger.debug(
+            `HTTP exception: ${statusCode} - ${formattedResponse.message}`,
+          );
         }
       }
 
@@ -226,7 +277,8 @@ export class GlobalExceptionFilter implements ExceptionFilter {
   }
 
   private async handleDatabaseException(exception: Error, response: Response) {
-    const isUniqueConstraintError = exception.message.includes('unique constraint') ||
+    const isUniqueConstraintError =
+      exception.message.includes('unique constraint') ||
       exception.message.includes('duplicate key');
 
     const messageKey = isUniqueConstraintError
@@ -249,7 +301,8 @@ export class GlobalExceptionFilter implements ExceptionFilter {
 
   private async handleUnknownException(exception: unknown, response: Response) {
     const messageKey = 'errors.unknown';
-    const defaultMessage = exception instanceof Error ? exception.message : 'Unknown error occurred';
+    const defaultMessage =
+      exception instanceof Error ? exception.message : 'Unknown error occurred';
 
     const message = this.isProduction
       ? await this.translateErrorMessage(messageKey)
@@ -260,7 +313,11 @@ export class GlobalExceptionFilter implements ExceptionFilter {
       timestamp: new Date().toISOString(),
       statusCode: HttpStatus.INTERNAL_SERVER_ERROR,
       message: this.isProduction ? 'Internal server error' : message,
-      details: this.isProduction ? undefined : (exception instanceof Error ? exception.stack : undefined),
+      details: this.isProduction
+        ? undefined
+        : exception instanceof Error
+          ? exception.stack
+          : undefined,
     });
   }
 
@@ -270,13 +327,19 @@ export class GlobalExceptionFilter implements ExceptionFilter {
    * @param response The Express Response object
    * @returns The HTTP response
    */
-  private async handleRequestException(exception: RequestException, response: Response) {
+  private async handleRequestException(
+    exception: RequestException,
+    response: Response,
+  ) {
     const errorCode = exception.errorCode;
     const statusCode = errorCode.statusCode || HttpStatus.BAD_REQUEST;
 
     let message: string;
     if (typeof errorCode.code === 'number') {
-      message = await this.translateErrorMessage(`errors.${errorCode.code}`, errorCode);
+      message = await this.translateErrorMessage(
+        `errors.${errorCode.code}`,
+        errorCode,
+      );
     } else {
       message = errorCode.message;
     }
@@ -291,7 +354,7 @@ export class GlobalExceptionFilter implements ExceptionFilter {
       statusCode,
       code: errorCode.code,
       message,
-      type: 'request_error'
+      type: 'request_error',
     };
 
     return response.status(statusCode).json(responseBody);

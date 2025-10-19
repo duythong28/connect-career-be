@@ -17,7 +17,11 @@ export class ObjectResponse<T> extends BaseResponse {
   @ApiProperty({ description: 'Response data' })
   data: T;
 
-  constructor(data: T, statusCode: string = '200', message: string = 'Success') {
+  constructor(
+    data: T,
+    statusCode: string = '200',
+    message: string = 'Success',
+  ) {
     super(statusCode, message);
     this.data = data;
   }
@@ -33,14 +37,17 @@ export class PagingMetadata {
   @ApiProperty({ description: 'Number of items per page', example: 20 })
   pageSize: number;
 
-  @ApiProperty({ description: 'Total number of items across all pages', example: 200 })
+  @ApiProperty({
+    description: 'Total number of items across all pages',
+    example: 200,
+  })
   totalElements: number;
-  
+
   constructor(
     pageNumber: number,
     totalPages: number,
     pageSize: number,
-    totalElements: number
+    totalElements: number,
   ) {
     this.pageNumber = pageNumber;
     this.totalPages = totalPages;
@@ -62,18 +69,18 @@ export class PagedResponse<T> extends BaseResponse {
     pageSize: number,
     totalElements: number,
     statusCode: string = '200',
-    message: string = 'Success'
+    message: string = 'Success',
   ) {
     super(statusCode, message);
-    
+
     this.data = data;
-    
+
     const totalPages = Math.ceil(totalElements / pageSize);
     this.pageable = new PagingMetadata(
       pageNumber,
       totalPages,
       pageSize,
-      totalElements
+      totalElements,
     );
   }
 }

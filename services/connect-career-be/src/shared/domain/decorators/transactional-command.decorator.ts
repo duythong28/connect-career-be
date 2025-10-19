@@ -3,4 +3,5 @@ import { SetMetadata } from '@nestjs/common';
 
 export const TRANSACTIONAL_COMMAND = 'TRANSACTIONAL_COMMAND';
 
-export const TransactionalCommand = () => SetMetadata(TRANSACTIONAL_COMMAND, true);
+export const TransactionalCommand = () =>
+  SetMetadata(TRANSACTIONAL_COMMAND, true);

@@ -21,7 +21,8 @@ import {
   UpdateTransitionDto,
   PipelineValidationResultDto,
   AssignJobToPipelineDto,
-  RemoveJobFromPipelineDto,
+  UpdatePipelineComprehensiveDto,
+  CreatePipelineComprehensiveDto,
 } from '../dtos/hiring-pipeline.dto';
 
 @Injectable()
@@ -495,5 +496,185 @@ export class HiringPipelineRecruiterService {
       valid: issues.length === 0,
       issues,
     };
+  }
+
+  async updatePipelineComprehensive(
+    id: string,
+    updatePipelineDto: UpdatePipelineComprehensiveDto,
+  ): Promise<HiringPipeline | null> {
+    return await this.pipelineRepository.manager.transaction(
+      async (manager) => {
+        const { name, description, active, stages, transitions } =
+          updatePipelineDto;
+
+        const existingPipeline = await manager.findOne(HiringPipeline, {
+          where: { id },
+          relations: ['organization'],
+        });
+        if (!existingPipeline) {
+          throw new NotFoundException('Pipeline not found');
+        }
+
+        if (name || description !== undefined || active !== undefined) {
+          if (name && name !== existingPipeline.name) {
+            const nameConflict = await manager.findOne(HiringPipeline, {
+              where: { name, organizationId: existingPipeline.organizationId },
+            });
+            if (nameConflict) {
+              throw new ConflictException(
+                'Pipeline with this name already exists for this organization',
+              );
+            }
+          }
+
+          await manager.update(HiringPipeline, id, {
+            name,
+            description,
+            active,
+          });
+        }
+
+        if (stages && stages.length > 0) {
+          await manager.delete(PipelineStage, { pipelineId: id });
+
+          for (const stageData of stages) {
+            const stage = manager.create(PipelineStage, {
+              pipelineId: id,
+              key: stageData.key,
+              name: stageData.name,
+              type: stageData.type,
+              order: stageData.order,
+              terminal: stageData.terminal || false,
+            });
+            await manager.save(stage);
+          }
+        }
+
+        if (transitions && transitions.length >= 0) {
+          await manager.delete(PipelineTransition, { pipelineId: id });
+
+          if (transitions.length > 0) {
+            const allStages = await manager.find(PipelineStage, {
+              where: { pipelineId: id },
+            });
+            const existingStageKeys = new Set(allStages.map((s) => s.key));
+
+            for (const transitionData of transitions) {
+              if (!existingStageKeys.has(transitionData.fromStageKey)) {
+                throw new BadRequestException(
+                  `Stage key '${transitionData.fromStageKey}' does not exist`,
+                );
+              }
+              if (!existingStageKeys.has(transitionData.toStageKey)) {
+                throw new BadRequestException(
+                  `Stage key '${transitionData.toStageKey}' does not exist`,
+                );
+              }
+
+              const transition = manager.create(PipelineTransition, {
+                pipelineId: id,
+                fromStageKey: transitionData.fromStageKey,
+                toStageKey: transitionData.toStageKey,
+                actionName: transitionData.actionName,
+                allowedRoles: transitionData.allowedRoles,
+              });
+              await manager.save(transition);
+            }
+          }
+        }
+
+        return manager.findOne(HiringPipeline, {
+          where: { id },
+          relations: ['stages', 'transitions', 'organization'],
+        });
+      },
+    );
+  }
+
+  async createPipelineComprehensive(
+    createPipelineDto: CreatePipelineComprehensiveDto,
+  ): Promise<HiringPipeline | null> {
+    return await this.pipelineRepository.manager.transaction(
+      async (manager) => {
+        const {
+          name,
+          organizationId,
+          description,
+          active,
+          stages,
+          transitions,
+        } = createPipelineDto;
+
+        const organization = await manager.findOne(Organization, {
+          where: { id: organizationId },
+        });
+        if (!organization) {
+          throw new NotFoundException('Organization not found');
+        }
+
+        const existingPipeline = await manager.findOne(HiringPipeline, {
+          where: { name, organizationId },
+        });
+        if (existingPipeline) {
+          throw new ConflictException(
+            'Pipeline with this name already exists for this organization',
+          );
+        }
+
+        const pipeline = manager.create(HiringPipeline, {
+          name,
+          organizationId,
+          description,
+          active: active !== undefined ? active : true,
+        });
+        const savedPipeline = await manager.save(pipeline);
+
+        const createdStages: PipelineStage[] = [];
+        for (const stageData of stages) {
+          const stage = manager.create(PipelineStage, {
+            pipelineId: savedPipeline.id,
+            key: stageData.key,
+            name: stageData.name,
+            type: stageData.type,
+            order: stageData.order,
+            terminal: stageData.terminal || false,
+          });
+          const savedStage = await manager.save(stage);
+          createdStages.push(savedStage);
+        }
+
+        if (transitions && transitions.length > 0) {
+          const existingStageKeys = new Set(createdStages.map((s) => s.key));
+
+          for (const transitionData of transitions) {
+            if (!existingStageKeys.has(transitionData.fromStageKey)) {
+              throw new BadRequestException(
+                `Stage key '${transitionData.fromStageKey}' does not exist`,
+              );
+            }
+            if (!existingStageKeys.has(transitionData.toStageKey)) {
+              throw new BadRequestException(
+                `Stage key '${transitionData.toStageKey}' does not exist`,
+              );
+            }
+
+            const transition = manager.create(PipelineTransition, {
+              pipelineId: savedPipeline.id,
+              fromStageKey: transitionData.fromStageKey,
+              toStageKey: transitionData.toStageKey,
+              actionName: transitionData.actionName,
+              allowedRoles: transitionData.allowedRoles,
+            });
+            await manager.save(transition);
+          }
+        }
+
+        // Return complete pipeline with relations
+        return manager.findOne(HiringPipeline, {
+          where: { id: savedPipeline.id },
+          relations: ['stages', 'transitions', 'organization'],
+        });
+      },
+    );
   }
 }

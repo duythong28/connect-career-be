@@ -41,7 +41,7 @@ export class ApplicationStatusService {
 
     const job = await this.jobRepository.findOne({
       where: { id: application.jobId },
-      relations: ['hiringPipeline','hiringPipeline.stages'],
+      relations: ['hiringPipeline', 'hiringPipeline.stages'],
     });
     const pipeline = job?.hiringPipeline;
 

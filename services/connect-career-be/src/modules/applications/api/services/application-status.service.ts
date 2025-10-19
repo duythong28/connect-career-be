@@ -38,8 +38,6 @@ export class ApplicationStatusService {
       throw new NotFoundException('Application not found');
     }
 
-    // Get the job's active hiring pipeline
-    // eslint-disable-next-line @typescript-eslint/no-unsafe-assignment
     const job = await this.jobRepository.findOne({
       where: { id: application.jobId },
       relations: ['hiringPipeline'],

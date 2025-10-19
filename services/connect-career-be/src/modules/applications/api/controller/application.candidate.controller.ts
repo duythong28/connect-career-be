@@ -173,17 +173,11 @@ export class ApplicationCandidateController {
   @Get('jobs/:jobId')
   byJob(
     @Param('jobId', ParseUUIDPipe) jobId: string,
-    @Query('status') status?: ApplicationStatus,
-    @Query('isShortlisted', ParseBoolPipe) isShortlisted?: boolean,
-    @Query('isFlagged', ParseBoolPipe) isFlagged?: boolean,
-    @Query('minMatchingScore', ParseIntPipe) minMatchingScore?: number,
+    @Query('status') status?: ApplicationStatus
   ) {
     const filters: Partial<applicationService.ApplicationSearchFilters> = {
       jobId,
-      status,
-      isShortlisted,
-      isFlagged,
-      minMatchingScore,
+      status
     };
     return this.applicationService.getApplicationsByJob(jobId, filters);
   }

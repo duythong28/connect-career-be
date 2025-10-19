@@ -19,6 +19,7 @@ import { ApplicationCandidateController } from './api/controller/application.can
 import { ApplicationRecruiterController } from './api/controller/application.recruiter.controller';
 import { JobStatusService } from '../jobs/api/services/job-status.service';
 import { JobsModule } from '../jobs/jobs.module';
+import { ApplicationSeeder } from './infrastructure/seeders/application.seeder';
 
 @Module({
   imports: [
@@ -34,7 +35,7 @@ import { JobsModule } from '../jobs/jobs.module';
       PipelineStage,
       PipelineTransition,
     ]),
-    JobsModule
+    JobsModule,
   ],
   controllers: [ApplicationCandidateController, ApplicationRecruiterController],
   providers: [
@@ -43,7 +44,8 @@ import { JobsModule } from '../jobs/jobs.module';
     InterviewService,
     OfferService,
     CommunicationService,
-    JobStatusService
+    JobStatusService,
+    ApplicationSeeder
   ],
   exports: [
     ApplicationService,

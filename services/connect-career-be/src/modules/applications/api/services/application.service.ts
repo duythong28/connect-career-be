@@ -114,6 +114,7 @@ export class ApplicationService {
 
     const job = await this.jobRepository.findOne({
       where: { id: createDto.jobId },
+      relations: ['hiringPipeline', 'hiringPipeline.stages'],
     });
     if (!job) {
       throw new NotFoundException(`Job with id ${createDto.jobId} not found`);
@@ -146,6 +147,25 @@ export class ApplicationService {
     application.referralSource = createDto.referralSource;
     application.appliedDate = new Date();
 
+    if (job?.hiringPipeline?.stages?.length > 0) {
+      const firstStage = job.hiringPipeline.stages.sort(
+        (a, b) => a.order - b.order,
+      )[0];
+
+      application.currentStageKey = firstStage.key;
+      application.currentStageName = firstStage.name;
+
+      application.pipelineStageHistory = [
+        {
+          stageId: firstStage.id,
+          stageKey: firstStage.key,
+          stageName: firstStage.name,
+          changedAt: new Date(),
+          changedBy: createDto.candidateId || 'system',
+          reason: 'Initial application stage',
+        },
+      ];
+    }
     const candidateProfile = await this.candidateProfileRepository.findOne({
       where: { userId: createDto.candidateId },
     });
@@ -522,7 +542,9 @@ export class ApplicationService {
     });
   }
 
-  async buildCandidateSnapshot(candidateId: string): Promise<CandidateSnapshotDto> {
+  async buildCandidateSnapshot(
+    candidateId: string,
+  ): Promise<CandidateSnapshotDto> {
     const candidate = await this.userRepository.findOne({
       where: { id: candidateId },
     });
@@ -542,7 +564,9 @@ export class ApplicationService {
     };
   }
 
-  async updateCandidateSnapshot(applicationId: string): Promise<Application | null> {
+  async updateCandidateSnapshot(
+    applicationId: string,
+  ): Promise<Application | null> {
     const application = await this.applicationRepository.findOne({
       where: { id: applicationId },
     });
@@ -616,7 +640,10 @@ export class ApplicationService {
     return this.applicationRepository.findOne({ where: { id: applicationId } });
   }
 
-  async addTags(applicationId: string, tags: string[]): Promise<Application | null> {
+  async addTags(
+    applicationId: string,
+    tags: string[],
+  ): Promise<Application | null> {
     const application = await this.applicationRepository.findOne({
       where: { id: applicationId },
     });

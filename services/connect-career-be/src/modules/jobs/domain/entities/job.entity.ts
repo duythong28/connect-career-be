@@ -193,14 +193,16 @@ export class Job {
       url?: string;
     };
   };
-  
-  @ManyToOne(() => HiringPipeline, (pipeline) => pipeline.jobs, { nullable: true })
+
+  @ManyToOne(() => HiringPipeline, (pipeline) => pipeline.jobs, {
+    nullable: true,
+  })
   @JoinColumn({ name: 'hiringPipelineId' })
   hiringPipeline: HiringPipeline;
 
   @Column('uuid', { nullable: true })
   hiringPipelineId?: string;
-  
+
   @Column({ type: 'int', nullable: true })
   applicationsLimit?: number;
 

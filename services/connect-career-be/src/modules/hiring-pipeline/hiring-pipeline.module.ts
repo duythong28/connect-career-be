@@ -16,7 +16,7 @@ import { Organization } from '../profile/domain/entities/organization.entity';
       PipelineStage,
       HiringPipeline,
       Organization,
-      Job
+      Job,
     ]),
   ],
   controllers: [HiringPipelineRecruiterController],

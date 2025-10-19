@@ -92,6 +92,11 @@ export class ApplicationStatusService {
     });
     application.statusHistory = statusHistory;
 
+    application.addPipelineStageHistory(
+      targetStage,
+      changeDto.changedBy,
+      changeDto.notes,
+    );
     // Update calculated fields
     application.updateCalculatedFields();
 

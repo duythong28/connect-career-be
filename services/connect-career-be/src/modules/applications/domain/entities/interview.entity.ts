@@ -55,9 +55,6 @@ export class Interview {
   @Index()
   date: Date;
 
-  @Column({ type: 'time' })
-  time: string;
-
   @Column({
     type: 'enum',
     enum: InterviewType,

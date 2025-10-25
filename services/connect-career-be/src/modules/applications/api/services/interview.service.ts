@@ -43,6 +43,7 @@ export class InterviewService {
 
     const interview = this.interviewRepository.create({
       ...createDto,
+      date: new Date(createDto.scheduledDate),
       applicationId,
       status: InterviewStatus.SCHEDULED,
     });

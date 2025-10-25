@@ -111,6 +111,11 @@ export class ChangeApplicationStageDto {
   @IsOptional()
   @IsString()
   notes?: string;
+
+  @ApiPropertyOptional()
+  @IsOptional()
+  @IsString()
+  reason?: string;
 }
 
 export class UpdateApplicationNotesDto {

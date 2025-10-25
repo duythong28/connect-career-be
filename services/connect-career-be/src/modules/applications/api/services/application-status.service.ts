@@ -65,7 +65,6 @@ export class ApplicationStatusService {
       application,
       pipeline,
     );
-    console.log(currentStage);
 
     // Validate stage transition
     if (currentStage) {
@@ -89,7 +88,7 @@ export class ApplicationStatusService {
       status: newStatus,
       changedAt: new Date(),
       changedBy: changedBy,
-      reason: changeDto.notes,
+      reason: changeDto.reason || changeDto.notes,
       stageKey: targetStage.key,
       stageName: targetStage.name,
     });

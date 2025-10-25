@@ -1,5 +1,5 @@
 import { Inject, Injectable } from '@nestjs/common';
-import * as aiProviderInterface from './domain/ai-provider.interface';
+import * as aiProviderInterface from '../domain/ai-provider.interface';
 
 @Injectable()
 export class AIService {

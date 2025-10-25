@@ -1,11 +1,12 @@
 import { Body, Controller, Post, BadRequestException } from '@nestjs/common';
 import fetch from 'node-fetch';
-import { AIService } from './ai.service';
 import {
   parseResumeTextToCVContent,
   parseResume,
 } from './utils/resume-parser.util';
 import { RESUME_EXTRACTION_PROMPT } from './prompts/resume_extraction_prompt';
+import * as aiJobDescriptionService from './services/ai-job-description.service';
+import { AIService } from './services/ai.service';
 
 type ExtractPdfDto = {
   url: string;
@@ -29,7 +30,10 @@ type ParseResumeFromPdfDto = {
 
 @Controller('v1/ai')
 export class AIController {
-  constructor(private readonly ai: AIService) {}
+  constructor(
+    private readonly ai: AIService,
+    private readonly aiJobDescriptionService: aiJobDescriptionService.AIJobDescriptionService,
+  ) {}
   @Post('cv/parse-resume-text')
   parseResumeText(@Body() body: ParseResumeDto) {
     if (!body?.text) throw new BadRequestException('text is required');
@@ -94,6 +98,67 @@ export class AIController {
       const message =
         error instanceof Error ? error.message : 'Unknown error occurred';
       throw new BadRequestException(`Parse failed: ${message}`);
+    }
+  }
+
+  @Post('job-description/generate')
+  async generateJobDescription(
+    @Body() body: aiJobDescriptionService.JobDescriptionPrompt,
+  ) {
+    if (!body?.title) throw new BadRequestException('title is required');
+    if (!body?.companyName)
+      throw new BadRequestException('companyName is required');
+    if (!body?.location) throw new BadRequestException('location is required');
+
+    try {
+      const result =
+        await this.aiJobDescriptionService.generateJobDescription(body);
+
+      return {
+        success: true,
+        data: result,
+        metadata: {
+          modelId: body.modelId,
+          temperature: body.temperature ?? 0.7,
+          promptOptimized: true,
+        },
+      };
+    } catch (error: unknown) {
+      const message =
+        error instanceof Error ? error.message : 'Unknown error occurred';
+      throw new BadRequestException(
+        `Job description generation failed: ${message}`,
+      );
+    }
+  }
+
+  @Post('job-description/refine')
+  async refineJobDescription(
+    @Body() body: aiJobDescriptionService.RefinementPrompt,
+  ) {
+    if (!body?.currentDescription)
+      throw new BadRequestException('currentDescription is required');
+    if (!body?.feedback) throw new BadRequestException('feedback is required');
+
+    try {
+      const result =
+        await this.aiJobDescriptionService.refineJobDescription(body);
+
+      return {
+        success: true,
+        data: result,
+        metadata: {
+          modelId: body.modelId,
+          temperature: body.temperature ?? 0.5,
+          refinement: true,
+        },
+      };
+    } catch (error: unknown) {
+      const message =
+        error instanceof Error ? error.message : 'Unknown error occurred';
+      throw new BadRequestException(
+        `Job description refinement failed: ${message}`,
+      );
     }
   }
 }

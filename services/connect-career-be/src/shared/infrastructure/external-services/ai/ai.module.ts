@@ -1,7 +1,8 @@
 import { Module } from '@nestjs/common';
 import { VertexAIProvider } from './providers/vertex-ai.provider';
-import { AIService } from './ai.service';
 import { AIController } from './ai.controller';
+import { AIService } from './services/ai.service';
+import { AIJobDescriptionService } from './services/ai-job-description.service';
 
 @Module({
   providers: [
@@ -12,8 +13,9 @@ import { AIController } from './ai.controller';
       },
     },
     AIService,
+    AIJobDescriptionService,
   ],
-  exports: ['AIProvider'],
+  exports: ['AIProvider', AIJobDescriptionService],
   controllers: [AIController],
 })
 export class AIModule {}

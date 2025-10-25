@@ -164,11 +164,11 @@ export class HiringPipelineRecruiterService {
   async deletePipeline(id: string): Promise<void> {
     await this.findPipelineById(id);
     await this.jobRepository
-    .createQueryBuilder()
-    .update()
-    .set({ hiringPipelineId: null as unknown as string })
-    .where('hiringPipelineId = :pipelineId', { pipelineId: id })
-    .execute();
+      .createQueryBuilder()
+      .update()
+      .set({ hiringPipelineId: null as unknown as string })
+      .where('hiringPipelineId = :pipelineId', { pipelineId: id })
+      .execute();
 
     await this.stageRepository.delete({ pipelineId: id });
     await this.transitionRepository.delete({ pipelineId: id });

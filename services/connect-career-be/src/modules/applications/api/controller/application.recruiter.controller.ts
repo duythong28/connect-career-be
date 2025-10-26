@@ -227,6 +227,16 @@ export class ApplicationRecruiterController {
     return this.interviewService.submitFeedback(interviewId, feedbackDto);
   }
 
+  @Delete('interviews/:interviewId')
+  @ApiParam({ name: 'interviewId', description: 'Interview ID' })
+  @ApiResponse({ status: 200, description: 'Interview deleted successfully' })
+  @ApiResponse({ status: 404, description: 'Interview not found' })
+  async deleteInterview(
+    @Param('interviewId') interviewId: string,
+  ): Promise<any> {
+    return this.interviewService.deleteInterviewById(interviewId);
+  }
+
   @Post('interviews/:interviewId/cancel')
   @ApiOperation({ summary: 'Cancel interview' })
   @ApiParam({ name: 'interviewId', description: 'Interview ID' })

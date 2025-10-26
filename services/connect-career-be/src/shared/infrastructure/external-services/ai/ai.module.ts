@@ -3,6 +3,8 @@ import { VertexAIProvider } from './providers/vertex-ai.provider';
 import { AIController } from './ai.controller';
 import { AIService } from './services/ai.service';
 import { AIJobDescriptionService } from './services/ai-job-description.service';
+import { RetellAIProvider } from './providers/retell-ai.provider';
+import { OpenAIGeminiProvider } from './providers/openai-gemini.provider';
 
 @Module({
   providers: [
@@ -12,10 +14,17 @@ import { AIJobDescriptionService } from './services/ai-job-description.service';
         return new VertexAIProvider();
       },
     },
+    {
+      provide: 'GeminiProvider',
+      useFactory: () => {
+        return new OpenAIGeminiProvider();
+      },
+    },
     AIService,
     AIJobDescriptionService,
+    RetellAIProvider,
   ],
-  exports: ['AIProvider', AIJobDescriptionService],
+  exports: ['AIProvider', AIJobDescriptionService, 'GeminiProvider', AIService, RetellAIProvider],
   controllers: [AIController],
 })
 export class AIModule {}

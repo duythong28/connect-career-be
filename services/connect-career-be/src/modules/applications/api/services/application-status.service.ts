@@ -54,23 +54,19 @@ export class ApplicationStatusService {
     const targetStage = pipeline.stages.find(
       (stage) => stage.key === changeDto.stageKey,
     );
-    console.log(targetStage);
     if (!targetStage) {
       throw new BadRequestException(
         `Stage '${changeDto.stageKey}' not found in the hiring pipeline`,
       );
     }
 
-    const currentStage = await this.getCurrentApplicationStage(
-      application,
-      pipeline,
-    );
+    const currentStage = application.currentStageKey
 
     // Validate stage transition
     if (currentStage) {
       await this.validateStageTransition(
         pipeline,
-        currentStage.key,
+        currentStage,
         changeDto.stageKey,
       );
     }

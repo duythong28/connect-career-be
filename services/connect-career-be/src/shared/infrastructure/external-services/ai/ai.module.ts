@@ -1,7 +1,8 @@
 import { Module } from '@nestjs/common';
 import { VertexAIProvider } from './providers/vertex-ai.provider';
-import { AIService } from './ai.service';
 import { AIController } from './ai.controller';
+import { AIService } from './services/ai.service';
+import { AIJobDescriptionService } from './services/ai-job-description.service';
 import { RetellAIProvider } from './providers/retell-ai.provider';
 import { OpenAIGeminiProvider } from './providers/openai-gemini.provider';
 
@@ -20,9 +21,10 @@ import { OpenAIGeminiProvider } from './providers/openai-gemini.provider';
       },
     },
     AIService,
+    AIJobDescriptionService,
     RetellAIProvider,
   ],
-  exports: ['AIProvider', 'GeminiProvider', AIService, RetellAIProvider],
+  exports: ['AIProvider', AIJobDescriptionService, 'GeminiProvider', AIService, RetellAIProvider],
   controllers: [AIController],
 })
 export class AIModule {}

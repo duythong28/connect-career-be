@@ -8,9 +8,9 @@ import { InterviewFeedback } from './domain/entities/mock_interview_feedback.ent
 import { SystemMockAIInterviewController } from './api/controllers/system.controller';
 import { CandidateMockAIInterviewController } from './api/controllers/candidate.controller';
 import { MockInterviewService } from './api/services/mock-interview.service';
-import { AIService } from 'src/shared/infrastructure/external-services/ai/ai.service';
 import { AIModule } from 'src/shared/infrastructure/external-services/ai/ai.module';
 import { AgentInterviewerService } from './api/services/agent-interviewer.service';
+import { AIService } from 'src/shared/infrastructure/external-services/ai/services/ai.service';
 
 @Module({
   imports: [

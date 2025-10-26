@@ -4,7 +4,7 @@ import {
   parseResumeTextToCVContent,
   parseResume,
 } from './utils/resume-parser.util';
-import { RESUME_EXTRACTION_PROMPT } from './prompts/resume_extraction_prompt';
+import { ENHANCE_RESUME_EXTRACTION_PROMPT, RESUME_EXTRACTION_PROMPT } from './prompts/resume_extraction_prompt';
 import * as aiJobDescriptionService from './services/ai-job-description.service';
 import { AIService } from './services/ai.service';
 
@@ -72,7 +72,7 @@ export class AIController {
       const base64 = buf.toString('base64');
 
       const extractResult = await this.ai.generateWithInlineFile({
-        prompt: RESUME_EXTRACTION_PROMPT,
+        prompt: ENHANCE_RESUME_EXTRACTION_PROMPT,
         inline: { dataBase64: base64, mimeType: 'application/pdf' },
         temperature: body.temperature ?? 0,
       });

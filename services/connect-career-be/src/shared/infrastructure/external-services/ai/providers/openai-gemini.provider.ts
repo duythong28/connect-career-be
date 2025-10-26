@@ -12,11 +12,10 @@ export class OpenAIGeminiProvider implements AIProvider {
         });
     }
     async chat(request: AIChatRequest): Promise<AIChatResponse> {
-        const completion = await this.openai.chat.completions.create({
+        const completion = await this.openAI.chat.completions.create({
           model: "gemini-2.5-flash-lite",
           messages: request.messages,
           temperature: request.temperature ?? 0.7,
-          maxOutputTokens: request.maxOutputTokens ?? 1024,
         });
     
         return {
@@ -26,7 +25,7 @@ export class OpenAIGeminiProvider implements AIProvider {
       }
     
       async generate(request: AIGenerateRequest): Promise<AIGenerateResponse> {
-        const completion = await this.openai.chat.completions.create({
+        const completion = await this.openAI.chat.completions.create({
           model: "gemini-2.5-flash-lite",
           messages: [{ role: 'user', content: request.prompt }],
           temperature: request.temperature ?? 0.7,

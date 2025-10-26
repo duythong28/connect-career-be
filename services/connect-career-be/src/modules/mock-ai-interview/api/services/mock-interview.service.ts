@@ -18,9 +18,9 @@ import {
   InterviewSessionStatus,
 } from '../../domain/value-objects/interview-configuration.vo';
 import { CreateMockInterviewDto } from '../dto/create-mock-interview.dto';
-import { AIService } from 'src/shared/infrastructure/external-services/ai/ai.service';
 import { MockInterviewSearchFilters } from '../dto/search-mock-interview.filter.dto';
 import { OpenAI } from 'openai';
+import { AIService } from 'src/shared/infrastructure/external-services/ai/services/ai.service';
 
 @Injectable()
 export class MockInterviewService {

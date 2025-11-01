@@ -1,4 +1,8 @@
-import { BadRequestException, Injectable, NotFoundException } from '@nestjs/common';
+import {
+  BadRequestException,
+  Injectable,
+  NotFoundException,
+} from '@nestjs/common';
 import { InjectRepository } from '@nestjs/typeorm';
 import { Job, JobSource, JobStatus } from '../../domain/entities/job.entity';
 import { Repository } from 'typeorm';
@@ -17,7 +21,8 @@ export class JobService {
   constructor(
     @InjectRepository(Job) private readonly jobRepository: Repository<Job>,
     @InjectRepository(User) private readonly userRepository: Repository<User>,
-    @InjectRepository(HiringPipeline) private readonly hiringPipelineRepository: Repository<HiringPipeline>,
+    @InjectRepository(HiringPipeline)
+    private readonly hiringPipelineRepository: Repository<HiringPipeline>,
     @InjectRepository(Organization)
     private readonly organizationRepository: Repository<Organization>,
     private readonly stateMachineFactory: JobStateMachineFactory,
@@ -433,17 +438,21 @@ export class JobService {
         `Organization with User ID ${userId} not found`,
       );
     }
-    const hiringPipeline = await this.hiringPipelineRepository.findOne({ where: { id: createJobDto.hiringPipelineId } });
+    const hiringPipeline = await this.hiringPipelineRepository.findOne({
+      where: { id: createJobDto.hiringPipelineId },
+    });
     const jobDataForCreate: Partial<Job> = {
       ...createJobDto,
       userId,
       organizationId: organization.id,
       source: JobSource.INTERNAL,
     };
-    if(!hiringPipeline) {
-      throw new NotFoundException(`Hiring pipeline with ID ${createJobDto.hiringPipelineId} not found`);
+    if (!hiringPipeline) {
+      throw new NotFoundException(
+        `Hiring pipeline with ID ${createJobDto.hiringPipelineId} not found`,
+      );
     }
-    if(hiringPipeline) {
+    if (hiringPipeline) {
       jobDataForCreate.hiringPipelineId = hiringPipeline.id;
     }
     const job = this.jobRepository.create(jobDataForCreate);

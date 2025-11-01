@@ -108,7 +108,7 @@ export class CVService {
       updateData.isPublic = updateCVDto.isPublic;
     if (updateCVDto.tags !== undefined) updateData.tags = updateCVDto.tags;
     if (updateCVDto.content !== undefined)
-      updateData.content = updateCVDto.content;
+      updateData.content = updateCVDto.content as unknown as { [key: string]: any };
     if (updateCVDto.builderData !== undefined)
       updateData.builderData = updateCVDto.builderData;
 

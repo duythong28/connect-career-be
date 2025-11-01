@@ -20,7 +20,7 @@ import { ApplicationStatus } from '../../domain/entities/application.entity';
 import { JwtAuthGuard } from 'src/modules/identity/api/guards/jwt-auth.guard';
 import * as decorators from 'src/modules/identity/api/decorators';
 import { ApiOperation, ApiResponse } from '@nestjs/swagger';
-import { CreateOfferCandidateDto } from '../dtos/offer.dto';
+import { AcceptOfferDto, CreateOfferCandidateDto, RejectOfferDto } from '../dtos/offer.dto';
 import { OfferService } from '../services/offer.service';
 import { PipelineStageType } from 'src/modules/hiring-pipeline/domain/entities/pipeline-stage.entity';
 import { GetMyApplicationsQueryDto } from '../dtos/get-my-application.query.dto';
@@ -62,8 +62,12 @@ export class ApplicationCandidateController {
       candidateId: currentUser.sub,
       stage: query.stage,
       source: query.source,
-      appliedAfter: query.appliedAfter ? new Date(query.appliedAfter) : undefined,
-      appliedBefore: query.appliedBefore ? new Date(query.appliedBefore) : undefined,
+      appliedAfter: query.appliedAfter
+        ? new Date(query.appliedAfter)
+        : undefined,
+      appliedBefore: query.appliedBefore
+        ? new Date(query.appliedBefore)
+        : undefined,
       hasInterviews: query.hasInterviews,
       hasOffers: query.hasOffers,
       awaitingResponse: query.awaitingResponse,
@@ -81,72 +85,86 @@ export class ApplicationCandidateController {
 
   @Get('me/:applicationId/interviews')
   @ApiOperation({ summary: 'Get interviews for my application' })
-  @ApiResponse({ status: 200, description: 'Interviews retrieved successfully' })
+  @ApiResponse({
+    status: 200,
+    description: 'Interviews retrieved successfully',
+  })
   @ApiResponse({ status: 404, description: 'Application not found' })
-  @ApiResponse({ status: 403, description: 'Application does not belong to candidate' })
+  @ApiResponse({
+    status: 403,
+    description: 'Application does not belong to candidate',
+  })
   async getInterviewsByApplication(
     @Param('applicationId', ParseUUIDPipe) applicationId: string,
     @decorators.CurrentUser() currentUser: decorators.CurrentUserPayload,
   ) {
     // Verify application belongs to candidate
-    const application = await this.applicationService.getApplicationById(applicationId);
+    const application =
+      await this.applicationService.getApplicationById(applicationId);
     if (!application) {
       throw new NotFoundException('Application not found');
     }
     if (application.candidateId !== currentUser.sub) {
       throw new ForbiddenException('Application does not belong to candidate');
     }
-    
+
     return this.interviewService.getInterviewsByApplication(applicationId);
   }
-  
-  // Fix method 2: getInterviewsDetail (lines 86-92)
+
   @Get('me/:applicationId/interviews/:interviewId')
   @ApiOperation({ summary: 'Get interview detail for my application' })
   @ApiResponse({ status: 200, description: 'Interview retrieved successfully' })
   @ApiResponse({ status: 404, description: 'Interview not found' })
-  @ApiResponse({ status: 403, description: 'Interview does not belong to candidate\'s application' })
+  @ApiResponse({
+    status: 403,
+    description: "Interview does not belong to candidate's application",
+  })
   async getInterviewsDetail(
     @Param('applicationId', ParseUUIDPipe) applicationId: string,
     @Param('interviewId', ParseUUIDPipe) interviewId: string,
     @decorators.CurrentUser() currentUser: decorators.CurrentUserPayload,
   ) {
     // Verify application belongs to candidate
-    const application = await this.applicationService.getApplicationById(applicationId);
+    const application =
+      await this.applicationService.getApplicationById(applicationId);
     if (!application) {
       throw new NotFoundException('Application not found');
     }
     if (application.candidateId !== currentUser.sub) {
       throw new ForbiddenException('Application does not belong to candidate');
     }
-    
+
     // Get interview and verify it belongs to the application
     const interview = await this.interviewService.getInterviewById(interviewId);
     if (!interview || interview.applicationId !== applicationId) {
       throw new NotFoundException('Interview not found');
     }
-    
+
     return interview;
   }
-  
+
   // Fix method 3: getOffersByApplication (lines 94-100)
   @Get('me/:applicationId/offers')
   @ApiOperation({ summary: 'Get offers for my application' })
   @ApiResponse({ status: 200, description: 'Offers retrieved successfully' })
   @ApiResponse({ status: 404, description: 'Application not found' })
-  @ApiResponse({ status: 403, description: 'Application does not belong to candidate' })
+  @ApiResponse({
+    status: 403,
+    description: 'Application does not belong to candidate',
+  })
   async getOffersByApplication(
     @Param('applicationId', ParseUUIDPipe) applicationId: string,
     @decorators.CurrentUser() currentUser: decorators.CurrentUserPayload,
   ) {
-    const application = await this.applicationService.getApplicationById(applicationId);
+    const application =
+      await this.applicationService.getApplicationById(applicationId);
     if (!application) {
       throw new NotFoundException('Application not found');
     }
     if (application.candidateId !== currentUser.sub) {
       throw new ForbiddenException('Application does not belong to candidate');
     }
-    
+
     return this.offerService.getOffersByApplication(applicationId);
   }
 
@@ -399,4 +417,55 @@ export class ApplicationCandidateController {
     );
   }
 
+  @Put(':applicationId/offers/accept')
+  @ApiOperation({ summary: 'Accept offer (candidate)' })
+  @ApiResponse({ status: 200, description: 'Offer accepted successfully' })
+  @ApiResponse({ status: 404, description: 'Application or offer not found' })
+  @ApiResponse({ status: 403, description: 'Application does not belong to candidate' })
+  async acceptOffer(
+    @Param('applicationId', ParseUUIDPipe) applicationId: string,
+    @Body() acceptDto: AcceptOfferDto,
+    @decorators.CurrentUser() currentUser: decorators.CurrentUserPayload,
+  ) {
+    const application = await this.applicationService.getApplicationById(applicationId);
+    if (!application) {
+      throw new NotFoundException('Application not found');
+    }
+    if (application.candidateId !== currentUser.sub) {
+      throw new ForbiddenException('Application does not belong to candidate');
+    }
+
+    return this.offerService.acceptOffer(
+      applicationId,
+      acceptDto,
+      currentUser.sub,
+    );
+  }
+
+  // Add this method after acceptOffer endpoint
+  // @Put(':applicationId/offers/reject')
+  // @ApiOperation({ summary: 'Reject offer (candidate)' })
+  // @ApiResponse({ status: 200, description: 'Offer rejected successfully' })
+  // @ApiResponse({ status: 404, description: 'Application or offer not found' })
+  // @ApiResponse({ status: 403, description: 'Application does not belong to candidate' })
+  // async rejectOffer(
+  //   @Param('applicationId', ParseUUIDPipe) applicationId: string,
+  //   @Body() rejectDto: RejectOfferDto,
+  //   @decorators.CurrentUser() currentUser: decorators.CurrentUserPayload,
+  // ) {
+  //   // Verify application belongs to candidate
+  //   const application = await this.applicationService.getApplicationById(applicationId);
+  //   if (!application) {
+  //     throw new NotFoundException('Application not found');
+  //   }
+  //   if (application.candidateId !== currentUser.sub) {
+  //     throw new ForbiddenException('Application does not belong to candidate');
+  //   }
+
+  //   return this.offerService.rejectOffer(
+  //     applicationId,
+  //     rejectDto,
+  //     currentUser.sub,
+  //   );
+  // }
 }

@@ -24,6 +24,7 @@ import {
 import { Offer, OfferStatus } from '../../domain/entities/offer.entity';
 import { CandidateSnapshotDto } from '../dtos/application-detail.dto';
 import { PipelineStageType } from 'src/modules/hiring-pipeline/domain/entities/pipeline-stage.entity';
+import { CV } from 'src/modules/cv-maker/domain/entities/cv.entity';
 
 export class CreateApplicationDto {
   @IsString()
@@ -104,6 +105,8 @@ export class ApplicationService {
     private readonly interviewRepository: Repository<Interview>,
     @InjectRepository(Offer)
     private readonly offerRepository: Repository<Offer>,
+    @InjectRepository(CV)
+    private readonly cvRepository: Repository<CV>,
     private readonly jobStatusService: JobStatusService,
   ) {}
 
@@ -171,9 +174,10 @@ export class ApplicationService {
     const candidateProfile = await this.candidateProfileRepository.findOne({
       where: { userId: createDto.candidateId },
     });
-    if (candidateProfile) {
-      application.calculateMatcingScore(job, candidateProfile);
-    }
+    const cv = await this.cvRepository.findOne({
+      where: { id: createDto.cvId },
+    });
+    application.calculateMatcingScore(job, cv ?? undefined, candidateProfile ?? undefined);
     application.updateCalculatedFields();
     return this.applicationRepository.save(application);
   }

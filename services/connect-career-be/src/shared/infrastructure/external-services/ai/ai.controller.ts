@@ -82,17 +82,14 @@ export class AIController {
         temperature: body.temperature ?? 0,
       });
 
-      const extractedText = String(extractResult.content || '');
-
-      const fullParsed = parseResume(extractedText);
-      const cvContent = parseResumeTextToCVContent(extractedText);
+      
+      const extractedText = this.extractJsonFromMarkdown(String(extractResult.content || '')) || '';
+  
 
       return {
         success: true,
         data: {
-          extractedText,
-          cvContent,
-          fullParsed,
+          extractedText
         },
         metadata: {
           promptOptimized: true,
@@ -188,6 +185,34 @@ export class AIController {
       const message =
         error instanceof Error ? error.message : 'Unknown error occurred';
       throw new BadRequestException(`CV enhancement failed: ${message}`);
+    }
+  }
+  private extractJsonFromMarkdown(content: string): null {
+    console.log('content', content);
+    try {
+      // Remove markdown code block markers if present
+      let jsonString = content.trim();
+  
+      // Check if content starts with ```json or ``` and remove it
+      if (jsonString.startsWith('```json')) {
+        jsonString = jsonString.substring(7); // Remove ```json
+      } else if (jsonString.startsWith('```')) {
+        jsonString = jsonString.substring(3); // Remove ```
+      }
+  
+      // Remove trailing ``` if present
+      if (jsonString.endsWith('```')) {
+        jsonString = jsonString.substring(0, jsonString.length - 3);
+      }
+  
+      // Trim whitespace and newlines
+      jsonString = jsonString.trim();
+  
+      // Parse the JSON
+      return JSON.parse(jsonString);
+    } catch (error) {
+      console.error('Failed to parse JSON from markdown:', error);
+      return null;
     }
   }
 }

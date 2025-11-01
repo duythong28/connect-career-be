@@ -72,7 +72,7 @@ export class AIJobDescriptionService {
     });
 
 
-    return this.parseResponse(response.content);
+    return await this.parseResponse(response.content);
   }
 
   async refineJobDescription(
@@ -136,8 +136,8 @@ export class AIJobDescriptionService {
   getAvailableModels() {
     return [
       {
-        id: 'gemini-2.0-flash-001',
-        name: 'Gemini 2.0 Flash',
+        id: 'gemini-2.5-flash-lite',
+        name: 'Gemini 2.5 Flash Lite',
         provider: 'Google',
       },
       { id: 'gemini-1.5-pro', name: 'Gemini 1.5 Pro', provider: 'Google' },
@@ -158,7 +158,7 @@ export class AIJobDescriptionService {
         7. Include relevant keywords for SEO and ATS systems
         Output format (JSON): 
         { 
-          "description": "Markdown format (not use \n, use direct markdown format) Full job description with sections: About the Role, Key Responsibilities, Requirements, Benefits, etc.",
+          "description": "Full job description with sections: About the Role, Key Responsibilities, Requirements, Benefits, etc. Use direct markdown format.",
           "summary": "2-3 sentence summary for job listings",
             "keywords": ["relevant", "search", "terms"],
             "requirements": ["Must-have requirements"],
@@ -219,7 +219,7 @@ export class AIJobDescriptionService {
         Please provide an improved version that addresses the feedback while maintaining professional quality.`;
   }
 
-  private parseResponse(content: string): JobDescriptionResponse {
+  private async parseResponse(content: string): Promise<JobDescriptionResponse> {
     try {
       let jsonString: string | null = null;
       const codeBlockMatch = content.match(/```json\s*([\s\S]*?)\s*```/);
@@ -234,12 +234,9 @@ export class AIJobDescriptionService {
   
       if (jsonString) {
         const parsed = JSON.parse(jsonString);
-        this.logger.log('parsed', parsed);
+        
         if (parsed.description && typeof parsed.description === 'string') {
-          parsed.description = parsed.description.replace(/\\n/g, '\n');
-        }
-        if (parsed.summary && typeof parsed.summary === 'string') {
-          parsed.summary = parsed.summary.replace(/\\n/g, '\n');
+          console.log('parsed.description', parsed.description);
         }
         
         return parsed;
@@ -251,8 +248,62 @@ export class AIJobDescriptionService {
       console.error('Failed to parse AI response:', error);
       return this.fallbackParse(content);
     }
+  }  
+  private async reformatJobDescription(description: string): Promise<string> {
+    try {
+      const reformatPrompt = `You will be given a job description in a string format that uses \`## Heading\` (H2 style) and \`\\n\` for newlines. Your task is to reformat this text into a new Markdown structure.
+            
+            **Reformatting Rules:**
+            
+            1. **Heading Conversion:** Convert all \`## Heading\` style headings to \`**Heading:**\` (bolded text with a colon).
+              * \`## About the Role\` becomes \`**About the Role:**\`
+              * \`## Key Responsibilities\` becomes \`**Key Responsibilities:**\`
+              * ...and so on for all sections.
+            
+            2. **Section Reordering:** Ensure the final output follows this **exact** section order:
+              1. \`**About the Role:**\`
+              2. \`**Key Responsibilities:**\`
+              3. \`**Requirements:**\`
+              4. \`**Benefits:**\`
+              5. \`**Company Culture:**\`
+              6. \`**Growth Opportunities:**\`
+              *(Note: You will need to move the \`Company Culture\` section to be before the \`Growth Opportunities\` section.)*
+            
+            3. **Content and Spacing:**
+              * Keep the original paragraphs and bullet points under each heading.
+              * When you output the final text, use actual line breaks instead of \`\\n\`.
+              * Ensure there is one blank line after each heading and one blank line between the end of one section's content and the next section's heading.
+            
+            Please apply these rules to the following text and output ONLY the reformatted text (no JSON, no code blocks, just the reformatted markdown):
+            
+            ${description}`;
+  
+      const response = await this.aiService.chat({
+        messages: [{ role: 'user', content: reformatPrompt }],
+        temperature: 0.3, // Lower temperature for more consistent formatting
+        maxOutputTokens: 4096,
+      });
+  
+      // Extract the reformatted text (remove any code blocks if present)
+      let reformattedText = response.content.trim();
+      
+      // Remove markdown code blocks if present
+      const codeBlockMatch = reformattedText.match(/```(?:markdown)?\s*([\s\S]*?)\s*```/);
+      if (codeBlockMatch && codeBlockMatch[1]) {
+        reformattedText = codeBlockMatch[1].trim();
+      }
+      
+      // Replace literal \n with actual newlines
+      reformattedText = reformattedText.replace(/\\n/g, '\n');
+      
+      return reformattedText;
+    } catch (error) {
+      this.logger.error('Failed to reformat job description:', error);
+      // If reformatting fails, just return the original with \n replaced
+      return description.replace(/\\n/g, '\n');
+    }
   }
-
+  
   private fallbackParse(content: string): JobDescriptionResponse {
     return {
       description: content.trim(),

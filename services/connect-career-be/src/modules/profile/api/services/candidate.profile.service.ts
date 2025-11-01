@@ -77,6 +77,7 @@ export class CandidateProfileService {
       .createQueryBuilder('candidateProfile')
       .leftJoinAndSelect('candidateProfile.user', 'user')
       .leftJoinAndSelect('candidateProfile.workExperiences', 'workExperiences')
+      .leftJoinAndSelect('workExperiences.organization', 'organization')
       .leftJoinAndSelect('candidateProfile.educations', 'educations')
       .leftJoinAndSelect('candidateProfile.projects', 'projects')
       .leftJoinAndSelect('candidateProfile.certifications', 'certifications')

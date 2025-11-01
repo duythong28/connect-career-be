@@ -306,8 +306,9 @@ export class ApplicationRecruiterController {
   async updateOffer(
     @Param('offerId') offerId: string,
     @Body() updateDto: UpdateOfferDto,
+    @decorators.CurrentUser() user: decorators.CurrentUserPayload,
   ): Promise<any> {
-    return this.offerService.updateOffer(offerId, updateDto);
+    return this.offerService.updateOffer(offerId, updateDto, user.sub);
   }
 
   @Delete('offers/:offerId')
@@ -315,8 +316,10 @@ export class ApplicationRecruiterController {
   @ApiParam({ name: 'offerId', description: 'Offer ID' })
   @ApiResponse({ status: 200, description: 'Offer deleted successfully' })
   @ApiResponse({ status: 404, description: 'Offer not found' })
-  async deleteOffer(@Param('offerId') offerId: string): Promise<void> {
-    await this.offerService.deleteOffer(offerId);
+  async deleteOffer(@Param('offerId') offerId: string,
+    @decorators.CurrentUser() user: decorators.CurrentUserPayload,
+  ): Promise<void> {
+    await this.offerService.deleteOffer(offerId, user.sub);
   }
 
   @Post('offers/:offerId/response')
@@ -339,8 +342,9 @@ export class ApplicationRecruiterController {
   async cancelOffer(
     @Param('offerId') offerId: string,
     @Body() body: { reason: string },
+    @decorators.CurrentUser() user: decorators.CurrentUserPayload,
   ): Promise<any> {
-    return this.offerService.cancelOffer(offerId, body.reason);
+    return this.offerService.cancelOffer(offerId, body.reason, user.sub);
   }
 
   // Communication Management

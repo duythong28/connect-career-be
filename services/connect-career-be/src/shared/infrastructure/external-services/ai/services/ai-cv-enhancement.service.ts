@@ -1,6 +1,6 @@
-import { BadRequestException, Injectable } from "@nestjs/common";
-import { AIService } from "./ai.service";
-import OpenAI from "openai";
+import { BadRequestException, Injectable } from '@nestjs/common';
+import { AIService } from './ai.service';
+import OpenAI from 'openai';
 
 export interface CVEnhancementPrompt {
   cv: any;
@@ -31,14 +31,14 @@ export interface CVAssessment {
 }
 @Injectable()
 export class AICVEnhancementService {
-    private readonly openai: OpenAI;
+  private readonly openai: OpenAI;
   constructor(private readonly aiService: AIService) {
     this.openai = new OpenAI({
-        apiKey: process.env.GEMINI_API_KEY,
-        baseURL: 'https://generativelanguage.googleapis.com/v1beta/openai/',
-        maxRetries: 5,
-        dangerouslyAllowBrowser: true,
-      });
+      apiKey: process.env.GEMINI_API_KEY,
+      baseURL: 'https://generativelanguage.googleapis.com/v1beta/openai/',
+      maxRetries: 5,
+      dangerouslyAllowBrowser: true,
+    });
   }
 
   async enhanceCV(prompt: CVEnhancementPrompt): Promise<CVAssessment> {
@@ -50,20 +50,20 @@ export class AICVEnhancementService {
     const userPrompt = this.buildUserPrompt(prompt.cv);
 
     const response = await this.openai.chat.completions.create({
-        model: 'gemini-2.5-flash-lite',
-        messages: [
-          {
-            role: 'system',
-            content: systemPrompt,
-          },
-          {
-            role: 'user',
-            content: userPrompt,
-          },
-        ],
-        temperature: prompt.temperature ?? 0.3,
-        max_completion_tokens: prompt.maxOutputTokens ?? 8192,
-      });
+      model: 'gemini-2.5-flash-lite',
+      messages: [
+        {
+          role: 'system',
+          content: systemPrompt,
+        },
+        {
+          role: 'user',
+          content: userPrompt,
+        },
+      ],
+      temperature: prompt.temperature ?? 0.3,
+      max_completion_tokens: prompt.maxOutputTokens ?? 8192,
+    });
     const content = response.choices[0]?.message?.content;
     if (!content || content.trim() === '') {
       throw new BadRequestException('No content received from AI service');
@@ -165,37 +165,45 @@ export class AICVEnhancementService {
           cvAssessment = JSON.parse(jsonMatch[0]);
         } else {
           throw new BadRequestException(
-            `Failed to parse AI response as JSON. Response preview: ${cleanedContent.substring(0, 500)}`
+            `Failed to parse AI response as JSON. Response preview: ${cleanedContent.substring(0, 500)}`,
           );
         }
       }
 
       // Validate the response structure
       if (!cvAssessment?.cvAssessment) {
-        throw new BadRequestException('Invalid response structure from AI service. Missing cvAssessment property.');
+        throw new BadRequestException(
+          'Invalid response structure from AI service. Missing cvAssessment property.',
+        );
       }
 
       // Validate that all required aspects are present
-      const requiredAspects = ['content', 'skills', 'format', 'section', 'style'];
+      const requiredAspects = [
+        'content',
+        'skills',
+        'format',
+        'section',
+        'style',
+      ];
       const aspects = Object.keys(cvAssessment.cvAssessment);
       const missingAspects = requiredAspects.filter(
-        (aspect) => !aspects.includes(aspect)
+        (aspect) => !aspects.includes(aspect),
       );
 
       if (missingAspects.length > 0) {
         throw new BadRequestException(
-          `Invalid response structure. Missing aspects: ${missingAspects.join(', ')}`
+          `Invalid response structure. Missing aspects: ${missingAspects.join(', ')}`,
         );
       }
 
       return cvAssessment;
     } catch (error) {
-        if (error instanceof BadRequestException) {
-          throw error;
-        }
-        throw new BadRequestException(
-          `Failed to parse AI response: ${error instanceof Error ? error.message : 'Unknown error'}`
-        );
+      if (error instanceof BadRequestException) {
+        throw error;
       }
+      throw new BadRequestException(
+        `Failed to parse AI response: ${error instanceof Error ? error.message : 'Unknown error'}`,
+      );
     }
+  }
 }

@@ -318,13 +318,19 @@ export class ApplicationCandidateController {
   @ApiOperation({ summary: 'Create new offer for application (candidate)' })
   @ApiResponse({ status: 201, description: 'Offer created successfully' })
   @ApiResponse({ status: 404, description: 'Application not found' })
-  @ApiResponse({ status: 403, description: 'Application does not belong to candidate' })
+  @ApiResponse({
+    status: 403,
+    description: 'Application does not belong to candidate',
+  })
   async createOffer(
     @Param('id', ParseUUIDPipe) applicationId: string,
     @Body() createOfferDto: CreateOfferCandidateDto,
     @decorators.CurrentUser() currentUser: decorators.CurrentUserPayload,
   ) {
-    return this.offerService.createOfferByCandidate(applicationId, createOfferDto, currentUser.sub);
+    return await this.offerService.createCounterOffer(
+      applicationId,
+      createOfferDto,
+      currentUser.sub,
+    );
   }
-
 }

@@ -168,9 +168,7 @@ export class AIController {
   }
 
   @Post('cv/enhance')
-  async enhanceCV(
-    @Body() body: aiCvEnhancementService.CVEnhancementPrompt,
-  ) {
+  async enhanceCV(@Body() body: aiCvEnhancementService.CVEnhancementPrompt) {
     if (!body?.cv) {
       throw new BadRequestException('cv is required');
     }

@@ -48,7 +48,7 @@ import { MockAIInterviewModule } from './modules/mock-ai-interview/mock-ai-inter
     ApplicationsModule,
     HiringPipelineModule,
     UserModule,
-    MockAIInterviewModule
+    MockAIInterviewModule,
   ],
   providers: [
     {

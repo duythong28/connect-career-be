@@ -25,7 +25,7 @@
 //       Generate coaching feedback for this interview session:
 //       Role: ${session.role}
 //       Scores: ${JSON.stringify(scores)}
-      
+
 //       Provide:
 //       - Strengths to highlight
 //       - Areas for improvement

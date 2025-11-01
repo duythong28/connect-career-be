@@ -137,7 +137,7 @@
 //       Moreover generate a 50 word or less second-person description about the interview to be shown to the user. It should be in the field 'description'.
 //       Do not use the exact objective in the description. Remember that some details are not be shown to the user. It should be a small description for the
 //       user to understand what the content of the interview would be. Make sure it is clear to the respondent who's taking the interview.
-//       The field 'questions' should take the format of an array of objects with the following key: question. 
+//       The field 'questions' should take the format of an array of objects with the following key: question.
 //       Strictly output only a JSON object with the keys 'questions' and 'description'`;
 
 //     return basePrompt.trim();

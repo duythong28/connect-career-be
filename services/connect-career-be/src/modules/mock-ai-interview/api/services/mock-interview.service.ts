@@ -1,6 +1,7 @@
 import {
   BadRequestException,
   Injectable,
+  InternalServerErrorException,
   Logger,
   NotFoundException,
 } from '@nestjs/common';
@@ -21,6 +22,8 @@ import { CreateMockInterviewDto } from '../dto/create-mock-interview.dto';
 import { MockInterviewSearchFilters } from '../dto/search-mock-interview.filter.dto';
 import { OpenAI } from 'openai';
 import { AIService } from 'src/shared/infrastructure/external-services/ai/services/ai.service';
+import { UUID } from 'typeorm/driver/mongodb/bson.typings.js';
+import { ConfigService } from '@nestjs/config';
 
 @Injectable()
 export class MockInterviewService {
@@ -38,10 +41,11 @@ export class MockInterviewService {
     @InjectRepository(InterviewFeedback)
     private readonly feedbackRepository: Repository<InterviewFeedback>,
     private readonly aiService: AIService,
+    private readonly configService: ConfigService,
   ) {
     this.openai = new OpenAI({
       apiKey: process.env.GEMINI_API_KEY,
-      baseURL: "https://generativelanguage.googleapis.com/v1beta/openai/",
+      baseURL: 'https://generativelanguage.googleapis.com/v1beta/openai/',
       maxRetries: 5,
       dangerouslyAllowBrowser: true,
     });
@@ -64,7 +68,7 @@ export class MockInterviewService {
     await this.sessionRepository.save(session);
     try {
       const baseCompletion = await this.openai.chat.completions.create({
-        model: "gemini-2.5-flash-lite",
+        model: 'gemini-2.5-flash-lite',
         messages: [
           {
             role: 'system',
@@ -111,7 +115,6 @@ export class MockInterviewService {
 
       this.logger.log('Interview questions generated successfully');
 
-      // 5. Return the data, providing defaults for missing keys
       return {
         mockInterviewSession: session,
         questions: (parsedResponse?.questions as string[]) || [],
@@ -120,6 +123,47 @@ export class MockInterviewService {
     } catch (error) {
       this.logger.error('Error generating questions:', error);
       throw new BadRequestException('Failed to generate interview questions');
+    }
+  }
+
+  async createMockInterview(
+    dto: CreateMockInterviewDto & { interviewData?: { agentId: string } },
+    candidateId: string,
+  ): Promise<{
+    response: string;
+    callId: string;
+    callUrl: string;
+    readableSlug: string | null;
+  }> {
+    try {
+      const callId = new UUID().toString();
+      const baseUrl = this.configService.get<string>('FRONTEND_URL');
+      const callUrl = baseUrl + '/mock-interview/' + callId;
+      const readableSlug = this.slugify(dto.name ?? '');
+      const session = this.sessionRepository.create({
+        candidateId: candidateId,
+        interviewerAgentId: dto.interviewData?.agentId,
+        customPrompt: dto.customPrompt,
+        jobDescription: dto.jobDescription,
+        configuration: this.buildConfiguration(dto),
+        status: InterviewSessionStatus.CREATED,
+      });
+
+      await this.sessionRepository.save(session);
+
+      this.logger.log('Interview created successfully', {
+        sessionId: session.id,
+      });
+
+      return {
+        response: 'Interview created successfully',
+        callId,
+        callUrl,
+        readableSlug,
+      };
+    } catch (error) {
+      this.logger.error('Error creating interview', { error });
+      throw new InternalServerErrorException('Internal server error');
     }
   }
 
@@ -218,5 +262,14 @@ export class MockInterviewService {
       Strictly output only a JSON object with the keys 'questions' and 'description'`;
 
     return basePrompt.trim();
+  }
+
+  private slugify(value: string) {
+    return value
+      .toLowerCase()
+      .trim()
+      .replace(/[^\w\s-]/g, '')
+      .replace(/\s+/g, '-')
+      .replace(/[^a-z0-9-]/g, '');
   }
 }

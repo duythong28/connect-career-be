@@ -8,8 +8,19 @@ import * as decorators from 'src/modules/identity/api/decorators';
 @UseGuards(JwtAuthGuard)
 export class CandidateMockAIInterviewController {
   constructor(private readonly mockAIInterviewService: MockInterviewService) {}
-  @Post('questions')
-  async createSession(@Body() body: CreateMockInterviewDto, @decorators.CurrentUser() user: decorators.CurrentUserPayload) {
+  @Post('questions/generate')
+  async generateQuestionsSession(
+    @Body() body: CreateMockInterviewDto,
+    @decorators.CurrentUser() user: decorators.CurrentUserPayload,
+  ) {
     return this.mockAIInterviewService.createSession(body, user.sub);
+  }
+
+  @Post('')
+  async createQuestionsSession(
+    @Body() body: CreateMockInterviewDto,
+    @decorators.CurrentUser() user: decorators.CurrentUserPayload,
+  ) {
+    return this.mockAIInterviewService.createMockInterview(body, user.sub);
   }
 }

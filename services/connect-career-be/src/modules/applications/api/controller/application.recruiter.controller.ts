@@ -310,6 +310,15 @@ export class ApplicationRecruiterController {
     return this.offerService.updateOffer(offerId, updateDto);
   }
 
+  @Delete('offers/:offerId')
+  @ApiOperation({ summary: 'Delete offer' })
+  @ApiParam({ name: 'offerId', description: 'Offer ID' })
+  @ApiResponse({ status: 200, description: 'Offer deleted successfully' })
+  @ApiResponse({ status: 404, description: 'Offer not found' })
+  async deleteOffer(@Param('offerId') offerId: string): Promise<void> {
+    await this.offerService.deleteOffer(offerId);
+  }
+
   @Post('offers/:offerId/response')
   @ApiOperation({ summary: 'Record candidate response' })
   @ApiParam({ name: 'offerId', description: 'Offer ID' })

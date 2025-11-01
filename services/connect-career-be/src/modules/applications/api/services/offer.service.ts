@@ -2,6 +2,7 @@ import {
   Injectable,
   NotFoundException,
   BadRequestException,
+  ForbiddenException,
 } from '@nestjs/common';
 import { InjectRepository } from '@nestjs/typeorm';
 import { Repository } from 'typeorm';
@@ -14,6 +15,7 @@ import {
   CreateOfferDto,
   UpdateOfferDto,
   RecordOfferResponseDto,
+  CreateOfferCandidateDto,
 } from '../dtos/offer.dto';
 import { Job, JobStatus } from 'src/modules/jobs/domain/entities/job.entity';
 
@@ -171,6 +173,30 @@ export class OfferService {
     }
   }
 
+  async createOfferByCandidate(
+    applicationId: string,
+    createDto: CreateOfferCandidateDto,
+    candidateId: string,
+  ): Promise<Offer> {
+        const application = await this.applicationRepository.findOne({
+          where: { id: applicationId },
+        })
+    
+        if (!application) {
+          throw new NotFoundException('Application not found');
+        }
+    
+        if (application.candidateId !== candidateId) {
+          throw new ForbiddenException('Application does not belong to candidate');
+        }
+
+        const createOfferDto: CreateOfferCandidateDto = {
+          ...createDto,
+          offeredBy: candidateId,
+          isOfferedByCandidate: true,
+        };
+        return this.createOffer(applicationId, createOfferDto);
+  }
   async createOffer(
     applicationId: string,
     createDto: CreateOfferDto,
@@ -217,5 +243,16 @@ export class OfferService {
     });
 
     return savedOffer;
+  }
+
+  async deleteOffer(id: string): Promise<void> {
+    const offer = await this.offerRepository.findOne({ where: { id } });
+    if (!offer) {
+      throw new NotFoundException('Offer not found');
+    }
+    if (offer.status === OfferStatus.PENDING) {
+      throw new BadRequestException('Can only delete pending offers');
+    }
+    await this.offerRepository.delete(id);
   }
 }

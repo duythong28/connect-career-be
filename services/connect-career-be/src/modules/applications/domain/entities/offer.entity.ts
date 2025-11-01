@@ -204,6 +204,9 @@ export class Offer {
   @Column({ type: 'varchar', length: 500, nullable: true })
   signatureUrl?: string;
 
+  @Column({ type: 'boolean', default: false })
+  isOfferedByCandidate: boolean;
+
   isPending(): boolean {
     return this.status === OfferStatus.PENDING;
   }

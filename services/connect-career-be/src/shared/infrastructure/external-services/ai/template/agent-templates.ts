@@ -2,8 +2,14 @@ import {
   QuestionType,
   ScoringDimension,
 } from 'src/modules/mock-ai-interview/domain/value-objects/interview-configuration.vo';
-import { ConversationFlow, CustomAgentConfig, EvaluationCriteria, InterviewStyle, QuestionPreference } from '../types/retell.type';
-  
+import {
+  ConversationFlow,
+  CustomAgentConfig,
+  EvaluationCriteria,
+  InterviewStyle,
+  QuestionPreference,
+} from '../types/retell.type';
+
 export const AGENT_TEMPLATES = {
   TECHNICAL_RECRUITER: {
     name: 'Technical Recruiter',

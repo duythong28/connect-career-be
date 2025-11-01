@@ -22,6 +22,7 @@ import {
   CreateOfferCandidateDto,
   CounterOfferDto,
   AcceptOfferDto,
+  RejectOfferDto,
 } from '../dtos/offer.dto';
 import { Job, JobStatus } from 'src/modules/jobs/domain/entities/job.entity';
 
@@ -163,65 +164,6 @@ export class OfferService {
       statusHistory,
     });
     return savedOffer;
-  }
-
-  async acceptOffer(
-    applicationId: string,
-    acceptDto: AcceptOfferDto,
-    userId: string,
-  ): Promise<Offer | null> {
-    const application = await this.applicationRepository.findOne({
-      where: { id: applicationId },
-      relations: ['job'],
-    });
-
-    if (!application) {
-      throw new NotFoundException('Application not found');
-    }
-
-    const latestOffer = await this.getLatestOffer(applicationId);
-    if (!latestOffer) {
-      throw new NotFoundException('No offer found');
-    }
-
-    // Only opposite party can accept
-    if (this.isOfferOwner(latestOffer, userId)) {
-      throw new ForbiddenException('Offer owner cannot accept their own offer');
-    }
-
-    if (!latestOffer.isPending()) {
-      throw new BadRequestException('Can only accept pending offers');
-    }
-
-    // Update offer status
-    await this.offerRepository.update(latestOffer.id, {
-      status: OfferStatus.ACCEPTED,
-      acceptedDate: new Date(),
-    });
-
-    // Update application status
-    await this.applicationRepository.update(applicationId, {
-      status: ApplicationStatus.OFFER_ACCEPTED,
-      lastStatusChange: new Date(),
-      daysInCurrentStatus: 0,
-    });
-    const statusHistory = application.statusHistory || [];
-    statusHistory.push({
-      status: ApplicationStatus.OFFER_ACCEPTED,
-      changedAt: new Date(),
-      changedBy: userId,
-      reason: 'Offer accepted',
-      notes: acceptDto.notes,
-    });
-
-    await this.applicationRepository.update(applicationId, {
-      statusHistory,
-    });
-
-    // Check if job should be closed
-    await this.checkAndCloseJob(application.jobId);
-
-    return this.offerRepository.findOne({ where: { id: latestOffer.id } });
   }
 
   async getOfferById(id: string): Promise<Offer> {
@@ -490,5 +432,123 @@ export class OfferService {
     });
 
     return savedOffer;
+  }
+
+  async acceptOffer(
+    applicationId: string,
+    acceptDto: AcceptOfferDto,
+    userId: string,
+  ): Promise<Offer | null> {
+    const application = await this.applicationRepository.findOne({
+      where: { id: applicationId },
+      relations: ['job'],
+    });
+
+    if (!application) {
+      throw new NotFoundException('Application not found');
+    }
+
+    const latestOffer = await this.getLatestOffer(applicationId);
+    if (!latestOffer) {
+      throw new NotFoundException('No offer found');
+    }
+
+    // Only opposite party can accept
+    if (this.isOfferOwner(latestOffer, userId)) {
+      throw new ForbiddenException('Offer owner cannot accept their own offer');
+    }
+
+    if (!latestOffer.isPending()) {
+      throw new BadRequestException('Can only accept pending offers');
+    }
+
+    // Check if offer has expired
+    if (latestOffer.expiryDate && latestOffer.expiryDate < new Date()) {
+      throw new BadRequestException('Offer has expired');
+    }
+
+    // Update offer status
+    await this.offerRepository.update(latestOffer.id, {
+      status: OfferStatus.ACCEPTED,
+      acceptedDate: new Date(),
+    });
+
+    // Prepare status history update
+    const statusHistory = application.statusHistory || [];
+    statusHistory.push({
+      status: ApplicationStatus.OFFER_ACCEPTED,
+      changedAt: new Date(),
+      changedBy: userId,
+      reason: 'Offer accepted',
+      notes: acceptDto.notes,
+    });
+
+    // Update application status and history in ONE query
+    await this.applicationRepository.update(applicationId, {
+      status: ApplicationStatus.OFFER_ACCEPTED,
+      lastStatusChange: new Date(),
+      daysInCurrentStatus: 0,
+      statusHistory,
+    });
+
+    // Check if job should be closed
+    await this.checkAndCloseJob(application.jobId);
+
+    return this.offerRepository.findOne({ where: { id: latestOffer.id } });
+  }
+
+  async rejectOffer(
+    applicationId: string,
+    rejectDto: RejectOfferDto,
+    userId: string,
+  ): Promise<Offer | null> {
+    const application = await this.applicationRepository.findOne({
+      where: { id: applicationId },
+      relations: ['job'],
+    });
+
+    if (!application) {
+      throw new NotFoundException('Application not found');
+    }
+
+    const latestOffer = await this.getLatestOffer(applicationId);
+    if (!latestOffer) {
+      throw new NotFoundException('No offer found');
+    }
+
+    // Only opposite party can reject
+    if (this.isOfferOwner(latestOffer, userId)) {
+      throw new ForbiddenException('Offer owner cannot reject their own offer');
+    }
+
+    if (!latestOffer.isPending()) {
+      throw new BadRequestException('Can only reject pending offers');
+    }
+
+    // Update offer status
+    await this.offerRepository.update(latestOffer.id, {
+      status: OfferStatus.REJECTED,
+      rejectedDate: new Date(),
+    });
+
+    // Prepare status history update
+    const statusHistory = application.statusHistory || [];
+    statusHistory.push({
+      status: ApplicationStatus.OFFER_REJECTED,
+      changedAt: new Date(),
+      changedBy: userId,
+      reason: rejectDto.reason || 'Offer rejected',
+      notes: rejectDto.notes,
+    });
+
+    // Update application status and history in ONE query
+    await this.applicationRepository.update(applicationId, {
+      status: ApplicationStatus.OFFER_REJECTED,
+      lastStatusChange: new Date(),
+      daysInCurrentStatus: 0,
+      statusHistory,
+    });
+
+    return this.offerRepository.findOne({ where: { id: latestOffer.id } });
   }
 }

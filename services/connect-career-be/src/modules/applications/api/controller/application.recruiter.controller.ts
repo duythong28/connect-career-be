@@ -399,15 +399,15 @@ export class ApplicationRecruiterController {
     return this.offerService.getOffersByApplication(applicationId);
   }
 
-  // @Post(':id/offers/reject')
-  // @ApiOperation({ summary: 'Reject offer (recruiter rejects candidate counter-offer)' })
-  // @ApiResponse({ status: 200, description: 'Offer rejected successfully' })
-  // @ApiResponse({ status: 404, description: 'Application or offer not found' })
-  // async rejectOffer(
-  //   @Param('id') id: string,
-  //   @Body() rejectDto: RejectOfferDto,
-  //   @decorators.CurrentUser() user: decorators.CurrentUserPayload,
-  // ) {
-  //   return this.offerService.rejectOffer(id, rejectDto, user.sub);
-  // }
+  @Post(':id/offers/reject')
+  @ApiOperation({ summary: 'Reject offer (recruiter rejects candidate counter-offer)' })
+  @ApiResponse({ status: 200, description: 'Offer rejected successfully' })
+  @ApiResponse({ status: 404, description: 'Application or offer not found' })
+  async rejectOffer(
+    @Param('id') id: string,
+    @Body() rejectDto: RejectOfferDto,
+    @decorators.CurrentUser() user: decorators.CurrentUserPayload,
+  ) {
+    return this.offerService.rejectOffer(id, rejectDto, user.sub);
+  }
 }

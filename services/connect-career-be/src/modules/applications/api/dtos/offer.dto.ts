@@ -56,6 +56,12 @@ export class CreateOfferDto {
   isNegotiable?: boolean;
 }
 
+export class CreateOfferCandidateDto extends CreateOfferDto {
+  @ApiProperty()
+  @IsString()
+  isOfferedByCandidate: boolean;
+}
+
 export class UpdateOfferDto {
   @ApiPropertyOptional()
   @IsOptional()

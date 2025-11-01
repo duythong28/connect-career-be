@@ -25,13 +25,13 @@
 //           Evaluate this interview response:
 //           Question: ${question.question}
 //           Response: ${response.textResponse}
-          
+
 //           Score on these dimensions (0-100):
 //           - Content quality
 //           - Communication skills
 //           - Technical knowledge
 //           - Problem-solving approach
-          
+
 //           Provide scores and rationale for each dimension.
 //         `;
 //   }

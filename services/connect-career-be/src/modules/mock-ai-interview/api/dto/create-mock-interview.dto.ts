@@ -13,6 +13,11 @@ import {
 } from '../../domain/value-objects/interview-configuration.vo';
 
 export class CreateMockInterviewDto {
+  @ApiPropertyOptional()
+  @IsOptional()
+  @IsString()
+  name?: string;
+
   @ApiProperty()
   @IsString()
   customPrompt: string;

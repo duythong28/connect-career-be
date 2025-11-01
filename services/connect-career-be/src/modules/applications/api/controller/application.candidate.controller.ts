@@ -18,12 +18,16 @@ import { ApplicationStatus } from '../../domain/entities/application.entity';
 import { JwtAuthGuard } from 'src/modules/identity/api/guards/jwt-auth.guard';
 import * as decorators from 'src/modules/identity/api/decorators';
 import { ApiOperation, ApiResponse } from '@nestjs/swagger';
+import { CreateOfferCandidateDto } from '../dtos/offer.dto';
+import { OfferService } from '../services/offer.service';
+import { PipelineStageType } from 'src/modules/hiring-pipeline/domain/entities/pipeline-stage.entity';
 
 @Controller('/v1/candidates/applications')
 @UseGuards(JwtAuthGuard)
 export class ApplicationCandidateController {
   constructor(
     private readonly applicationService: applicationService.ApplicationService,
+    private readonly offerService: OfferService,
   ) {}
 
   @Post()
@@ -85,7 +89,7 @@ export class ApplicationCandidateController {
   search(
     @Query('candidateId') candidateId?: string,
     @Query('jobId') jobId?: string,
-    @Query('status') status?: ApplicationStatus,
+    @Query('stage') stage?: PipelineStageType,
     @Query('source') source?: string,
     @Query('isShortlisted', ParseBoolPipe) isShortlisted?: boolean,
     @Query('isFlagged', ParseBoolPipe) isFlagged?: boolean,
@@ -105,7 +109,7 @@ export class ApplicationCandidateController {
     const filters: applicationService.ApplicationSearchFilters = {
       candidateId,
       jobId,
-      status,
+      stage,
       source,
       isShortlisted,
       isFlagged,
@@ -126,7 +130,6 @@ export class ApplicationCandidateController {
       sortOrder,
     );
   }
-
   @Get('stats')
   stats(
     @Query('jobId') jobId?: string,
@@ -310,4 +313,18 @@ export class ApplicationCandidateController {
     await this.applicationService.deleteApplication(id, _u?.sub || 'system');
     return { message: 'Application deleted successfully' };
   }
+
+  @Post(':applicationId/offer')
+  @ApiOperation({ summary: 'Create new offer for application (candidate)' })
+  @ApiResponse({ status: 201, description: 'Offer created successfully' })
+  @ApiResponse({ status: 404, description: 'Application not found' })
+  @ApiResponse({ status: 403, description: 'Application does not belong to candidate' })
+  async createOffer(
+    @Param('id', ParseUUIDPipe) applicationId: string,
+    @Body() createOfferDto: CreateOfferCandidateDto,
+    @decorators.CurrentUser() currentUser: decorators.CurrentUserPayload,
+  ) {
+    return this.offerService.createOfferByCandidate(applicationId, createOfferDto, currentUser.sub);
+  }
+
 }

@@ -21,9 +21,12 @@ import { AIService } from 'src/shared/infrastructure/external-services/ai/servic
       InterviewScore,
       InterviewFeedback,
     ]),
-    AIModule
+    AIModule,
   ],
-  controllers: [SystemMockAIInterviewController, CandidateMockAIInterviewController], 
-  providers: [MockInterviewService, AIService, AgentInterviewerService]
+  controllers: [
+    SystemMockAIInterviewController,
+    CandidateMockAIInterviewController,
+  ],
+  providers: [MockInterviewService, AIService, AgentInterviewerService],
 })
 export class MockAIInterviewModule {}

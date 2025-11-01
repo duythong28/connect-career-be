@@ -31,6 +31,9 @@ import {
   OrganizationRole,
 } from './domain/entities/organization-memberships.entity';
 import { OrganizationRBACMigrationService } from './infrastructure/organization-rbac-migration.service';
+import { Interview } from '../applications/domain/entities/interview.entity';
+import { Job } from '../jobs/domain/entities/job.entity';
+import { Offer } from '../applications/domain/entities/offer.entity';
 
 @Module({
   imports: [
@@ -52,6 +55,9 @@ import { OrganizationRBACMigrationService } from './infrastructure/organization-
       OrganizationRole,
       OrganizationPermission,
       OrganizationInvitation,
+      Interview,
+      Job,
+      Offer
     ]),
   ],
   controllers: [

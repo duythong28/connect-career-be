@@ -3,6 +3,7 @@ import {
   Controller,
   Get,
   Param,
+  ParseUUIDPipe,
   Patch,
   Post,
   Query,
@@ -14,10 +15,12 @@ import * as decorators from 'src/modules/identity/api/decorators';
 import { CreateOrganizationDto } from '../dtos/create-organization.dto';
 import { CurrentUser, Public } from 'src/modules/identity/api/decorators';
 import {
+  OrganizationInterviewsQueryDto,
   OrganizationQueryDto,
   OrganizationSearchDto,
+  OrganizationUpcomingInterviewsQueryDto,
 } from '../dtos/organization-query.dto';
-import { ApiOperation, ApiQuery, ApiResponse } from '@nestjs/swagger';
+import { ApiOperation, ApiParam, ApiQuery, ApiResponse } from '@nestjs/swagger';
 import { UpdateOrganizationDto } from '../dtos/update-organization.dto';
 
 @Controller('/v1/organizations')
@@ -78,6 +81,43 @@ export class OrganizationController {
     return this.organizationService.quickSearch(searchTerm, maxResults);
   }
 
+  @Get(':organizationId/interviews')
+  @UseGuards(JwtAuthGuard)
+  @ApiOperation({ summary: 'Get all interviews for an organization' })
+  @ApiParam({ name: 'id', description: 'Organization ID' })
+  @ApiResponse({ status: 200, description: 'Interviews retrieved successfully' })
+  @ApiResponse({ status: 404, description: 'Organization not found' })
+  async getOrganizationInterviews(
+    @Param('organizationId', ParseUUIDPipe) id: string,
+    @Query() query: OrganizationInterviewsQueryDto,
+  ) {
+    return this.organizationService.getInterviewsByOrganization(id, {
+      status: query.status,
+      startDate: query.startDate ? new Date(query.startDate) : undefined,
+      endDate: query.endDate ? new Date(query.endDate) : undefined,
+      jobId: query.jobId,
+      page: query.page,
+      limit: query.limit,
+    });
+  }
+
+  @Get(':id/interviews/upcoming')
+  @UseGuards(JwtAuthGuard)
+  @ApiOperation({ summary: 'Get upcoming interviews for an organization' })
+  @ApiParam({ name: 'id', description: 'Organization ID' })
+  @ApiResponse({ status: 200, description: 'Upcoming interviews retrieved successfully' })
+  @ApiResponse({ status: 404, description: 'Organization not found' })
+  async getUpcomingOrganizationInterviews(
+    @Param('id', ParseUUIDPipe) id: string,
+    @Query() query: OrganizationUpcomingInterviewsQueryDto,
+  ) {
+    return this.organizationService.getUpcomingInterviewsByOrganization(id, {
+      daysAhead: query.daysAhead,
+      jobId: query.jobId,
+      limit: query.limit,
+    });
+  }
+
   @Get(':id')
   @Public()
   @ApiOperation({ summary: 'Get organization by ID' })
@@ -98,4 +138,6 @@ export class OrganizationController {
       updateOrganizationDto,
     );
   }
+
+
 }

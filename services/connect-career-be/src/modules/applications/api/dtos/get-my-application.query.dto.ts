@@ -25,14 +25,16 @@ export class GetMyApplicationsQueryDto {
   source?: string;
 
   @ApiPropertyOptional({
-    description: 'Filter applications applied after this date (ISO date string)',
+    description:
+      'Filter applications applied after this date (ISO date string)',
   })
   @IsOptional()
   @IsString()
   appliedAfter?: string;
 
   @ApiPropertyOptional({
-    description: 'Filter applications applied before this date (ISO date string)',
+    description:
+      'Filter applications applied before this date (ISO date string)',
   })
   @IsOptional()
   @IsString()

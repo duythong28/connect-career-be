@@ -6,7 +6,6 @@ import {
   Entity,
   Index,
   JoinColumn,
-  ManyToMany,
   ManyToOne,
   PrimaryGeneratedColumn,
   UpdateDateColumn,
@@ -90,6 +89,7 @@ export class CV {
   content?: {
     personalInfo?: {
       name?: string;
+      title?: string;
       email?: string;
       phone?: string;
       address?: string;
@@ -153,6 +153,7 @@ export class CV {
       content: string;
       order: number;
     }>;
+    [key: string]: any;
   };
   @Column({ type: 'text', nullable: true })
   extractedText?: string;

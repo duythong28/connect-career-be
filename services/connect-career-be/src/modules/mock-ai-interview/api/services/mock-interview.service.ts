@@ -184,7 +184,9 @@ export class MockInterviewService {
         interviewerAgentId: dto.interviewerAgentId,
         customPrompt: dto.customPrompt,
         jobDescription: dto.jobDescription,
-        configuration: this.buildConfiguration(dto as GenerateMockInterviewQuestionsDto),
+        configuration: this.buildConfiguration(
+          dto as GenerateMockInterviewQuestionsDto,
+        ),
         status: InterviewSessionStatus.CREATED,
       });
 
@@ -278,16 +280,17 @@ export class MockInterviewService {
     `;
   }
   private buildQuestionPrompt(session: MockInterviewSession): string {
-    const hasCustomGoal = session.customPrompt && session.customPrompt.trim().length > 0;
+    const hasCustomGoal =
+      session.customPrompt && session.customPrompt.trim().length > 0;
     const calculateQuestionCount = () => {
       const duration = session.configuration.duration || 10; // minutes
       // Generate approximately 1 question per 2 minutes, minimum 5, maximum 15
       const calculated = Math.max(5, Math.min(15, Math.floor(duration / 2)));
       return calculated;
     };
-  
+
     const totalQuestions = calculateQuestionCount();
-  
+
     // Build guidelines based on whether custom goal exists
     const guidelinesSection = hasCustomGoal
       ? `
@@ -308,7 +311,7 @@ export class MockInterviewService {
         - Maintain a professional yet approachable tone, ensuring candidates feel comfortable while demonstrating their knowledge.
         - Ask concise and precise open-ended questions that encourage detailed responses. Each question should be 30 words or less for clarity.
       `;
-  
+
     const basePrompt = `
       Generate interview questions based on the following information:
       ${guidelinesSection}

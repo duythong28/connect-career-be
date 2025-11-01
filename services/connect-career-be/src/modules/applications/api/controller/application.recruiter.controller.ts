@@ -37,6 +37,8 @@ import {
   CreateOfferDto,
   UpdateOfferDto,
   RecordOfferResponseDto,
+  AcceptOfferDto,
+  RejectOfferDto,
 } from '../dtos/offer.dto';
 import { LogCommunicationDto } from '../dtos/communication.dto';
 import { JwtAuthGuard } from '../../../identity/api/guards/jwt-auth.guard';
@@ -375,4 +377,37 @@ export class ApplicationRecruiterController {
   async getCommunicationLog(@Param('id') id: string): Promise<any[]> {
     return this.communicationService.getCommunicationLog(id);
   }
+
+  @Post(':id/offers/accept')
+  @ApiOperation({ summary: 'Accept offer (recruiter accepts candidate counter-offer)' })
+  @ApiResponse({ status: 200, description: 'Offer accepted successfully' })
+  @ApiResponse({ status: 404, description: 'Application or offer not found' })
+  async acceptOffer(
+    @Param('id') id: string,
+    @Body() acceptDto: AcceptOfferDto,
+    @decorators.CurrentUser() user: decorators.CurrentUserPayload,
+  ) {
+    return this.offerService.acceptOffer(id, acceptDto, user.sub);
+  }
+
+  @Get(':applicationId/offers')
+  @ApiOperation({ summary: 'Get application offers' })
+  @ApiParam({ name: 'applicationId', description: 'Application ID' })
+  @ApiResponse({ status: 200, description: 'Offers retrieved successfully' })
+  @ApiResponse({ status: 404, description: 'Application not found' })
+  async getApplicationOffersByRecruiter(@Param('applicationId') applicationId: string): Promise<any[]> {
+    return this.offerService.getOffersByApplication(applicationId);
+  }
+
+  // @Post(':id/offers/reject')
+  // @ApiOperation({ summary: 'Reject offer (recruiter rejects candidate counter-offer)' })
+  // @ApiResponse({ status: 200, description: 'Offer rejected successfully' })
+  // @ApiResponse({ status: 404, description: 'Application or offer not found' })
+  // async rejectOffer(
+  //   @Param('id') id: string,
+  //   @Body() rejectDto: RejectOfferDto,
+  //   @decorators.CurrentUser() user: decorators.CurrentUserPayload,
+  // ) {
+  //   return this.offerService.rejectOffer(id, rejectDto, user.sub);
+  // }
 }

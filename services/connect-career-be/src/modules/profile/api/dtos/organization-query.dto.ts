@@ -15,6 +15,8 @@ import {
   OrganizationType,
   WorkScheduleType,
 } from '../../domain/entities/organization.entity';
+import { ApiPropertyOptional } from '@nestjs/swagger';
+import { InterviewStatus } from 'src/modules/applications/domain/entities/interview.entity';
 
 export class OrganizationQueryDto {
   @IsOptional()
@@ -154,4 +156,92 @@ export class OrganizationSearchDto {
   @IsOptional()
   @IsEnum(['ASC', 'DESC'])
   sortOrder?: 'ASC' | 'DESC' = 'DESC';
+}
+
+export class OrganizationInterviewsQueryDto {
+  @ApiPropertyOptional({
+    description: 'Filter by interview status',
+    enum: InterviewStatus,
+  })
+  @IsOptional()
+  @IsEnum(InterviewStatus)
+  status?: InterviewStatus;
+
+  @ApiPropertyOptional({
+    description: 'Filter interviews from this date (ISO date string)',
+  })
+  @IsOptional()
+  @IsString()
+  startDate?: string;
+
+  @ApiPropertyOptional({
+    description: 'Filter interviews until this date (ISO date string)',
+  })
+  @IsOptional()
+  @IsString()
+  endDate?: string;
+
+  @ApiPropertyOptional({
+    description: 'Filter by job ID',
+  })
+  @IsOptional()
+  @IsUUID()
+  jobId?: string;
+
+  @ApiPropertyOptional({
+    description: 'Page number',
+    default: 1,
+    minimum: 1,
+  })
+  @IsOptional()
+  @Transform(({ value }) => parseInt(value, 10))
+  @IsNumber()
+  @Min(1)
+  page?: number = 1;
+
+  @ApiPropertyOptional({
+    description: 'Number of items per page',
+    default: 20,
+    minimum: 1,
+    maximum: 100,
+  })
+  @IsOptional()
+  @Transform(({ value }) => parseInt(value, 10))
+  @IsNumber()
+  @Min(1)
+  @Max(100)
+  limit?: number = 20;
+}
+
+export class OrganizationUpcomingInterviewsQueryDto {
+  @ApiPropertyOptional({
+    description: 'Number of days ahead to look for interviews',
+    default: 30,
+    minimum: 1,
+  })
+  @IsOptional()
+  @Transform(({ value }) => parseInt(value, 10))
+  @IsNumber()
+  @Min(1)
+  daysAhead?: number = 30;
+
+  @ApiPropertyOptional({
+    description: 'Filter by job ID',
+  })
+  @IsOptional()
+  @IsUUID()
+  jobId?: string;
+
+  @ApiPropertyOptional({
+    description: 'Maximum number of results',
+    default: 50,
+    minimum: 1,
+    maximum: 100,
+  })
+  @IsOptional()
+  @Transform(({ value }) => parseInt(value, 10))
+  @IsNumber()
+  @Min(1)
+  @Max(100)
+  limit?: number = 50;
 }

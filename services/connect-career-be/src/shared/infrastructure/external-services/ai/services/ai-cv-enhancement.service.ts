@@ -1,5 +1,6 @@
 import { BadRequestException, Injectable } from "@nestjs/common";
 import { AIService } from "./ai.service";
+import OpenAI from "openai";
 
 export interface CVEnhancementPrompt {
   cv: any;
@@ -28,9 +29,17 @@ export interface CVAssessment {
     style: Suggestion[];
   };
 }
-Injectable();
+@Injectable()
 export class AICVEnhancementService {
-  constructor(private readonly aiService: AIService) {}
+    private readonly openai: OpenAI;
+  constructor(private readonly aiService: AIService) {
+    this.openai = new OpenAI({
+        apiKey: process.env.GEMINI_API_KEY,
+        baseURL: 'https://generativelanguage.googleapis.com/v1beta/openai/',
+        maxRetries: 5,
+        dangerouslyAllowBrowser: true,
+      });
+  }
 
   async enhanceCV(prompt: CVEnhancementPrompt): Promise<CVAssessment> {
     if (!prompt.cv) {
@@ -40,22 +49,27 @@ export class AICVEnhancementService {
     const systemPrompt = this.buildSystemPrompt();
     const userPrompt = this.buildUserPrompt(prompt.cv);
 
-    const response = await this.aiService.chat({
-      messages: [
-        {
-          role: 'system',
-          content: systemPrompt,
-        },
-        {
-          role: 'user',
-          content: userPrompt,
-        },
-      ],
-      temperature: prompt.temperature ?? 0.3,
-      maxOutputTokens: prompt.maxOutputTokens ?? 8192,
-    });
+    const response = await this.openai.chat.completions.create({
+        model: 'gemini-2.5-flash-lite',
+        messages: [
+          {
+            role: 'system',
+            content: systemPrompt,
+          },
+          {
+            role: 'user',
+            content: userPrompt,
+          },
+        ],
+        temperature: prompt.temperature ?? 0.3,
+        max_completion_tokens: prompt.maxOutputTokens ?? 8192,
+      });
+    const content = response.choices[0]?.message?.content;
+    if (!content || content.trim() === '') {
+      throw new BadRequestException('No content received from AI service');
+    }
 
-    return this.parseResponse(response.content);
+    return this.parseResponse(content);
   }
   private buildSystemPrompt(): string {
     return `You are an Expert CV Review Agent. Your sole task is to analyze a user-provided CV in JSON format and return a single JSON object detailing actionable improvements.

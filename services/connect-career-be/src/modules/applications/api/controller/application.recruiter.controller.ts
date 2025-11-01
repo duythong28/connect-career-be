@@ -316,7 +316,8 @@ export class ApplicationRecruiterController {
   @ApiParam({ name: 'offerId', description: 'Offer ID' })
   @ApiResponse({ status: 200, description: 'Offer deleted successfully' })
   @ApiResponse({ status: 404, description: 'Offer not found' })
-  async deleteOffer(@Param('offerId') offerId: string,
+  async deleteOffer(
+    @Param('offerId') offerId: string,
     @decorators.CurrentUser() user: decorators.CurrentUserPayload,
   ): Promise<void> {
     await this.offerService.deleteOffer(offerId, user.sub);

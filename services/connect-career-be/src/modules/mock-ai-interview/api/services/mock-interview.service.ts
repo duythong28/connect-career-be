@@ -17,13 +17,16 @@ import {
   InterviewConfiguration,
   InterviewResults,
   InterviewSessionStatus,
+  QuestionContext,
+  QuestionType,
 } from '../../domain/value-objects/interview-configuration.vo';
-import { CreateMockInterviewDto } from '../dto/create-mock-interview.dto';
 import { MockInterviewSearchFilters } from '../dto/search-mock-interview.filter.dto';
 import { OpenAI } from 'openai';
-import { AIService } from 'src/shared/infrastructure/external-services/ai/services/ai.service';
-import { UUID } from 'typeorm/driver/mongodb/bson.typings.js';
+import { randomUUID } from 'crypto';
 import { ConfigService } from '@nestjs/config';
+import { CreateMockInterviewDto } from '../dto/mock-interview.dto';
+import { GenerateMockInterviewQuestionsDto } from '../dto/generate-mock-interview-question.dto';
+import { QuestionInputDto } from '../dto/question-input.dto';
 
 @Injectable()
 export class MockInterviewService {
@@ -40,7 +43,6 @@ export class MockInterviewService {
     private readonly scoreRepository: Repository<InterviewScore>,
     @InjectRepository(InterviewFeedback)
     private readonly feedbackRepository: Repository<InterviewFeedback>,
-    private readonly aiService: AIService,
     private readonly configService: ConfigService,
   ) {
     this.openai = new OpenAI({
@@ -51,12 +53,12 @@ export class MockInterviewService {
     });
   }
 
-  async createSession(
-    dto: CreateMockInterviewDto,
+  async generateMockInterviewQuestion(
+    dto: GenerateMockInterviewQuestionsDto,
     candidateId: string,
   ): Promise<{
     mockInterviewSession: MockInterviewSession;
-    questions: string[];
+    questions: QuestionInputDto[];
     description: string;
   }> {
     const session = new MockInterviewSession();
@@ -113,11 +115,48 @@ export class MockInterviewService {
         return defaultResponse;
       }
 
+      const questions: QuestionInputDto[] = [];
+      const rawQuestions =
+        (parsedResponse as { questions: any[] })?.questions || [];
+
+      for (let i = 0; i < rawQuestions.length; i++) {
+        const q = (
+          rawQuestions as {
+            question: string;
+            type: string;
+            persona: string;
+            order: number;
+            timeLimit: number;
+            context: any[];
+          }[]
+        )[i];
+        if (
+          q &&
+          q.question &&
+          q.type &&
+          q.persona &&
+          typeof q.order === 'number'
+        ) {
+          questions.push({
+            question: q.question,
+            type: q.type as QuestionType,
+            persona: q.persona,
+            order: q.order,
+            timeLimit: q.timeLimit || undefined,
+            context: (q.context as QuestionContext) || undefined,
+            askedAt: new Date().toISOString(),
+          });
+        } else {
+          this.logger.warn(`Invalid question format at index ${i}:`, q);
+        }
+      }
+      questions.sort((a, b) => a.order - b.order);
+
       this.logger.log('Interview questions generated successfully');
 
       return {
         mockInterviewSession: session,
-        questions: (parsedResponse?.questions as string[]) || [],
+        questions,
         description: (parsedResponse?.description as string) || '',
       };
     } catch (error) {
@@ -127,7 +166,7 @@ export class MockInterviewService {
   }
 
   async createMockInterview(
-    dto: CreateMockInterviewDto & { interviewData?: { agentId: string } },
+    dto: CreateMockInterviewDto,
     candidateId: string,
   ): Promise<{
     response: string;
@@ -136,16 +175,16 @@ export class MockInterviewService {
     readableSlug: string | null;
   }> {
     try {
-      const callId = new UUID().toString();
+      const callId = randomUUID();
       const baseUrl = this.configService.get<string>('FRONTEND_URL');
       const callUrl = baseUrl + '/mock-interview/' + callId;
       const readableSlug = this.slugify(dto.name ?? '');
       const session = this.sessionRepository.create({
         candidateId: candidateId,
-        interviewerAgentId: dto.interviewData?.agentId,
+        interviewerAgentId: dto.interviewerAgentId,
         customPrompt: dto.customPrompt,
         jobDescription: dto.jobDescription,
-        configuration: this.buildConfiguration(dto),
+        configuration: this.buildConfiguration(dto as GenerateMockInterviewQuestionsDto),
         status: InterviewSessionStatus.CREATED,
       });
 
@@ -221,7 +260,7 @@ export class MockInterviewService {
   }
 
   private buildConfiguration(
-    dto: CreateMockInterviewDto,
+    dto: GenerateMockInterviewQuestionsDto,
   ): InterviewConfiguration {
     return {
       duration: dto.duration || 10,
@@ -238,28 +277,87 @@ export class MockInterviewService {
       "You are an expert in coming up with follow up questions to uncover deeper insights.";
     `;
   }
-
   private buildQuestionPrompt(session: MockInterviewSession): string {
+    const hasCustomGoal = session.customPrompt && session.customPrompt.trim().length > 0;
+    const calculateQuestionCount = () => {
+      const duration = session.configuration.duration || 10; // minutes
+      // Generate approximately 1 question per 2 minutes, minimum 5, maximum 15
+      const calculated = Math.max(5, Math.min(15, Math.floor(duration / 2)));
+      return calculated;
+    };
+  
+    const totalQuestions = calculateQuestionCount();
+  
+    // Build guidelines based on whether custom goal exists
+    const guidelinesSection = hasCustomGoal
+      ? `
+        PRIMARY FOCUS: The candidate's stated goal should be the TOP PRIORITY when generating questions.
+        Candidate's Goal: ${session.customPrompt}
+        
+        Follow these guidelines:
+        - Generate questions that directly align with and prioritize the candidate's stated goal above all else.
+        - If the candidate wants to practice specific skills (e.g., behavioral questions, conflict resolution), ALL questions should focus on those areas unless explicitly requested otherwise.
+        - Use the job description and focus areas to provide relevant context, but do not override the candidate's primary goal.
+        - Ask concise and precise open-ended questions that encourage detailed responses. Each question should be 30 words or less for clarity.
+      `
+      : `
+        Follow these detailed guidelines when crafting the questions:
+        - Focus on evaluating the candidate's technical knowledge and their experience working on relevant projects. Questions should aim to gauge depth of expertise, problem-solving ability, and hands-on project experience. These aspects carry the most weight.
+        - Include questions designed to assess problem-solving skills through practical examples. For instance, how the candidate has tackled challenges in previous projects, and their approach to complex technical issues.
+        - Soft skills such as communication, teamwork, and adaptability should be addressed, but given less emphasis compared to technical and problem-solving abilities.
+        - Maintain a professional yet approachable tone, ensuring candidates feel comfortable while demonstrating their knowledge.
+        - Ask concise and precise open-ended questions that encourage detailed responses. Each question should be 30 words or less for clarity.
+      `;
+  
     const basePrompt = `
-      Generate an interview question based on the following information:
-      Follow these detailed guidelines when crafting the questions:
-      - Focus on evaluating the candidate's technical knowledge and their experience working on relevant projects. Questions should aim to gauge depth of expertise, problem-solving ability, and hands-on project experience. These aspects carry the most weight.
-      - Include questions designed to assess problem-solving skills through practical examples. For instance, how the candidate has tackled challenges in previous projects, and their approach to complex technical issues.
-      - Soft skills such as communication, teamwork, and adaptability should be addressed, but given less emphasis compared to technical and problem-solving abilities.
-      - Maintain a professional yet approachable tone, ensuring candidates feel comfortable while demonstrating their knowledge.
-      - Ask concise and precise open-ended questions that encourage detailed responses. Each question should be 30 words or less for clarity.
+      Generate interview questions based on the following information:
+      ${guidelinesSection}
 
-        Use the following context to generate the questions:
-            Candidate's Goal: ${session.customPrompt}
-            Job Description: ${session.jobDescription ? `Job Description: ${session.jobDescription}` : ''}
-            Difficulty Level: ${session.configuration.difficulty}
-            Focus Areas: ${session.configuration.focusAreas.join(', ') || 'General'}
-            Question Types: ${session.configuration.questionTypes.join(', ')}
-      Moreover generate a 50 word or less second-person description about the interview to be shown to the user. It should be in the field 'description'.
-      Do not use the exact objective in the description. Remember that some details are not be shown to the user. It should be a small description for the
-      user to understand what the content of the interview would be. Make sure it is clear to the respondent who's taking the interview.
-      The field 'questions' should take the format of an array of objects with the following key: question. 
-      Strictly output only a JSON object with the keys 'questions' and 'description'`;
+  
+      Use the following context to generate the questions:
+          ${hasCustomGoal ? `Candidate's Goal (HIGHEST PRIORITY): ${session.customPrompt}` : ''}
+          Job Description: ${session.jobDescription ? `${session.jobDescription}` : 'Not provided'}
+          Difficulty Level: ${session.configuration.difficulty}
+          Focus Areas: ${session.configuration.focusAreas.join(', ') || 'General'}
+          Question Types: ${session.configuration.questionTypes?.join(', ') || 'behavioral'}  
+
+      IMPORTANT OUTPUT FORMAT:
+      Generate a 50 word or less second-person description about the interview to be shown to the user in the field 'description'.
+      Do not use the exact objective in the description. Remember that some details should not be shown to the user. It should be a small description for the user to understand what the content of the interview would be.
+
+      The 'questions' field MUST be an array of objects, where each object has the following structure:
+      {
+        "question": "The actual question text (required)",
+        "type": "One of: opener, closing, behavioral, situational, motivational, cultural_fit, process, theoretical, coding_challenge, system_design, technical, scenario, follow_up (required)",
+        "persona": "The interviewer persona/character name (e.g., 'Henry', 'Marcus', or 'default') (required)",
+        "order": Number indicating the sequence order starting from 1 (required),
+        "timeLimit": Optional number in seconds (minimum 30) for time limit to answer,
+        "context": Optional object with structure: { "previousAnswers": [], "followUpReason": "", "scenarioDetails": {} }
+      }
+
+      Rules for question types:
+      - The first question should have type "opener" and order 1
+      - The last question should have type "closing" and order equal to the total number of questions
+      - Middle questions should match the requested question types: ${session.configuration.questionTypes?.join(', ') || 'behavioral, technical'}
+      - Distribute question types evenly based on the requested types
+      - Persona should be a consistent character name (use 'default' if no specific persona is needed)
+
+      Generate ${totalQuestions} questions total (including 1 opener and 1 closing question).
+
+      Strictly output ONLY a valid JSON object with this exact structure:
+      {
+        "description": "string",
+        "questions": [
+          {
+            "question": "string",
+            "type": "string (one of the valid types)",
+            "persona": "string",
+            "order": number,
+            "timeLimit": number (optional),
+            "context": {} (optional)
+          }
+        ]
+      }`;
 
     return basePrompt.trim();
   }

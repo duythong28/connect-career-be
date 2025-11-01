@@ -12,7 +12,7 @@ import {
   QuestionType,
 } from '../../domain/value-objects/interview-configuration.vo';
 
-export class CreateMockInterviewDto {
+export class GenerateMockInterviewQuestionsDto {
   @ApiPropertyOptional()
   @IsOptional()
   @IsString()

@@ -51,7 +51,7 @@ export class ApplicationCandidateController {
   })
   async getMyApplicationsPaginated(
     @decorators.CurrentUser() currentUser: decorators.CurrentUserPayload,
-    @Query('status') status?: ApplicationStatus,
+    @Query('stage') stage?: PipelineStageType,
     @Query('source') source?: string,
     @Query('appliedAfter') appliedAfter?: string,
     @Query('appliedBefore') appliedBefore?: string,
@@ -66,7 +66,7 @@ export class ApplicationCandidateController {
   ) {
     const filters: applicationService.ApplicationSearchFilters = {
       candidateId: currentUser.sub,
-      status,
+      stage,
       source,
       appliedAfter: appliedAfter ? new Date(appliedAfter) : undefined,
       appliedBefore: appliedBefore ? new Date(appliedBefore) : undefined,

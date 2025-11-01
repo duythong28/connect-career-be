@@ -1,8 +1,9 @@
 import { Body, Controller, Post, UseGuards } from '@nestjs/common';
 import { JwtAuthGuard } from 'src/modules/identity/api/guards/jwt-auth.guard';
 import { MockInterviewService } from '../services/mock-interview.service';
-import { CreateMockInterviewDto } from '../dto/create-mock-interview.dto';
 import * as decorators from 'src/modules/identity/api/decorators';
+import { GenerateMockInterviewQuestionsDto } from '../dto/generate-mock-interview-question.dto';
+import { CreateMockInterviewDto } from '../dto/mock-interview.dto';
 
 @Controller('v1/candidates/mock-ai-interview')
 @UseGuards(JwtAuthGuard)
@@ -10,10 +11,13 @@ export class CandidateMockAIInterviewController {
   constructor(private readonly mockAIInterviewService: MockInterviewService) {}
   @Post('questions/generate')
   async generateQuestionsSession(
-    @Body() body: CreateMockInterviewDto,
+    @Body() body: GenerateMockInterviewQuestionsDto,
     @decorators.CurrentUser() user: decorators.CurrentUserPayload,
   ) {
-    return this.mockAIInterviewService.createSession(body, user.sub);
+    return this.mockAIInterviewService.generateMockInterviewQuestion(
+      body,
+      user.sub,
+    );
   }
 
   @Post('')

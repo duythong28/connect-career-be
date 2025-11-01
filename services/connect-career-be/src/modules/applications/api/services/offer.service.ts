@@ -451,7 +451,8 @@ export class OfferService {
       rootOfferId = latestOffer.rootOfferId || latestOffer.id;
     }
 
-    const isOfferedByCandidate = createDto.offeredBy === application.candidateId;
+    const isOfferedByCandidate =
+      createDto.offeredBy === application.candidateId;
 
     const offer = this.offerRepository.create({
       ...createDto,
@@ -478,7 +479,9 @@ export class OfferService {
       status: ApplicationStatus.OFFER_SENT,
       changedAt: new Date(),
       changedBy: createDto.offeredBy,
-      reason: isOfferedByCandidate ? 'Offer sent by candidate' : 'Offer sent to candidate',
+      reason: isOfferedByCandidate
+        ? 'Offer sent by candidate'
+        : 'Offer sent to candidate',
       notes: createDto.notes,
     });
 

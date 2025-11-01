@@ -10,12 +10,14 @@ import { Organization } from 'src/modules/profile/domain/entities/organization.e
 import { PaginationDto } from 'src/shared/kernel';
 import { JobStateMachineFactory } from '../../domain/state-machine/job-state-machine.factory';
 import { JobTransitionContext } from './job-state-machine.interface';
+import { HiringPipeline } from 'src/modules/hiring-pipeline/domain/entities/hiring-pipeline.entity';
 
 @Injectable()
 export class JobService {
   constructor(
     @InjectRepository(Job) private readonly jobRepository: Repository<Job>,
     @InjectRepository(User) private readonly userRepository: Repository<User>,
+    @InjectRepository(HiringPipeline) private readonly hiringPipelineRepository: Repository<HiringPipeline>,
     @InjectRepository(Organization)
     private readonly organizationRepository: Repository<Organization>,
     private readonly stateMachineFactory: JobStateMachineFactory,
@@ -431,6 +433,7 @@ export class JobService {
         `Organization with User ID ${userId} not found`,
       );
     }
+    const hiringPipeline = await this.hiringPipelineRepository.findOne({ where: { id: createJobDto.hiringPipelineId } });
     const jobDataForCreate: Partial<Job> = {
       ...createJobDto,
       userId,

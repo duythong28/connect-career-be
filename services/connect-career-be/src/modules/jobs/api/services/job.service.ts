@@ -1,4 +1,4 @@
-import { Injectable, NotFoundException } from '@nestjs/common';
+import { BadRequestException, Injectable, NotFoundException } from '@nestjs/common';
 import { InjectRepository } from '@nestjs/typeorm';
 import { Job, JobSource, JobStatus } from '../../domain/entities/job.entity';
 import { Repository } from 'typeorm';
@@ -440,7 +440,12 @@ export class JobService {
       organizationId: organization.id,
       source: JobSource.INTERNAL,
     };
-
+    if(!hiringPipeline) {
+      throw new NotFoundException(`Hiring pipeline with ID ${createJobDto.hiringPipelineId} not found`);
+    }
+    if(hiringPipeline) {
+      jobDataForCreate.hiringPipelineId = hiringPipeline.id;
+    }
     const job = this.jobRepository.create(jobDataForCreate);
     return await this.jobRepository.save(job);
   }

@@ -8,6 +8,8 @@ import {
   MinLength,
   MaxLength,
   IsDate,
+  IsNotEmpty,
+  IsUUID,
 } from 'class-validator';
 import { Type } from 'class-transformer';
 import { ApiProperty, ApiPropertyOptional } from '@nestjs/swagger';
@@ -54,6 +56,17 @@ export class CreateJobDto {
   @ApiProperty({ description: 'Job location' })
   @IsString()
   location: string;
+
+  @ApiPropertyOptional({ description: 'Job requirements' })
+  @IsNotEmpty()
+  @IsArray()
+  @IsString({ each: true })
+  requirements?: string[];
+
+  @ApiPropertyOptional({ description: 'Hiring pipeline ID' })
+  @IsOptional()
+  @IsUUID()
+  hiringPipelineId?: string;
 
   @ApiPropertyOptional({ description: 'Country code' })
   @IsOptional()

@@ -1,4 +1,4 @@
-import { Injectable } from '@nestjs/common';
+import { Injectable, Logger } from '@nestjs/common';
 import {
   JobSeniorityLevel,
   JobType,
@@ -55,6 +55,7 @@ export interface VariantsPrompt {
 
 @Injectable()
 export class AIJobDescriptionService {
+  private readonly logger = new Logger(AIJobDescriptionService.name);
   constructor(private readonly aiService: AIService) {}
   async generateJobDescription(
     prompt: JobDescriptionPrompt,
@@ -69,6 +70,7 @@ export class AIJobDescriptionService {
       temperature: prompt.temperature ?? 0.7,
       maxOutputTokens: 2048,
     });
+
 
     return this.parseResponse(response.content);
   }
@@ -156,7 +158,7 @@ export class AIJobDescriptionService {
         7. Include relevant keywords for SEO and ATS systems
         Output format (JSON): 
         { 
-          "description": "Full job description with sections: About the Role, Key Responsibilities, Requirements, Benefits, etc.",
+          "description": "Markdown format (not use \n, use direct markdown format) Full job description with sections: About the Role, Key Responsibilities, Requirements, Benefits, etc.",
           "summary": "2-3 sentence summary for job listings",
             "keywords": ["relevant", "search", "terms"],
             "requirements": ["Must-have requirements"],
@@ -219,11 +221,32 @@ export class AIJobDescriptionService {
 
   private parseResponse(content: string): JobDescriptionResponse {
     try {
-      const jsonMatch = content.match(/\{[\s\S]*\}/);
-      if (jsonMatch) {
-        return JSON.parse(jsonMatch[0]);
+      let jsonString: string | null = null;
+      const codeBlockMatch = content.match(/```json\s*([\s\S]*?)\s*```/);
+      if (codeBlockMatch && codeBlockMatch[1]) {
+        jsonString = codeBlockMatch[1];
+      } else {
+        const greedyMatch = content.match(/\{[\s\S]*\}/);
+        if (greedyMatch) {
+          jsonString = greedyMatch[0];
+        }
       }
+  
+      if (jsonString) {
+        const parsed = JSON.parse(jsonString);
+        this.logger.log('parsed', parsed);
+        if (parsed.description && typeof parsed.description === 'string') {
+          parsed.description = parsed.description.replace(/\\n/g, '\n');
+        }
+        if (parsed.summary && typeof parsed.summary === 'string') {
+          parsed.summary = parsed.summary.replace(/\\n/g, '\n');
+        }
+        
+        return parsed;
+      }
+  
       return this.fallbackParse(content);
+      
     } catch (error) {
       console.error('Failed to parse AI response:', error);
       return this.fallbackParse(content);

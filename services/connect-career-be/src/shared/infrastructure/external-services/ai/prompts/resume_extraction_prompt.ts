@@ -46,7 +46,6 @@ ADDITIONAL REQUIREMENTS FOR PARSING:
 - All bullet points should start with • or -
 - Keep proper spacing between sections`;
 
-
 export const ENHANCE_RESUME_EXTRACTION_PROMPT = `
 **ROLE:** You are an expert CV/Resume JSON parser. Your task is to take a JSON object containing raw, sectioned text from a resume and transform it into a clean, structured JSON object.
 
@@ -123,7 +122,7 @@ json format:
       "description": "..."
     }
   ]
-}`
+}`;
 
 export const ENHANCE_RESUME_PROMPT_TEMPLATE = `
 **Role:** You are an expert HR Technology Specialist and CV Analyzer. Your task is to simulate an advanced Applicant Tracking System (ATS) and provide a comprehensive, actionable feedback report in Vietnamese.
@@ -195,4 +194,4 @@ You MUST generate a report in VIETNAMESE with the exact following 6-part structu
 
 **[Job Description]:**
 {...insert job description text here...}}
-`
+`;

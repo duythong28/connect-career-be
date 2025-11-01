@@ -4,9 +4,13 @@ import {
   parseResumeTextToCVContent,
   parseResume,
 } from './utils/resume-parser.util';
-import { ENHANCE_RESUME_EXTRACTION_PROMPT, RESUME_EXTRACTION_PROMPT } from './prompts/resume_extraction_prompt';
+import {
+  ENHANCE_RESUME_EXTRACTION_PROMPT,
+  RESUME_EXTRACTION_PROMPT,
+} from './prompts/resume_extraction_prompt';
 import * as aiJobDescriptionService from './services/ai-job-description.service';
 import { AIService } from './services/ai.service';
+import * as aiCvEnhancementService from './services/ai-cv-enhancement.service';
 
 type ExtractPdfDto = {
   url: string;
@@ -33,6 +37,7 @@ export class AIController {
   constructor(
     private readonly ai: AIService,
     private readonly aiJobDescriptionService: aiJobDescriptionService.AIJobDescriptionService,
+    private readonly aiCvEnhancementService: aiCvEnhancementService.AICVEnhancementService,
   ) {}
   @Post('cv/parse-resume-text')
   parseResumeText(@Body() body: ParseResumeDto) {
@@ -159,6 +164,32 @@ export class AIController {
       throw new BadRequestException(
         `Job description refinement failed: ${message}`,
       );
+    }
+  }
+
+  @Post('cv/enhance')
+  async enhanceCV(
+    @Body() body: aiCvEnhancementService.CVEnhancementPrompt,
+  ) {
+    if (!body?.cv) {
+      throw new BadRequestException('cv is required');
+    }
+
+    try {
+      const result = await this.aiCvEnhancementService.enhanceCV(body);
+
+      return {
+        success: true,
+        data: result,
+        metadata: {
+          modelId: 'gemini-2.5-pro',
+          temperature: body.temperature ?? 0.3,
+        },
+      };
+    } catch (error: unknown) {
+      const message =
+        error instanceof Error ? error.message : 'Unknown error occurred';
+      throw new BadRequestException(`CV enhancement failed: ${message}`);
     }
   }
 }

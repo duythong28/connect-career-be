@@ -5,6 +5,7 @@ import { AIService } from './services/ai.service';
 import { AIJobDescriptionService } from './services/ai-job-description.service';
 import { RetellAIProvider } from './providers/retell-ai.provider';
 import { OpenAIGeminiProvider } from './providers/openai-gemini.provider';
+import { AICVEnhancementService } from './services/ai-cv-enhancement.service';
 
 @Module({
   providers: [
@@ -22,9 +23,17 @@ import { OpenAIGeminiProvider } from './providers/openai-gemini.provider';
     },
     AIService,
     AIJobDescriptionService,
+    AICVEnhancementService,
     RetellAIProvider,
   ],
-  exports: ['AIProvider', AIJobDescriptionService, 'GeminiProvider', AIService, RetellAIProvider],
+  exports: [
+    'AIProvider',
+    AIJobDescriptionService,
+    AICVEnhancementService,
+    'GeminiProvider',
+    AIService,
+    RetellAIProvider,
+  ],
   controllers: [AIController],
 })
 export class AIModule {}

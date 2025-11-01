@@ -12,6 +12,8 @@ import { InterviewScore } from './mock_interview_scores.entity';
 import { InterviewFeedback } from './mock_interview_feedback.entity';
 
 @TypeOrmEntity('mock_interview_sessions')
+@Index(['candidateId'])
+@Index(['interviewerAgentId'])
 export class MockInterviewSession {
   @PrimaryGeneratedColumn('uuid')
   id: string;
@@ -19,6 +21,9 @@ export class MockInterviewSession {
   @Column('uuid')
   @Index()
   candidateId: string;
+
+  @Column('uuid', { nullable: true })
+  interviewerAgentId: string;
 
   @Column({ type: 'text' })
   customPrompt: string;

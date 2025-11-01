@@ -60,7 +60,7 @@ export class ApplicationStatusService {
       );
     }
 
-    const currentStage = application.currentStageKey
+    const currentStage = application.currentStageKey;
 
     // Validate stage transition
     if (currentStage) {

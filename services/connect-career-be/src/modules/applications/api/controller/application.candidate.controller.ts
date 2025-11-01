@@ -443,29 +443,29 @@ export class ApplicationCandidateController {
   }
 
   // Add this method after acceptOffer endpoint
-  // @Put(':applicationId/offers/reject')
-  // @ApiOperation({ summary: 'Reject offer (candidate)' })
-  // @ApiResponse({ status: 200, description: 'Offer rejected successfully' })
-  // @ApiResponse({ status: 404, description: 'Application or offer not found' })
-  // @ApiResponse({ status: 403, description: 'Application does not belong to candidate' })
-  // async rejectOffer(
-  //   @Param('applicationId', ParseUUIDPipe) applicationId: string,
-  //   @Body() rejectDto: RejectOfferDto,
-  //   @decorators.CurrentUser() currentUser: decorators.CurrentUserPayload,
-  // ) {
-  //   // Verify application belongs to candidate
-  //   const application = await this.applicationService.getApplicationById(applicationId);
-  //   if (!application) {
-  //     throw new NotFoundException('Application not found');
-  //   }
-  //   if (application.candidateId !== currentUser.sub) {
-  //     throw new ForbiddenException('Application does not belong to candidate');
-  //   }
+  @Put(':applicationId/offers/reject')
+  @ApiOperation({ summary: 'Reject offer (candidate)' })
+  @ApiResponse({ status: 200, description: 'Offer rejected successfully' })
+  @ApiResponse({ status: 404, description: 'Application or offer not found' })
+  @ApiResponse({ status: 403, description: 'Application does not belong to candidate' })
+  async rejectOffer(
+    @Param('applicationId', ParseUUIDPipe) applicationId: string,
+    @Body() rejectDto: RejectOfferDto,
+    @decorators.CurrentUser() currentUser: decorators.CurrentUserPayload,
+  ) {
+    // Verify application belongs to candidate
+    const application = await this.applicationService.getApplicationById(applicationId);
+    if (!application) {
+      throw new NotFoundException('Application not found');
+    }
+    if (application.candidateId !== currentUser.sub) {
+      throw new ForbiddenException('Application does not belong to candidate');
+    }
 
-  //   return this.offerService.rejectOffer(
-  //     applicationId,
-  //     rejectDto,
-  //     currentUser.sub,
-  //   );
-  // }
+    return this.offerService.rejectOffer(
+      applicationId,
+      rejectDto,
+      currentUser.sub,
+    );
+  }
 }

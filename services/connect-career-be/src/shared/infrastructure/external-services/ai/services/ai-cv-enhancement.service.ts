@@ -4,6 +4,7 @@ import OpenAI from 'openai';
 
 export interface CVEnhancementPrompt {
   cv: any;
+  jobDescription: string;
   temperature?: number;
   maxOutputTokens?: number;
 }

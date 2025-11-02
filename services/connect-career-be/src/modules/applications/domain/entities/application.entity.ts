@@ -437,29 +437,223 @@ export class Application {
   }
 
   calculateMatcingScore(
-    jobRequirements: any,
-    candidateProfile: CandidateProfile,
+    job: Job,
+    cv?: CV,
+    candidateProfile?: CandidateProfile,
   ): void {
+    if (!cv || !cv.content) {
+      const breakdown: MatchingScoreBreakdown = {
+        skillsMatch: 0,
+        experienceMatch: 0,
+        educationMatch: 0,
+        locationMatch: 0,
+        overallScore: 0,
+      };
+      this.matchingScore = 0;
+      this.matchingDetails = breakdown;
+      this.isAutoScored = true;
+      this.lastScoredAt = new Date();
+      return;
+    }
+    const cvContent = cv.content;
+    const jobRequirements = (job.requirements || []).map(r => r.toLowerCase().trim());
+
+    const cvSkills = this.extractSkillsFromCV(cvContent);
+
+    const candidateExperienceYears = this.calculateYearsOfExperience(
+      cvContent.workExperience || [],
+    );
+    const requiredExperienceYears = this.extractRequiredExperience(
+      job.requirements || [],
+    );
     const breakdown: MatchingScoreBreakdown = {
-      skillsMatch: this.calculateSkillsMatch(
-        jobRequirements.skills as string[],
-        candidateProfile.skills,
+      skillsMatch: this.calculateSkillsMatch(jobRequirements, cvSkills),
+      experienceMatch: this.calculateExperienceMatch(
+        requiredExperienceYears,
+        candidateExperienceYears,
       ),
-      experienceMatch: 100,
-      educationMatch: this.calculateEducationMatch(),
-      locationMatch: this.calculateLocationMatch(),
+      educationMatch: this.calculateEducationMatch(job, cv),
+      locationMatch: this.calculateLocationMatch(job, cv.content),
       overallScore: 0,
+      details: {
+        matchedSkills: this.getMatchedSkills(jobRequirements, cvSkills),
+        missingSkills: this.getMissingSkills(jobRequirements, cvSkills),
+        yearsExperience: candidateExperienceYears,
+        requiredExperience: requiredExperienceYears,
+        educationLevel: this.getHighestEducationLevel(cvContent.education || []),
+        requiredEducation: '',
+      },
     };
 
     breakdown.overallScore =
-      breakdown.skillsMatch * 0.4 +
-      breakdown.experienceMatch * 0.3 +
-      breakdown.educationMatch * 0.15 +
-      breakdown.locationMatch * 0.1;
-    this.matchingScore = breakdown.overallScore;
+    breakdown.skillsMatch * 0.4 +
+    breakdown.experienceMatch * 0.3 +
+    breakdown.educationMatch * 0.15 +
+    breakdown.locationMatch * 0.15;
+
+    this.matchingScore = Math.round(breakdown.overallScore * 100) / 100;
     this.matchingDetails = breakdown;
     this.isAutoScored = true;
     this.lastScoredAt = new Date();
+  }
+
+  private extractSkillsFromCV(cvContent: Record<string, any>): string[] {
+    if (!cvContent.skills) return [];
+
+    if (Array.isArray(cvContent.skills)) {
+      return cvContent.skills.map((s: string) => s.toLowerCase().trim());
+    }
+
+    if (typeof cvContent.skills === 'object') {
+      const allSkills: string[] = [];      
+      return allSkills.map((s: string) => s.toLowerCase().trim());
+    }
+
+    return [];
+  }
+
+  private calculateYearsOfExperience(
+    workExperience: Array<{
+      startDate: string;
+      endDate?: string;
+      current?: boolean;
+    }>,
+  ): number {
+    if (!workExperience || workExperience.length === 0) return 0;
+
+    let totalMonths = 0;
+    const now = new Date();
+
+    for (const exp of workExperience) {
+      if (!exp.startDate) continue;
+
+      const startDate = this.parseDate(exp.startDate);
+      if (!startDate) continue;
+
+      const endDate = exp.current || !exp.endDate || exp.endDate === 'Present'
+        ? now
+        : this.parseDate(exp.endDate);
+
+      if (!endDate) continue;
+
+      const months = this.getMonthsDifference(startDate, endDate);
+      totalMonths += months;
+    }
+
+    return Math.round((totalMonths / 12) * 10) / 10; // Round to 1 decimal
+  }
+
+  private extractRequiredExperience(requirements: string[]): number {
+    if (!requirements || requirements.length === 0) return 0;
+
+    const text = requirements.join(' ').toLowerCase();
+    
+    const patterns = [
+      /(\d+)\+?\s*years?\s*(?:of\s*)?(?:experience|exp)/i,
+      /minimum\s*(\d+)\s*years?/i,
+      /at\s*least\s*(\d+)\s*years?/i,
+      /(\d+)\s*-\s*(\d+)\s*years?\s*experience/i,
+    ];
+
+    for (const pattern of patterns) {
+      const match = text.match(pattern);
+      if (match) {
+        const years = parseInt(match[1] || match[2] || '0', 10);
+        if (years > 0 && years < 50) {
+          return years;
+        }
+      }
+    }
+
+    return 0;
+  }
+
+  private parseDate(dateStr: string): Date | null {
+    if (!dateStr) return null;
+
+    try {
+      // Handle "YYYY-MM" format
+      if (/^\d{4}-\d{2}$/.test(dateStr)) {
+        return new Date(dateStr + '-01');
+      }
+      
+      // Handle "YYYY-MM-DD" format
+      if (/^\d{4}-\d{2}-\d{2}$/.test(dateStr)) {
+        return new Date(dateStr);
+      }
+
+      // Try standard date parsing
+      const parsed = new Date(dateStr);
+      if (!isNaN(parsed.getTime())) {
+        return parsed;
+      }
+    } catch {
+      return null;
+    }
+
+    return null;
+  }
+
+  private getMonthsDifference(start: Date, end: Date): number {
+    const yearsDiff = end.getFullYear() - start.getFullYear();
+    const monthsDiff = end.getMonth() - start.getMonth();
+    return yearsDiff * 12 + monthsDiff;
+  }
+
+  private getMatchedSkills(
+    required: string[],
+    candidate: string[],
+  ): string[] {
+    const matched: string[] = [];
+    for (const skill of required) {
+      if (
+        candidate.some((cs) => {
+          return cs.includes(skill) || skill.includes(cs);
+        })
+      ) {
+        matched.push(skill);
+      }
+    }
+    return matched;
+  }
+
+  private getMissingSkills(
+    required: string[],
+    candidate: string[],
+  ): string[] {
+    return required.filter(
+      (skill) =>
+        !candidate.some((cs) => cs.includes(skill) || skill.includes(cs)),
+    );
+  }
+
+  private getHighestEducationLevel(
+    education: Array<{ degree?: string; fieldOfStudy?: string }>,
+  ): string {
+    if (!education || education.length === 0) return '';
+
+    const degrees = education
+      .map((e) => e.degree || '')
+      .filter((d) => d.length > 0);
+
+    if (degrees.length === 0) return '';
+
+    if (degrees.some((d) => d.toLowerCase().includes('phd') ||
+                           d.toLowerCase().includes('doctorate'))) {
+      return 'PhD';
+    }
+
+    if (degrees.some((d) => d.toLowerCase().includes('master'))) {
+      return 'Master';
+    }
+
+    if (degrees.some((d) => d.toLowerCase().includes('bachelor') ||
+                           d.toLowerCase().includes('bs') ||
+                           d.toLowerCase().includes('ba'))) {
+      return 'Bachelor';
+    }
+
+    return degrees[0];
   }
 
   private calculateSkillsMatch(
@@ -467,10 +661,11 @@ export class Application {
     candidate: string[],
   ): number {
     if (!required || required.length === 0) return 100;
+    if (!candidate || candidate.length === 0) return 0;
     const matched = required.filter((skill) =>
-      candidate.some((cs) => cs.toLowerCase().includes(skill.toLowerCase())),
+      candidate.some((cs) => cs.includes(skill) || skill.includes(cs)),
     );
-    return (matched.length / required.length) * 100;
+    return Math.round((matched.length / required.length) * 100);
   }
 
   private calculateExperienceMatch(
@@ -482,19 +677,245 @@ export class Application {
     return (candidate / required) * 100;
   }
 
-  private calculateEducationMatch(): number {
-    return 100;
+  private calculateEducationMatch(
+    job: Job,
+    cvContent: CV,
+  ): number {
+    const education = cvContent.content?.education || [];
+    
+    if (education.length === 0) {
+      return 50;
+    }
+
+    const requirements = (job.requirements || []).join(' ').toLowerCase();
+    const candidateEducationLevel = this.getHighestEducationLevel(education);
+    const candidateEducationText = education
+      .map((e: { degree?: string; fieldOfStudy?: string }) => `${e.degree || ''} ${e.fieldOfStudy || ''}`)
+      .join(' ')
+      .toLowerCase();
+
+    const degreeKeywords = ['bachelor', 'master', 'phd', 'doctorate', 'degree', 'diploma'];
+    const hasEducationRequirement = degreeKeywords.some((keyword) =>
+      requirements.includes(keyword),
+    );
+
+    if (!hasEducationRequirement) {
+      return 100;
+    }
+
+    const educationLevel = candidateEducationLevel.toLowerCase();
+
+    // PhD requirement
+    if (requirements.includes('phd') || requirements.includes('doctorate')) {
+      if (educationLevel.includes('phd') || educationLevel.includes('doctorate')) {
+        return 100;
+      }
+      if (educationLevel.includes('master')) {
+        return 70; // Close but not exact
+      }
+      return 40; // Bachelor or lower
+    }
+
+    // Master requirement
+    if (requirements.includes('master')) {
+      if (educationLevel.includes('master')) {
+        return 100;
+      }
+      if (educationLevel.includes('phd') || educationLevel.includes('doctorate')) {
+        return 100; // Overqualified is fine
+      }
+      if (educationLevel.includes('bachelor')) {
+        return 60;
+      }
+      return 30; // Below bachelor
+    }
+
+    // Bachelor requirement
+    if (requirements.includes('bachelor') || requirements.includes('degree')) {
+      if (educationLevel.includes('bachelor') || candidateEducationText.includes('degree')) {
+        return 100;
+      }
+      if (
+        educationLevel.includes('master') ||
+        educationLevel.includes('phd') ||
+        educationLevel.includes('doctorate')
+      ) {
+        return 100; // Overqualified
+      }
+      if (educationLevel.includes('diploma') || candidateEducationText.includes('diploma')) {
+        return 70; // Diploma is close
+      }
+      return 40; // Below bachelor
+    }
+
+    // Generic degree requirement
+    if (requirements.includes('degree') && !requirements.includes('bachelor')) {
+      if (candidateEducationText.includes('degree') || candidateEducationLevel) {
+        return 100;
+      }
+      return 50;
+    }
+
+    // No specific requirement or other cases
+    return 80; // Give benefit of the doubt
   }
 
-  private calculateLocationMatch(): number {
-    return 100;
+  private calculateLocationMatch(
+    job: Job,
+    cvContent: { personalInfo?: { address?: string } },
+  ): number {
+    // If job has no location requirement, return full score
+    if (!job.location || job.location.trim() === '') {
+      return 100;
+    }
+
+    const jobLocation = job.location.toLowerCase().trim();
+    const cvAddress = (cvContent?.personalInfo?.address || '').toLowerCase().trim();
+
+    // If CV has no address info, return partial score
+    if (!cvAddress) {
+      return 50;
+    }
+
+    // Check for remote work keywords
+    const remoteKeywords = ['remote', 'work from home', 'wfh', 'anywhere', 'distributed'];
+    const isJobRemote = remoteKeywords.some((keyword) =>
+      jobLocation.includes(keyword),
+    );
+    const isCVRemote = remoteKeywords.some((keyword) =>
+      cvAddress.includes(keyword),
+    );
+
+    // If either is remote-friendly, return full score
+    if (isJobRemote || isCVRemote) {
+      return 100;
+    }
+
+    // Exact match or one contains the other
+    if (cvAddress === jobLocation) {
+      return 100;
+    }
+
+    if (cvAddress.includes(jobLocation) || jobLocation.includes(cvAddress)) {
+      return 100;
+    }
+
+    // Extract city names for comparison
+    const jobCity = this.extractCity(jobLocation);
+    const cvCity = this.extractCity(cvAddress);
+
+    // Same city match
+    if (jobCity && cvCity && jobCity === cvCity) {
+      return 90;
+    }
+
+    // Extract country/region
+    const jobCountry = this.extractCountry(jobLocation);
+    const cvCountry = this.extractCountry(cvAddress);
+
+    // Same country match
+    if (jobCountry && cvCountry && jobCountry === cvCountry) {
+      return 70;
+    }
+
+    // Check for same region (e.g., both in Vietnam)
+    const vietnamKeywords = ['vietnam', 'viet nam', 'vn', 'ho chi minh', 'hanoi', 'hcm', 'hà nội'];
+    const isJobVietnam = vietnamKeywords.some((k) => jobLocation.includes(k));
+    const isCVVietnam = vietnamKeywords.some((k) => cvAddress.includes(k));
+
+    if (isJobVietnam && isCVVietnam) {
+      return 80;
+    }
+
+    // Different locations
+    return 30;
   }
 
-  private calculateSalaryMatch(offered: number, expected: number): number {
-    if (!expected) return 100;
-    if (offered >= expected) return 100;
-    return (offered / expected) * 100;
+  private extractCity(location: string): string | null {
+    if (!location) return null;
+
+    // Common patterns: "City, Country" or "City" or "City State"
+    const parts = location.split(',').map((p) => p.trim());
+    
+    // First part is usually the city
+    if (parts.length > 0) {
+      const city = parts[0].toLowerCase();
+      
+      // Remove common prefixes/suffixes
+      const cleanCity = city
+        .replace(/^(city of|town of|district of)\s+/i, '')
+        .trim();
+      
+      return cleanCity || null;
+    }
+
+    return null;
   }
+
+  private extractCountry(location: string): string | null {
+    if (!location) return null;
+
+    const locationLower = location.toLowerCase();
+    
+    // Common country keywords
+    const countries = [
+      'vietnam', 'viet nam',
+      'united states', 'usa', 'us',
+      'united kingdom', 'uk',
+      'singapore', 'sg',
+      'japan', 'jp',
+      'china', 'cn',
+      'korea', 'kr',
+      'thailand', 'th',
+      'philippines', 'ph',
+      'indonesia', 'id',
+      'malaysia', 'my',
+      'australia', 'au',
+      'canada', 'ca',
+      'india', 'in',
+    ];
+
+    for (const country of countries) {
+      if (locationLower.includes(country)) {
+        return country.toLowerCase();
+      }
+    }
+
+    // Try to extract from last part (usually country in "City, Country" format)
+    const parts = location.split(',').map((p) => p.trim());
+    if (parts.length > 1) {
+      const lastPart = parts[parts.length - 1].toLowerCase();
+      for (const country of countries) {
+        if (lastPart.includes(country)) {
+          return country.toLowerCase();
+        }
+      }
+    }
+
+    return null;
+  }
+
+  private extractRequiredEducation(requirements: string[]): string {
+    if (!requirements || requirements.length === 0) return '';
+
+    const text = requirements.join(' ').toLowerCase();
+
+    if (text.includes('phd') || text.includes('doctorate')) {
+      return 'PhD';
+    }
+    if (text.includes('master')) {
+      return 'Master';
+    }
+    if (text.includes('bachelor')) {
+      return 'Bachelor';
+    }
+    if (text.includes('degree')) {
+      return 'Degree';
+    }
+
+    return '';
+  }
+
 
   updateCalculatedFields(): void {
     const now = new Date();

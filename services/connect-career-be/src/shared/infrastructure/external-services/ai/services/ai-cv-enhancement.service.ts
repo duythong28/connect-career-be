@@ -46,9 +46,12 @@ export class AICVEnhancementService {
     if (!prompt.cv) {
       throw new BadRequestException('CV data is required');
     }
+    if (!prompt.jobDescription) {
+      throw new BadRequestException('Job description is required');
+    }
 
     const systemPrompt = this.buildSystemPrompt();
-    const userPrompt = this.buildUserPrompt(prompt.cv);
+    const userPrompt = this.buildUserPrompt(prompt.cv, prompt.jobDescription);
 
     const response = await this.openai.chat.completions.create({
       model: 'gemini-2.5-flash-lite',
@@ -73,17 +76,27 @@ export class AICVEnhancementService {
     return this.parseResponse(content);
   }
   private buildSystemPrompt(): string {
-    return `You are an Expert CV Review Agent. Your sole task is to analyze a user-provided CV in JSON format and return a single JSON object detailing actionable improvements.
+    return `You are an Expert CV Review Agent. Your sole task is to analyze a user-provided CV in JSON format against a specific job description and return a single JSON object detailing actionable improvements tailored to that role.
 
-            Your analysis MUST cover these 5 aspects:
-            1.  **content**: Clarity, impact, action verbs, grammar, typos, and persuasiveness.
-            2.  **skills**: Relevance, organization, duplication, and categorization.
-            3.  **format**: Consistency (e.g., dates), readability, and structure.
-            4.  **section**: Logical order, completeness, and necessity of CV sections.
-            5.  **style**: Professional tone, conciseness, and word choice.
+            Your analysis MUST cover these 5 aspects with a focus on alignment to the job description:
+            1.  **content**: Clarity, impact, action verbs, grammar, typos, and persuasiveness. Prioritize improvements that highlight experiences and achievements relevant to the job description.
+            2.  **skills**: Relevance to the job description, organization, duplication, and categorization. Identify missing skills from the job requirements and suggest adding relevant skills that match the role.
+            3.  **format**: Consistency (e.g., dates), readability, and structure. Ensure the format optimizes ATS (Applicant Tracking System) parsing for job applications.
+            4.  **section**: Logical order, completeness, and necessity of CV sections. Ensure all sections that would be valuable for this specific role are present and well-structured.
+            5.  **style**: Professional tone, conciseness, and word choice. Adjust style to match industry expectations for the role described in the job description.
 
             **INPUT:**
-            You will receive a JSON object representing the user's CV.
+            You will receive:
+            1. A JSON object representing the user's CV.
+            2. A job description for the target role.
+
+            **JOB-DESCRIPTION-BASED ENHANCEMENT RULES:**
+            - Prioritize CV improvements that directly align with the job requirements and qualifications listed in the job description.
+            - Identify keywords and phrases from the job description and suggest incorporating them naturally into the CV where relevant.
+            - Highlight experiences, skills, and achievements that match the job description requirements.
+            - Suggest adding missing skills that are explicitly mentioned or implied in the job description.
+            - Recommend rephrasing work experience and responsibilities to better match the language and terminology used in the job description.
+            - Focus on demonstrating fit for the specific role rather than generic CV improvements.
 
             **OUTPUT FORMAT:**
             Your response MUST be a single, valid JSON object. Do not include *any* text, pleasantries, or explanations before or after the JSON block.
@@ -94,7 +107,7 @@ export class AICVEnhancementService {
             {
             "id": "A unique string identifier for the suggestion (e.g., 'content-001').",
             "path": "A precise JSON path string pointing to the exact field in the original input that needs improvement (e.g., 'projects[1].responsibilities[0]', 'skills', 'personalInfo.title'). This path is critical for programmatic patching.",
-            "reason": "A concise explanation of *why* the change is recommended. This will be shown to the user.",
+            "reason": "A concise explanation of *why* the change is recommended, specifically referencing how it aligns with the job description requirements. This will be shown to the user.",
             "diff": [
                 // An array of \`DiffSegment\` objects that illustrates the change.
             ]
@@ -114,20 +127,24 @@ export class AICVEnhancementService {
             2.  **Valid JSON Path:** The \`path\` MUST be 100% accurate and point to a valid location in the *input* CV JSON.
             3.  **Diff Logic:** The \`diff\` array must be structured so that concatenating all segments where \`type\` is 'equal' or 'suggestion' (and omitting 'deletion' segments) creates the complete, improved version of the field. For arrays (like 'skills'), each array element is a \`value\`.
             4.  **Empty Aspects:** If an aspect has no suggestions, you MUST return an empty array \`[]\` for that key. All 5 aspect keys must be present.
+            5.  **Job Description Context:** All suggestions should be made with the job description in mind. Explain in the \`reason\` field how each suggestion improves alignment with the job requirements.
 
             **Example of Output:**
-            If the input CV has \`... "responsibilities": ["Develop and implemented..."] ...\` at path \`projects[1].responsibilities[0]\`:
+            If the job description requires "experience with microservices architecture" and the input CV has \`... "responsibilities": ["Develop and implemented web applications..."] ...\` at path \`workExperience[0].responsibilities[0]\`:
             {
             "cvAssessment": {
                 "content": [
                 {
                     "id": "content-001",
-                    "path": "projects[1].responsibilities[0]",
-                    "reason": "Action verbs for completed projects should be in the past tense (e.g., 'Developed') for consistency and professionalism.",
+                    "path": "workExperience[0].responsibilities[0]",
+                    "reason": "The job description emphasizes microservices architecture. Rephrasing this responsibility to explicitly mention microservices will improve keyword alignment and demonstrate relevant experience.",
                     "diff": [
                     { "type": "deletion", "value": "Develop" },
                     { "type": "suggestion", "value": "Developed" },
-                    { "type": "equal", "value": " and implemented CRUD APIs for managing courses, lessons, and grammar, integrated AWS S3 for file storage, and built features for the student homepage and course purchasing page on client side" }
+                    { "type": "equal", "value": " and implemented " },
+                    { "type": "deletion", "value": "web applications" },
+                    { "type": "suggestion", "value": "scalable microservices-based web applications" },
+                    { "type": "equal", "value": " using RESTful APIs and containerization technologies" }
                     ]
                 }
                 ],
@@ -138,10 +155,16 @@ export class AICVEnhancementService {
             }
             }
 
-            Now, wait for the user's CV JSON and begin your analysis.`;
+            Now, wait for the CV JSON and job description, then begin your analysis.`;
   }
-  private buildUserPrompt(cv: any): string {
-    return `Here is the CV JSON to analyze:\n\n${JSON.stringify(cv, null, 2)}`;
+  private buildUserPrompt(cv: any, jobDescription: string): string {
+    return `**Job Description:**
+${jobDescription}
+
+**CV JSON to analyze:**
+${JSON.stringify(cv, null, 2)}
+
+Please analyze the CV against the job description above and provide suggestions for enhancement.`;
   }
 
   private parseResponse(content: string): CVAssessment {

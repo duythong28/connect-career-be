@@ -217,9 +217,9 @@ export class OfferService {
       throw new ForbiddenException('Only offer owner can delete');
     }
 
-    if (offer.status === OfferStatus.PENDING) {
+    if (offer.status !== OfferStatus.ACCEPTED) {
       throw new BadRequestException(
-        'Cannot delete pending offers. Cancel them instead.',
+        'Cannot delete offers. Cancel them instead.',
       );
     }
 

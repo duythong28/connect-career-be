@@ -3,6 +3,7 @@ import {
   IsArray,
   IsBoolean,
   IsEnum,
+  IsNotEmpty,
   IsNumber,
   IsOptional,
   IsString,
@@ -11,6 +12,18 @@ import {
   Difficulty,
   QuestionType,
 } from '../../domain/value-objects/interview-configuration.vo';
+
+export class GenerateSpecificAreasFromJobDescriptionDto {
+  @ApiProperty()
+  @IsNotEmpty()
+  @IsString()
+  userPrompt: string;
+
+  @ApiPropertyOptional()
+  @IsNotEmpty()
+  @IsString()
+  jobDescription?: string;
+}
 
 export class GenerateMockInterviewQuestionsDto {
   @ApiPropertyOptional()

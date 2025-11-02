@@ -25,7 +25,7 @@ import { OpenAI } from 'openai';
 import { randomUUID } from 'crypto';
 import { ConfigService } from '@nestjs/config';
 import { CreateMockInterviewDto } from '../dto/mock-interview.dto';
-import { GenerateMockInterviewQuestionsDto } from '../dto/generate-mock-interview-question.dto';
+import { GenerateMockInterviewQuestionsDto, GenerateSpecificAreasFromJobDescriptionDto } from '../dto/generate-mock-interview-question.dto';
 import { QuestionInputDto } from '../dto/question-input.dto';
 
 @Injectable()
@@ -52,6 +52,46 @@ export class MockInterviewService {
       dangerouslyAllowBrowser: true,
     });
   }
+
+  async generateSpecificAreasFromJobDescription(
+    dto: GenerateSpecificAreasFromJobDescriptionDto,
+  ): Promise<{
+    areas: string[];
+  }> {
+    try {
+      const baseCompletion = await this.openai.chat.completions.create({
+        model: 'gemini-2.5-flash-lite',
+        messages: [
+          {
+            role: 'system',
+            content: 'You are an expert AI assistant tasked with analyzing job descriptions for a high-tech recruiting platform. Extract technical skills, tools, and high-level concepts. Return ONLY valid JSON.',
+          },
+          {
+            role: 'user',
+            content: this.buildExtractSpecificAreasFromJobDescriptionPrompt(dto.jobDescription ?? ''),
+          },
+        ],
+        temperature: 0.3,
+      });
+      const content = baseCompletion.choices[0]?.message?.content;
+      if (!content || content.trim() === '') {
+        throw new BadRequestException('No content received from base completion.');
+      }
+      const cleanedContent = content
+        .replace(/^```(json\s*)?/i, '')
+        .replace(/```$/i, '')
+        .trim();
+      if (!cleanedContent) {
+        throw new BadRequestException('Content was empty after cleaning markdown fences.');
+      }
+      const parsedResponse = JSON.parse(cleanedContent);
+      return parsedResponse as { areas: string[] };
+    } catch (error) {
+      this.logger.error('Error generating specific areas from job description:', error);
+      throw new BadRequestException('Failed to generate specific areas from job description');
+    }
+  }
+
 
   async generateMockInterviewQuestion(
     dto: GenerateMockInterviewQuestionsDto,
@@ -363,6 +403,39 @@ export class MockInterviewService {
       }`;
 
     return basePrompt.trim();
+  }
+
+  private buildExtractSpecificAreasFromJobDescriptionPrompt(jobDescription: string): string {
+    return `
+      Your goal is to read the provided job description and extract a comprehensive list of all relevant technical skills, tools, and high-level concepts.
+
+      Your output should be a blend of:
+      1.  **Specific Technologies:** Languages, frameworks, libraries, databases (e.g., 'Python', 'React', 'PostgreSQL').
+      2.  **High-Level Concepts:** Architectural patterns, methodologies, and core CS topics (e.g., 'System Design', 'Algorithms', 'Microservices', 'DevOps').
+
+      A perfect example of a final tag list looks like this:
+      [
+        "JavaScript", "React", "Python", "System Design", "Algorithms",
+        "APIs", "Databases", "Testing", "Cloud", "Security", "DevOps", "Microservices"
+      ]
+
+      Guidelines:
+      * Read the job description carefully.
+      * Extract tags that match the style and abstraction level of the example list.
+      * Do not extract soft skills (e.g., "communication", "team player").
+      * Consolidate related terms where appropriate (e.g., 'AWS', 'Azure', or 'GCP' should result in a 'Cloud' tag. 'Unit testing' or 'TDD' should result in a 'Testing' tag).
+      * Return your answer ONLY as a JSON object with an "areas" key containing an array of strings. Do not include any other text, explanation, or commentary.
+
+      Job Description:
+      """
+      ${jobDescription}
+      """
+
+      Output Format (MUST be exactly this structure):
+      {
+        "areas": ["string", "string", "string", ...]
+      }
+    `;
   }
 
   private slugify(value: string) {

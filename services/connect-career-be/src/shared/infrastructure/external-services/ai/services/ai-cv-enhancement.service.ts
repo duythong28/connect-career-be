@@ -116,7 +116,7 @@ export class AICVEnhancementService {
             **\`DiffSegment\` Object Structure:**
             {
             "type": "A string: must be one of 'equal', 'deletion', or 'suggestion'.",
-            "value": "The corresponding text or array item.
+            "value": "The corresponding value must be a string. Follow these rules:
                         - 'equal': Unchanged segment.
                         - 'deletion': The 'bad point' to be removed.
                         - 'suggestion': The 'improved version' to be added."
@@ -133,27 +133,129 @@ export class AICVEnhancementService {
             If the job description requires "experience with microservices architecture" and the input CV has \`... "responsibilities": ["Develop and implemented web applications..."] ...\` at path \`workExperience[0].responsibilities[0]\`:
             {
             "cvAssessment": {
-                "content": [
+              "content": [
                 {
-                    "id": "content-001",
-                    "path": "workExperience[0].responsibilities[0]",
-                    "reason": "The job description emphasizes microservices architecture. Rephrasing this responsibility to explicitly mention microservices will improve keyword alignment and demonstrate relevant experience.",
-                    "diff": [
+                  "id": "content-001",
+                  "path": "projects[0].description",
+                  "reason": "Using active voice ('Developed...') is more direct and impactful than passive voice ('A web application was developed...').",
+                  "diff": [
+                    { "type": "deletion", "value": "A web application was developed" },
+                    { "type": "suggestion", "value": "Developed a web application" },
+                    { "type": "equal", "value": " with scalable features, allowing users to browse, book, and manage rental properties. The project mimicked real-world functionalities such as property listings, user authentication using JWT and OAuth2, bookings, reviews. Firebase Cloud Storage was used for storing property images and other media files, ensuring high availability and durability." }
+                  ]
+                },
+                {
+                  "id": "content-002",
+                  "path": "projects[0].responsibilities[0]",
+                  "reason": "This clarifies that you worked on multiple APIs and uses the standard 'server-side' term.",
+                  "diff": [
+                    { "type": "equal", "value": "Designed and implemented API" },
+                    { "type": "suggestion", "value": "s" },
+                    { "type": "equal", "value": " in" },
+                    { "type": "deletion", "value": " server side" },
+                    { "type": "suggestion", "value": " server-side" },
+                    { "type": "equal", "value": "." }
+                  ]
+                },
+                {
+                  "id": "content-003",
+                  "path": "projects[1].responsibilities[0]",
+                  "reason": "Action verbs for completed projects should be in the past tense (e.g., 'Developed') for consistency and professionalism.",
+                  "diff": [
                     { "type": "deletion", "value": "Develop" },
                     { "type": "suggestion", "value": "Developed" },
-                    { "type": "equal", "value": " and implemented " },
-                    { "type": "deletion", "value": "web applications" },
-                    { "type": "suggestion", "value": "scalable microservices-based web applications" },
-                    { "type": "equal", "value": " using RESTful APIs and containerization technologies" }
-                    ]
+                    { "type": "equal", "value": " and implemented CRUD APIs for managing courses, lessons, and grammar, integrated AWS S3 for file storage, and built features for the student homepage and course purchasing page on client side" }
+                  ]
                 }
-                ],
-                "skills": [],
-                "format": [],
-                "section": [],
-                "style": []
+              ],
+              "skills": [
+                {
+                  "id": "skills-001",
+                  "path": "skills",
+                  "reason": "Duplicate skill 'Javascript' found. It's best to standardize casing to 'JavaScript' (already present) and remove duplicates.",
+                  "diff": [
+                    { "type": "equal", "value": "C#" },
+                    { "type": "equal", "value": "Java" },
+                    { "type": "equal", "value": "JavaScript" },
+                    { "type": "equal", "value": "Typescript" },
+                    { "type": "equal", "value": "React" },
+                    { "type": "equal", "value": "Redux" },
+                    { "type": "equal", "value": "HTML5" },
+                    { "type": "equal", "value": "CSS3" },
+                    { "type": "deletion", "value": "Javascript" },
+                    { "type": "equal", "value": "NestJS" },
+                    { "type": "equal", "value": "NodeJS" },
+                    { "type": "equal", "value": "ExpressJS" },
+                    { "type": "equal", "value": "ASP.NET Core API" },
+                    { "type": "equal", "value": "Java Spring Boot" },
+                    { "type": "equal", "value": "PostgreSQL" },
+                    { "type": "equal", "value": "SQL Server" },
+                    { "type": "equal", "value": "MySQL" },
+                    { "type": "equal", "value": "MongoDB" },
+                    { "type": "equal", "value": "AWS" },
+                    { "type": "equal", "value": "EC2" },
+                    { "type": "equal", "value": "Docker" },
+                    { "type": "equal", "value": "Github" },
+                    { "type": "equal", "value": "Postman" },
+                    { "type": "equal", "value": "Jira" }
+                  ]
+                }
+              ],
+              "format": [
+                {
+                  "id": "format-001",
+                  "path": "personalInfo.address",
+                  "reason": "Proper nouns like 'City' should be capitalized for professional formatting.",
+                  "diff": [
+                    { "type": "equal", "value": "Thu Duc, Ho Chi Minh " },
+                    { "type": "deletion", "value": "city" },
+                    { "type": "suggestion", "value": "City" }
+                  ]
+                }
+              ],
+              "section": [
+                {
+                  "id": "section-001",
+                  "path": "personalInfo.links[1].url",
+                  "reason": "A professional profile link (like LinkedIn) is essential for many roles. Recruiters frequently use it to verify experience and connect. Please add your profile URL.",
+                  "diff": [
+                    { "type": "deletion", "value": "" },
+                    { "type": "suggestion", "value": "https://www.linkedin.com/in/your-profile-url" }
+                  ]
+                }
+              ],
+              "style": [
+                {
+                  "id": "style-001",
+                  "path": "workExperience[0].responsibilities[0]",
+                  "reason": "Using an active '-ing' verb ('Collaborating') strengthens the description of a current, ongoing responsibility.",
+                  "diff": [
+                    { "type": "deletion", "value": "Collaborate" },
+                    { "type": "suggestion", "value": "Collaborating" },
+                    { "type": "equal", "value": " with multiple Departments' members to maintain project Webdev Adventure for the club." }
+                  ]
+                },
+                {
+                  "id": "style-002",
+                  "path": "awards[0].description",
+                  "reason": "This phrasing is more professional, formal, and clearly describes the achievement.",
+                  "diff": [
+                    { "type": "deletion", "value": "Three times, with 1st, 2nd and 4th semesters." },
+                    { "type": "suggestion", "value": "Awarded for outstanding academic performance in Semester 1, Semester 2, and Semester 4." }
+                  ]
+                },
+                {
+                  "id": "style-003",
+                  "path": "awards[2].description",
+                  "reason": "Providing context for the score (e.g., 'Overall Band') makes the entry clearer and more professional.",
+                  "diff": [
+                    { "type": "deletion", "value": "5.5" },
+                    { "type": "suggestion", "value": "Overall Band 5.5" }
+                  ]
+                }
+              ]
             }
-            }
+          }
 
             Now, wait for the CV JSON and job description, then begin your analysis.`;
   }

@@ -52,7 +52,8 @@ export class UserBackOfficeService {
   async getUsers(filters: UserBackOfficeFilters): Promise<PaginatedUsers> {
     const queryBuilder = this.userRepository
       .createQueryBuilder('user')
-      .leftJoinAndSelect('user.roles', 'roles');
+      .leftJoinAndSelect('user.roles', 'roles')
+      .leftJoinAndSelect('roles.permissions', 'permissions');
 
     if (filters.search) {
       queryBuilder.andWhere(
@@ -177,7 +178,7 @@ export class UserBackOfficeService {
 
     const updatedUser = await this.userRepository.findOne({
       where: { id },
-      relations: ['roles'],
+      relations: ['roles', 'roles.permissions'],
     });
 
     return updatedUser;

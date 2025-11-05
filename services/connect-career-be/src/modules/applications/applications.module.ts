@@ -45,7 +45,7 @@ import { ApplicationSeeder } from './infrastructure/seeders/application.seeder';
     OfferService,
     CommunicationService,
     JobStatusService,
-    ApplicationSeeder
+    ApplicationSeeder,
   ],
   exports: [
     ApplicationService,

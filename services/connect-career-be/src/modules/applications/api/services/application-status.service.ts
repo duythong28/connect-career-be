@@ -28,6 +28,7 @@ export class ApplicationStatusService {
   async changeApplicationStage(
     applicationId: string,
     changeDto: ChangeApplicationStageDto,
+    changedBy: string,
   ): Promise<Application> {
     const application = await this.applicationRepository.findOne({
       where: { id: applicationId },
@@ -38,11 +39,9 @@ export class ApplicationStatusService {
       throw new NotFoundException('Application not found');
     }
 
-    // Get the job's active hiring pipeline
-    // eslint-disable-next-line @typescript-eslint/no-unsafe-assignment
     const job = await this.jobRepository.findOne({
       where: { id: application.jobId },
-      relations: ['hiringPipeline'],
+      relations: ['hiringPipeline', 'hiringPipeline.stages'],
     });
     const pipeline = job?.hiringPipeline;
 
@@ -61,16 +60,13 @@ export class ApplicationStatusService {
       );
     }
 
-    const currentStage = await this.getCurrentApplicationStage(
-      application,
-      pipeline,
-    );
+    const currentStage = application.currentStageKey;
 
     // Validate stage transition
     if (currentStage) {
       await this.validateStageTransition(
         pipeline,
-        currentStage.key,
+        currentStage,
         changeDto.stageKey,
       );
     }
@@ -87,8 +83,8 @@ export class ApplicationStatusService {
     statusHistory.push({
       status: newStatus,
       changedAt: new Date(),
-      changedBy: changeDto.changedBy,
-      reason: changeDto.notes,
+      changedBy: changedBy,
+      reason: changeDto.reason || changeDto.notes,
       stageKey: targetStage.key,
       stageName: targetStage.name,
     });
@@ -96,7 +92,7 @@ export class ApplicationStatusService {
 
     application.addPipelineStageHistory(
       targetStage,
-      changeDto.changedBy,
+      changedBy,
       changeDto.notes,
     );
     // Update calculated fields
@@ -185,7 +181,6 @@ export class ApplicationStatusService {
     fromStageKey: string,
     toStageKey: string,
   ): Promise<void> {
-    // Check if transition exists in pipeline
     const transition = pipeline.transitions.find(
       (t) => t.fromStageKey === fromStageKey && t.toStageKey === toStageKey,
     );

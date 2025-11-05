@@ -60,6 +60,7 @@ export class CVContentDto {
   @IsObject()
   personalInfo?: {
     name?: string;
+    title?: string;
     email?: string;
     phone?: string;
     address?: string;
@@ -84,7 +85,8 @@ export class CVContentDto {
     startDate: string;
     endDate?: string;
     current: boolean;
-    description: string;
+    description?: string;
+    responsibilities?: string[];
     technologies?: string[];
     achievements?: string[];
   }>;
@@ -99,21 +101,22 @@ export class CVContentDto {
     fieldOfStudy: string;
     startDate: string;
     endDate?: string;
-    gpa?: number;
+    gpa?: number | string; // NEW: Accept both number and string (e.g., "9.13/10")
     honors?: string[];
   }>;
 
-  @ApiPropertyOptional({ description: 'Skills' })
+  @ApiPropertyOptional({ description: 'Skills - can be object or array' })
   @IsOptional()
-  @IsObject()
-  skills?: {
-    technical: string[];
-    soft: string[];
-    languages: Array<{
-      language: string;
-      proficiency: 'beginner' | 'intermediate' | 'advanced' | 'native';
-    }>;
-  };
+  skills?:
+    | {
+        technical: string[];
+        soft: string[];
+        languages: Array<{
+          language: string;
+          proficiency: 'beginner' | 'intermediate' | 'advanced' | 'native';
+        }>;
+      }
+    | string[]; // NEW: Support flat array format
 
   @ApiPropertyOptional({ description: 'Certifications' })
   @IsOptional()
@@ -133,13 +136,27 @@ export class CVContentDto {
   @IsArray()
   projects?: Array<{
     id: string;
-    name: string;
+    name?: string;
+    title?: string;
     description: string;
     startDate: string;
     endDate?: string;
-    technologies: string[];
+    current?: boolean;
+    technologies?: string[];
+    techStack?: string[];
+    responsibilities?: string[];
     url?: string;
     github?: string;
+  }>;
+
+  @ApiPropertyOptional({ description: 'Awards' })
+  @IsOptional()
+  @IsArray()
+  awards?: Array<{
+    id: string;
+    title: string;
+    date: string;
+    description: string;
   }>;
 
   @ApiPropertyOptional({ description: 'Custom sections' })

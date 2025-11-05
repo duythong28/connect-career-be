@@ -8,6 +8,7 @@ import {
 } from 'class-validator';
 import { ApiProperty, ApiPropertyOptional } from '@nestjs/swagger';
 import { MfaDeviceType } from '../../domain/entities';
+import { RoleResponseDto, RoleWithPermissionsDto } from './rbac.dto';
 
 export class LoginDto {
   @ApiProperty({ description: 'Email or username' })
@@ -181,4 +182,10 @@ export class UserProfileDto {
 
   @ApiProperty({ description: 'Account creation date' })
   createdAt: Date;
+
+  @ApiPropertyOptional({
+    description: 'User roles',
+    type: [RoleResponseDto],
+  })
+  roles?: RoleWithPermissionsDto[];
 }

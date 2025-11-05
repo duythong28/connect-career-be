@@ -23,6 +23,8 @@ import {
 } from '../../domain/entities/interview.entity';
 import { Offer, OfferStatus } from '../../domain/entities/offer.entity';
 import { CandidateSnapshotDto } from '../dtos/application-detail.dto';
+import { PipelineStageType } from 'src/modules/hiring-pipeline/domain/entities/pipeline-stage.entity';
+import { CV } from 'src/modules/cv-maker/domain/entities/cv.entity';
 
 export class CreateApplicationDto {
   @IsString()
@@ -74,6 +76,7 @@ export interface ApplicationSearchFilters {
   jobId?: string;
   status?: ApplicationStatus;
   source?: string;
+  stage?: PipelineStageType;
   isShortlisted?: boolean;
   isFlagged?: boolean;
   minMatchingScore?: number;
@@ -102,6 +105,8 @@ export class ApplicationService {
     private readonly interviewRepository: Repository<Interview>,
     @InjectRepository(Offer)
     private readonly offerRepository: Repository<Offer>,
+    @InjectRepository(CV)
+    private readonly cvRepository: Repository<CV>,
     private readonly jobStatusService: JobStatusService,
   ) {}
 
@@ -169,9 +174,14 @@ export class ApplicationService {
     const candidateProfile = await this.candidateProfileRepository.findOne({
       where: { userId: createDto.candidateId },
     });
-    if (candidateProfile) {
-      application.calculateMatcingScore(job, candidateProfile);
-    }
+    const cv = await this.cvRepository.findOne({
+      where: { id: createDto.cvId },
+    });
+    application.calculateMatcingScore(
+      job,
+      cv ?? undefined,
+      candidateProfile ?? undefined,
+    );
     application.updateCalculatedFields();
     return this.applicationRepository.save(application);
   }
@@ -481,6 +491,8 @@ export class ApplicationService {
     if (f.jobId) qb.andWhere('application.jobId = :jobId', { jobId: f.jobId });
     if (f.status)
       qb.andWhere('application.status = :status', { status: f.status });
+    if (f.stage)
+      qb.andWhere('application.currentStageKey = :stage', { stage: f.stage });
     if (f.source)
       qb.andWhere('application.source = :source', { source: f.source });
     if (f.isShortlisted !== undefined)

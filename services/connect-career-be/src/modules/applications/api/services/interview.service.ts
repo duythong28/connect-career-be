@@ -43,6 +43,7 @@ export class InterviewService {
 
     const interview = this.interviewRepository.create({
       ...createDto,
+      date: new Date(createDto.scheduledDate),
       applicationId,
       status: InterviewStatus.SCHEDULED,
     });
@@ -76,6 +77,20 @@ export class InterviewService {
     }
 
     return interview;
+  }
+
+  async deleteInterviewById(id: string): Promise<boolean> {
+    const interview = await this.interviewRepository.findOne({
+      where: { id },
+    });
+
+    if (!interview) {
+      throw new NotFoundException('Interview not found');
+    }
+
+    await this.interviewRepository.delete(id);
+
+    return true;
   }
 
   async updateInterview(
@@ -121,7 +136,11 @@ export class InterviewService {
       throw new NotFoundException('Interview not found');
     }
 
-    if (interview.status !== InterviewStatus.SCHEDULED) {
+    if (
+      ![InterviewStatus.SCHEDULED, InterviewStatus.RESCHEDULED].includes(
+        interview.status,
+      )
+    ) {
       throw new BadRequestException(
         'Can only submit feedback for scheduled interviews',
       );

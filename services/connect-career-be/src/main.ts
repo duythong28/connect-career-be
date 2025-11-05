@@ -46,8 +46,21 @@ async function bootstrap() {
     // const applicationSeeder = app.get(ApplicationSeeder);
     // await applicationSeeder.seed();
   } catch (error: unknown) {
-    console.error('Failed to run seeders:', error instanceof Error ? error.message : String(error));
+    console.error(
+      'Failed to run seeders:',
+      error instanceof Error ? error.message : String(error),
+    );
   }
+  app.enableCors({
+    origin: ['http://localhost:3000', 'http://localhost:3001'],
+    credentials: true,
+    methods: ['GET', 'POST', 'PUT', 'DELETE', 'OPTIONS', 'PATCH'],
+    allowedHeaders: ['Content-Type', 'Authorization'],
+    exposedHeaders: ['Content-Range', 'X-Total-Count'],
+    maxAge: 600,
+    preflightContinue: false,
+    optionsSuccessStatus: 204,
+  });
   const port = configService.get<string>('port');
   app.use(cookieParser());
   app.setGlobalPrefix('api');

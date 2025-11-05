@@ -20,6 +20,7 @@ import { ClosedStateStrategy } from './domain/state-machine/strategies/closed-st
 import { ExpiredStateStrategy } from './domain/state-machine/strategies/expired-state.strategy';
 import { CancelledStateStrategy } from './domain/state-machine/strategies/cancelled-state.strategy';
 import { ArchivedStateStrategy } from './domain/state-machine/strategies/archived-state.strategy';
+import { HiringPipeline } from '../hiring-pipeline/domain/entities/hiring-pipeline.entity';
 
 @Module({
   imports: [
@@ -31,6 +32,7 @@ import { ArchivedStateStrategy } from './domain/state-machine/strategies/archive
       User,
       Role,
       Industry,
+      HiringPipeline,
       File,
       Application,
     ]),

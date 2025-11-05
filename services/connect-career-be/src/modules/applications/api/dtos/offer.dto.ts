@@ -56,6 +56,12 @@ export class CreateOfferDto {
   isNegotiable?: boolean;
 }
 
+export class CreateOfferCandidateDto extends CreateOfferDto {
+  @ApiProperty()
+  @IsString()
+  isOfferedByCandidate: boolean;
+}
+
 export class UpdateOfferDto {
   @ApiPropertyOptional()
   @IsOptional()
@@ -161,4 +167,64 @@ export class OfferDetailResponseDto {
 
   @ApiPropertyOptional()
   expiryDate?: Date;
+}
+
+// ... existing code ...
+
+export class CounterOfferDto {
+  @ApiProperty()
+  @IsNumber()
+  baseSalary: number;
+
+  @ApiProperty()
+  @IsString()
+  currency: string;
+
+  @ApiProperty({ enum: SalaryPeriod })
+  @IsEnum(SalaryPeriod)
+  salaryPeriod: SalaryPeriod;
+
+  @ApiPropertyOptional()
+  @IsOptional()
+  @IsNumber()
+  signingBonus?: number;
+
+  @ApiPropertyOptional()
+  @IsOptional()
+  @IsString()
+  equity?: string;
+
+  @ApiPropertyOptional({ type: [String] })
+  @IsOptional()
+  @IsArray()
+  benefits?: string[];
+
+  @ApiPropertyOptional()
+  @IsOptional()
+  @IsString()
+  notes?: string;
+
+  @ApiPropertyOptional()
+  @IsOptional()
+  @IsBoolean()
+  isNegotiable?: boolean;
+}
+
+export class AcceptOfferDto {
+  @ApiPropertyOptional()
+  @IsOptional()
+  @IsString()
+  notes?: string;
+}
+
+export class RejectOfferDto {
+  @ApiPropertyOptional()
+  @IsOptional()
+  @IsString()
+  reason?: string;
+
+  @ApiPropertyOptional()
+  @IsOptional()
+  @IsString()
+  notes?: string;
 }

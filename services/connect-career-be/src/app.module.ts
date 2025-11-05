@@ -15,6 +15,7 @@ import { PermissionsGuard } from './modules/identity/api/guards/permissions.guar
 import { ApplicationsModule } from './modules/applications/applications.module';
 import { UserModule } from './modules/user/user.module';
 import { HiringPipelineModule } from './modules/hiring-pipeline/hiring-pipeline.module';
+import { MockAIInterviewModule } from './modules/mock-ai-interview/mock-ai-interview.module';
 
 @Module({
   imports: [
@@ -47,6 +48,7 @@ import { HiringPipelineModule } from './modules/hiring-pipeline/hiring-pipeline.
     ApplicationsModule,
     HiringPipelineModule,
     UserModule,
+    MockAIInterviewModule,
   ],
   providers: [
     {

@@ -10,8 +10,10 @@ import {
   IsString,
   IsUUID,
   Min,
+  ValidateNested,
 } from 'class-validator';
 import { PipelineStageType } from '../../domain/entities/pipeline-stage.entity';
+import { Type } from 'class-transformer';
 
 export class CreatePipelineDto {
   @ApiProperty()
@@ -124,6 +126,89 @@ export class UpdateStageDto {
   terminal?: boolean;
 }
 
+export class UpdateStageInPipelineDto {
+  @ApiPropertyOptional()
+  @IsOptional()
+  @IsString()
+  id?: string;
+
+  @ApiProperty()
+  @IsString()
+  @IsNotEmpty()
+  key: string;
+
+  @ApiProperty()
+  @IsString()
+  @IsNotEmpty()
+  name: string;
+
+  @ApiProperty({ enum: PipelineStageType })
+  @IsEnum(PipelineStageType)
+  type: PipelineStageType;
+
+  @ApiProperty()
+  @IsInt()
+  order: number;
+
+  @ApiPropertyOptional()
+  @IsOptional()
+  @IsBoolean()
+  terminal?: boolean;
+}
+
+export class UpdateTransitionInPipelineDto {
+  @ApiPropertyOptional()
+  @IsOptional()
+  @IsString()
+  id?: string;
+
+  @ApiProperty()
+  @IsString()
+  fromStageKey: string;
+
+  @ApiProperty()
+  @IsString()
+  toStageKey: string;
+
+  @ApiPropertyOptional()
+  @IsOptional()
+  @IsString()
+  actionName?: string;
+
+  @ApiPropertyOptional({ type: [String] })
+  @IsOptional()
+  @IsArray()
+  allowedRoles?: string[];
+}
+export class UpdatePipelineComprehensiveDto {
+  @ApiPropertyOptional()
+  @IsOptional()
+  @IsString()
+  name?: string;
+
+  @ApiPropertyOptional()
+  @IsOptional()
+  @IsString()
+  description?: string;
+
+  @ApiPropertyOptional()
+  @IsOptional()
+  @IsBoolean()
+  active?: boolean;
+
+  @ApiProperty({ type: [UpdateStageInPipelineDto] })
+  @IsArray()
+  @ValidateNested({ each: true })
+  @Type(() => UpdateStageInPipelineDto)
+  stages: UpdateStageInPipelineDto[];
+
+  @ApiProperty({ type: [UpdateTransitionInPipelineDto] })
+  @IsArray()
+  @ValidateNested({ each: true })
+  @Type(() => UpdateTransitionInPipelineDto)
+  transitions: UpdateTransitionInPipelineDto[];
+}
+
 export class ReorderStagesDto {
   @ApiProperty({ type: [String] })
   @IsArray()
@@ -175,4 +260,37 @@ export class UpdateTransitionDto {
 export class PipelineValidationResultDto {
   @ApiProperty() valid: boolean;
   @ApiProperty({ type: [String] }) issues: string[];
+}
+
+export class CreatePipelineComprehensiveDto {
+  @ApiProperty()
+  @IsString()
+  @IsNotEmpty()
+  name: string;
+
+  @ApiProperty()
+  @IsUUID()
+  organizationId: string;
+
+  @ApiPropertyOptional()
+  @IsOptional()
+  @IsString()
+  description?: string;
+
+  @ApiPropertyOptional()
+  @IsOptional()
+  @IsBoolean()
+  active?: boolean;
+
+  @ApiProperty({ type: [CreateStageDto] })
+  @IsArray()
+  @ValidateNested({ each: true })
+  @Type(() => CreateStageDto)
+  stages: CreateStageDto[];
+
+  @ApiProperty({ type: [CreateTransitionDto] })
+  @IsArray()
+  @ValidateNested({ each: true })
+  @Type(() => CreateTransitionDto)
+  transitions: CreateTransitionDto[];
 }

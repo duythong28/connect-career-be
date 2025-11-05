@@ -81,14 +81,8 @@ export class Offer {
   @Column({ type: 'int', default: 1 })
   version: number;
 
-  @Column({ type: 'text' })
-  details: string;
-
   @Column({ type: 'text', nullable: true })
   notes?: string;
-
-  @Column({ type: 'decimal', precision: 12, scale: 2 })
-  amount: number;
 
   @Column({ type: 'varchar', length: 10, default: 'USD' })
   currency: string;
@@ -127,9 +121,6 @@ export class Offer {
 
   @Column({ type: 'decimal', precision: 12, scale: 2, nullable: true })
   performanceBonus?: number;
-
-  @Column({ type: 'varchar', length: 255, nullable: true })
-  equity?: string;
 
   @Column({ type: 'decimal', precision: 5, scale: 2, nullable: true })
   equityPercentage?: number;
@@ -213,6 +204,9 @@ export class Offer {
   @Column({ type: 'varchar', length: 500, nullable: true })
   signatureUrl?: string;
 
+  @Column({ type: 'boolean', default: false })
+  isOfferedByCandidate: boolean;
+
   isPending(): boolean {
     return this.status === OfferStatus.PENDING;
   }
@@ -274,27 +268,12 @@ export class Offer {
     return Math.ceil(diffTime / (1000 * 60 * 60 * 24));
   }
 
-  getFormattedAmount(): string {
-    return new Intl.NumberFormat('en-US', {
-      style: 'currency',
-      currency: this.currency,
-    }).format(this.amount);
-  }
-
   getFormattedBaseSalary(): string {
     if (!this.baseSalary) return '';
     return new Intl.NumberFormat('en-US', {
       style: 'currency',
       currency: this.currency,
     }).format(this.baseSalary);
-  }
-
-  calculateTotalCompensation(): number {
-    let total = this.amount;
-    if (this.signingBonus) total += this.signingBonus;
-    if (this.performanceBonus) total += this.performanceBonus;
-    if (this.relocationBonus) total += this.relocationBonus;
-    return total;
   }
 
   accept(): void {
@@ -351,17 +330,6 @@ export class Offer {
     return true;
   }
 
-  getNegotiationRange(): string {
-    if (!this.isNegotiable) return 'Not negotiable';
-    const min = this.minAcceptableAmount
-      ? this.getFormattedAmount()
-      : 'No minimum';
-    const max = this.maxAcceptableAmount
-      ? this.getFormattedAmount()
-      : 'No maximum';
-    return `${min} - ${max}`;
-  }
-
   static reviseFrom(prev: Offer, overrides: Partial<Offer>): Offer {
     const next = new Offer();
     next.applicationId = prev.applicationId;
@@ -370,14 +338,11 @@ export class Offer {
       prev.offerType === OfferType.INITIAL ? OfferType.REVISED : prev.offerType;
     next.version = prev.version + 1;
 
-    next.details = prev.details;
-    next.amount = prev.amount;
     next.currency = prev.currency;
     next.baseSalary = prev.baseSalary;
     next.salaryPeriod = prev.salaryPeriod;
     next.signingBonus = prev.signingBonus;
     next.performanceBonus = prev.performanceBonus;
-    next.equity = prev.equity;
     next.equityPercentage = prev.equityPercentage;
     next.relocationBonus = prev.relocationBonus;
     next.totalCompensation = prev.totalCompensation;

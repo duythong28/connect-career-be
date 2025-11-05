@@ -37,9 +37,12 @@ import {
   CreateOfferDto,
   UpdateOfferDto,
   RecordOfferResponseDto,
+  AcceptOfferDto,
+  RejectOfferDto,
 } from '../dtos/offer.dto';
 import { LogCommunicationDto } from '../dtos/communication.dto';
 import { JwtAuthGuard } from '../../../identity/api/guards/jwt-auth.guard';
+import * as decorators from 'src/modules/identity/api/decorators';
 
 @ApiTags('Application Management - Recruiter')
 @ApiBearerAuth()
@@ -145,8 +148,13 @@ export class ApplicationRecruiterController {
   async changeApplicationStage(
     @Param('id') id: string,
     @Body() changeDto: ChangeApplicationStageDto,
+    @decorators.CurrentUser() user: decorators.CurrentUserPayload,
   ): Promise<any> {
-    return this.applicationStatusService.changeApplicationStage(id, changeDto);
+    return this.applicationStatusService.changeApplicationStage(
+      id,
+      changeDto,
+      user.sub,
+    );
   }
 
   @Get(':id/available-stages')
@@ -221,6 +229,16 @@ export class ApplicationRecruiterController {
     return this.interviewService.submitFeedback(interviewId, feedbackDto);
   }
 
+  @Delete('interviews/:interviewId')
+  @ApiParam({ name: 'interviewId', description: 'Interview ID' })
+  @ApiResponse({ status: 200, description: 'Interview deleted successfully' })
+  @ApiResponse({ status: 404, description: 'Interview not found' })
+  async deleteInterview(
+    @Param('interviewId') interviewId: string,
+  ): Promise<any> {
+    return this.interviewService.deleteInterviewById(interviewId);
+  }
+
   @Post('interviews/:interviewId/cancel')
   @ApiOperation({ summary: 'Cancel interview' })
   @ApiParam({ name: 'interviewId', description: 'Interview ID' })
@@ -290,8 +308,21 @@ export class ApplicationRecruiterController {
   async updateOffer(
     @Param('offerId') offerId: string,
     @Body() updateDto: UpdateOfferDto,
+    @decorators.CurrentUser() user: decorators.CurrentUserPayload,
   ): Promise<any> {
-    return this.offerService.updateOffer(offerId, updateDto);
+    return this.offerService.updateOffer(offerId, updateDto, user.sub);
+  }
+
+  @Delete('offers/:offerId')
+  @ApiOperation({ summary: 'Delete offer' })
+  @ApiParam({ name: 'offerId', description: 'Offer ID' })
+  @ApiResponse({ status: 200, description: 'Offer deleted successfully' })
+  @ApiResponse({ status: 404, description: 'Offer not found' })
+  async deleteOffer(
+    @Param('offerId') offerId: string,
+    @decorators.CurrentUser() user: decorators.CurrentUserPayload,
+  ): Promise<void> {
+    await this.offerService.deleteOffer(offerId, user.sub);
   }
 
   @Post('offers/:offerId/response')
@@ -314,8 +345,9 @@ export class ApplicationRecruiterController {
   async cancelOffer(
     @Param('offerId') offerId: string,
     @Body() body: { reason: string },
+    @decorators.CurrentUser() user: decorators.CurrentUserPayload,
   ): Promise<any> {
-    return this.offerService.cancelOffer(offerId, body.reason);
+    return this.offerService.cancelOffer(offerId, body.reason, user.sub);
   }
 
   // Communication Management
@@ -344,5 +376,44 @@ export class ApplicationRecruiterController {
   @ApiResponse({ status: 404, description: 'Application not found' })
   async getCommunicationLog(@Param('id') id: string): Promise<any[]> {
     return this.communicationService.getCommunicationLog(id);
+  }
+
+  @Post(':id/offers/accept')
+  @ApiOperation({
+    summary: 'Accept offer (recruiter accepts candidate counter-offer)',
+  })
+  @ApiResponse({ status: 200, description: 'Offer accepted successfully' })
+  @ApiResponse({ status: 404, description: 'Application or offer not found' })
+  async acceptOffer(
+    @Param('id') id: string,
+    @Body() acceptDto: AcceptOfferDto,
+    @decorators.CurrentUser() user: decorators.CurrentUserPayload,
+  ) {
+    return this.offerService.acceptOffer(id, acceptDto, user.sub);
+  }
+
+  @Get(':applicationId/offers')
+  @ApiOperation({ summary: 'Get application offers' })
+  @ApiParam({ name: 'applicationId', description: 'Application ID' })
+  @ApiResponse({ status: 200, description: 'Offers retrieved successfully' })
+  @ApiResponse({ status: 404, description: 'Application not found' })
+  async getApplicationOffersByRecruiter(
+    @Param('applicationId') applicationId: string,
+  ): Promise<any[]> {
+    return this.offerService.getOffersByApplication(applicationId);
+  }
+
+  @Post(':id/offers/reject')
+  @ApiOperation({
+    summary: 'Reject offer (recruiter rejects candidate counter-offer)',
+  })
+  @ApiResponse({ status: 200, description: 'Offer rejected successfully' })
+  @ApiResponse({ status: 404, description: 'Application or offer not found' })
+  async rejectOffer(
+    @Param('id') id: string,
+    @Body() rejectDto: RejectOfferDto,
+    @decorators.CurrentUser() user: decorators.CurrentUserPayload,
+  ) {
+    return this.offerService.rejectOffer(id, rejectDto, user.sub);
   }
 }

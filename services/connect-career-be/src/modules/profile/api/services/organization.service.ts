@@ -16,6 +16,11 @@ import { FindOptionsWhere, Repository } from 'typeorm';
 import { OrganizationRBACService } from './organization-rbac.service';
 import { InjectRepository } from '@nestjs/typeorm';
 import { OrganizationRole } from '../../domain/entities/organization-memberships.entity';
+import {
+  Interview,
+  InterviewStatus,
+} from 'src/modules/applications/domain/entities/interview.entity';
+import { Job } from 'src/modules/jobs/domain/entities/job.entity';
 
 @Injectable()
 export class OrganizationService {
@@ -24,6 +29,10 @@ export class OrganizationService {
     @InjectRepository(OrganizationRole)
     private readonly roleRepository: Repository<OrganizationRole>,
     private readonly organizationRBACService: OrganizationRBACService,
+    @InjectRepository(Interview)
+    private readonly interviewRepository: Repository<Interview>,
+    @InjectRepository(Job)
+    private readonly jobRepository: Repository<Job>,
   ) {}
 
   async createOrganization(
@@ -230,5 +239,124 @@ export class OrganizationService {
       country: org.country,
       organizationSize: org.organizationSize,
     }));
+  }
+
+  async getInterviewsByOrganization(
+    organizationId: string,
+    options?: {
+      status?: InterviewStatus;
+      startDate?: Date;
+      endDate?: Date;
+      jobId?: string;
+      page?: number;
+      limit?: number;
+    },
+  ): Promise<{
+    data: Interview[];
+    total: number;
+    page: number;
+    limit: number;
+  }> {
+    // Verify organization exists
+    const organization =
+      await this.organizationRepository.findById(organizationId);
+    if (!organization) {
+      throw new NotFoundException('Organization not found');
+    }
+
+    const page = options?.page || 1;
+    const limit = options?.limit || 20;
+    const skip = (page - 1) * limit;
+
+    // Build query
+    const queryBuilder = this.interviewRepository
+      .createQueryBuilder('interview')
+      .innerJoin('interview.application', 'application')
+      .innerJoin('application.job', 'job')
+      .where('job.organizationId = :organizationId', { organizationId })
+      .leftJoinAndSelect('interview.application', 'app')
+      .leftJoinAndSelect('app.job', 'jobDetails')
+      .leftJoinAndSelect('app.candidate', 'candidate')
+      .leftJoinAndSelect('interview.interviewer', 'interviewer')
+      .orderBy('interview.scheduledDate', 'DESC');
+
+    // Apply filters
+    if (options?.status) {
+      queryBuilder.andWhere('interview.status = :status', {
+        status: options.status,
+      });
+    }
+
+    if (options?.startDate) {
+      queryBuilder.andWhere('interview.scheduledDate >= :startDate', {
+        startDate: options.startDate,
+      });
+    }
+
+    if (options?.endDate) {
+      queryBuilder.andWhere('interview.scheduledDate <= :endDate', {
+        endDate: options.endDate,
+      });
+    }
+
+    if (options?.jobId) {
+      queryBuilder.andWhere('job.id = :jobId', { jobId: options.jobId });
+    }
+
+    // Get total count
+    const total = await queryBuilder.getCount();
+
+    // Apply pagination
+    const data = await queryBuilder.skip(skip).take(limit).getMany();
+
+    return {
+      data,
+      total,
+      page,
+      limit,
+    };
+  }
+
+  async getUpcomingInterviewsByOrganization(
+    organizationId: string,
+    options?: {
+      daysAhead?: number;
+      jobId?: string;
+      limit?: number;
+    },
+  ): Promise<Interview[]> {
+    const organization =
+      await this.organizationRepository.findById(organizationId);
+    if (!organization) {
+      throw new NotFoundException('Organization not found');
+    }
+
+    const now = new Date();
+    const daysAhead = options?.daysAhead || 30;
+    const endDate = new Date(now.getTime() + daysAhead * 24 * 60 * 60 * 1000);
+    const limit = options?.limit || 50;
+
+    const queryBuilder = this.interviewRepository
+      .createQueryBuilder('interview')
+      .innerJoin('interview.application', 'application')
+      .innerJoin('application.job', 'job')
+      .where('job.organizationId = :organizationId', { organizationId })
+      .andWhere('interview.scheduledDate >= :now', { now })
+      .andWhere('interview.scheduledDate <= :endDate', { endDate })
+      .andWhere('interview.status IN (:...statuses)', {
+        statuses: [InterviewStatus.SCHEDULED, InterviewStatus.RESCHEDULED],
+      })
+      .leftJoinAndSelect('interview.application', 'app')
+      .leftJoinAndSelect('app.job', 'jobDetails')
+      .leftJoinAndSelect('app.candidate', 'candidate')
+      .leftJoinAndSelect('interview.interviewer', 'interviewer')
+      .orderBy('interview.scheduledDate', 'ASC')
+      .take(limit);
+
+    if (options?.jobId) {
+      queryBuilder.andWhere('job.id = :jobId', { jobId: options.jobId });
+    }
+
+    return queryBuilder.getMany();
   }
 }

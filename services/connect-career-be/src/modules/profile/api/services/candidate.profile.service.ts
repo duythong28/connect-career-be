@@ -26,6 +26,14 @@ import {
 import { QueryRunner } from 'typeorm/browser';
 import { User } from 'src/modules/identity/domain/entities';
 import { Industry } from '../../domain/entities/industry.entity';
+import {
+  Offer,
+  OfferStatus,
+} from 'src/modules/applications/domain/entities/offer.entity';
+import {
+  Interview,
+  InterviewStatus,
+} from 'src/modules/applications/domain/entities/interview.entity';
 
 @Injectable()
 export class CandidateProfileService {
@@ -44,6 +52,10 @@ export class CandidateProfileService {
     private readonly awardRepository: Repository<Award>,
     @InjectRepository(Organization)
     private readonly organizationRepository: Repository<Organization>,
+    @InjectRepository(Interview)
+    private readonly interviewRepository: Repository<Interview>,
+    @InjectRepository(Offer)
+    private readonly offerRepository: Repository<Offer>,
     private readonly dataSource: DataSource,
   ) {}
 
@@ -71,6 +83,7 @@ export class CandidateProfileService {
       .createQueryBuilder('candidateProfile')
       .leftJoinAndSelect('candidateProfile.user', 'user')
       .leftJoinAndSelect('candidateProfile.workExperiences', 'workExperiences')
+      .leftJoinAndSelect('workExperiences.organization', 'organization')
       .leftJoinAndSelect('candidateProfile.educations', 'educations')
       .leftJoinAndSelect('candidateProfile.projects', 'projects')
       .leftJoinAndSelect('candidateProfile.certifications', 'certifications')
@@ -449,5 +462,156 @@ export class CandidateProfileService {
     }
 
     return org;
+  }
+  async getInterviewsByCandidateId(
+    candidateId: string,
+    options?: {
+      status?: InterviewStatus;
+      startDate?: Date;
+      endDate?: Date;
+      applicationId?: string;
+      jobId?: string;
+      page?: number;
+      limit?: number;
+    },
+  ): Promise<{
+    data: Interview[];
+    total: number;
+    page: number;
+    limit: number;
+  }> {
+    const candidateProfile = await this.candidateProfileRepository.findOne({
+      where: { userId: candidateId },
+    });
+
+    if (!candidateProfile) {
+      throw new NotFoundException('Candidate profile not found');
+    }
+
+    const page = options?.page || 1;
+    const limit = options?.limit || 20;
+    const skip = (page - 1) * limit;
+
+    const queryBuilder = this.interviewRepository
+      .createQueryBuilder('interview')
+      .innerJoin('interview.application', 'application')
+      .where('application.candidateId = :candidateId', { candidateId })
+      .leftJoinAndSelect('interview.application', 'app')
+      .leftJoinAndSelect('app.job', 'jobDetails')
+      .leftJoinAndSelect('jobDetails.organization', 'organization')
+      .leftJoinAndSelect('interview.interviewer', 'interviewer')
+      .orderBy('interview.scheduledDate', 'DESC');
+
+    if (options?.status) {
+      queryBuilder.andWhere('interview.status = :status', {
+        status: options.status,
+      });
+    }
+
+    if (options?.startDate) {
+      queryBuilder.andWhere('interview.scheduledDate >= :startDate', {
+        startDate: options.startDate,
+      });
+    }
+
+    if (options?.endDate) {
+      queryBuilder.andWhere('interview.scheduledDate <= :endDate', {
+        endDate: options.endDate,
+      });
+    }
+
+    if (options?.applicationId) {
+      queryBuilder.andWhere('application.id = :applicationId', {
+        applicationId: options.applicationId,
+      });
+    }
+
+    if (options?.jobId) {
+      queryBuilder
+        .innerJoin('app.job', 'job')
+        .andWhere('job.id = :jobId', { jobId: options.jobId });
+    }
+
+    // Get total count
+    const total = await queryBuilder.getCount();
+
+    // Apply pagination
+    const data = await queryBuilder.skip(skip).take(limit).getMany();
+
+    return {
+      data,
+      total,
+      page,
+      limit,
+    };
+  }
+
+  /**
+   * Get all offers for a candidate with pagination and filters
+   */
+  async getOffersByCandidateId(
+    candidateId: string,
+    options?: {
+      status?: OfferStatus;
+      applicationId?: string;
+      jobId?: string;
+      page?: number;
+      limit?: number;
+    },
+  ): Promise<{ data: Offer[]; total: number; page: number; limit: number }> {
+    // Verify candidate exists
+    const candidateProfile = await this.candidateProfileRepository.findOne({
+      where: { userId: candidateId },
+    });
+
+    if (!candidateProfile) {
+      throw new NotFoundException('Candidate profile not found');
+    }
+
+    const page = options?.page || 1;
+    const limit = options?.limit || 20;
+    const skip = (page - 1) * limit;
+
+    // Build query
+    const queryBuilder = this.offerRepository
+      .createQueryBuilder('offer')
+      .innerJoin('offer.application', 'application')
+      .where('application.candidateId = :candidateId', { candidateId })
+      .leftJoinAndSelect('offer.application', 'app')
+      .leftJoinAndSelect('app.job', 'jobDetails')
+      .leftJoinAndSelect('jobDetails.organization', 'organization')
+      .orderBy('offer.createdAt', 'DESC');
+
+    // Apply filters
+    if (options?.status) {
+      queryBuilder.andWhere('offer.status = :status', {
+        status: options.status,
+      });
+    }
+
+    if (options?.applicationId) {
+      queryBuilder.andWhere('application.id = :applicationId', {
+        applicationId: options.applicationId,
+      });
+    }
+
+    if (options?.jobId) {
+      queryBuilder
+        .innerJoin('app.job', 'job')
+        .andWhere('job.id = :jobId', { jobId: options.jobId });
+    }
+
+    // Get total count
+    const total = await queryBuilder.getCount();
+
+    // Apply pagination
+    const data = await queryBuilder.skip(skip).take(limit).getMany();
+
+    return {
+      data,
+      total,
+      page,
+      limit,
+    };
   }
 }

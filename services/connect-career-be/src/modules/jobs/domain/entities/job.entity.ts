@@ -219,6 +219,9 @@ export class Job {
   @Column({ type: 'timestamp', nullable: true })
   deletedAt?: Date;
 
+  @Column('simple-array', { nullable: true })
+  requirements: string[];
+
   isActive(): boolean {
     return this.status === JobStatus.ACTIVE && !this.deletedAt;
   }

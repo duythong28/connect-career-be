@@ -1,0 +1,70 @@
+name: ai-service CI
+on:
+    push:
+        branches: [main]
+        tags:
+            - "*dev/user/**"
+            - "*stg/user/**"
+            - "*beta/user/**"
+            - "*prod/user/**"
+        paths:
+            - "services/ai-service/**"
+            - ".github/workflows/ai-service-ci.yml"
+jobs:
+    build-push:
+        runs-on: ubuntu-latest
+        steps:
+            - uses: actions/checkout@v4
+            - uses: docker/login-action@v3
+              with:
+                  registry: ghcr.io
+                  username: ${{ github.actor }}
+                  password: ${{ secrets.GITHUB_TOKEN }}
+            - name: Build & push
+              working-directory: services/ai-service
+              run: |
+                  IMAGE=ghcr.io/your-org/ai-service
+                  TAG=${{ github.sha }}
+                  docker build -t $IMAGE:$TAG -t $IMAGE:latest .
+                  docker push $IMAGE:$TAG
+                  docker push $IMAGE:latest
+    update-gitops:
+        needs: build-push
+        runs-on: ubuntu-latest
+        if: github.ref == 'refs/heads/main'
+        steps:
+            - name: Install kustomize
+              run: |
+                  curl -sSL https://raw.githubusercontent.com/kubernetes-sigs/kustomize/master/hack/install_kustomize.sh | bash
+                  sudo mv kustomize /usr/local/bin/kustomize
+
+            - name: Install GitHub CLI
+              run: |
+                  type -p curl >/dev/null || sudo apt-get update
+                  sudo apt-get install -y curl
+                  curl -fsSL https://cli.github.com/packages/githubcli-archive-keyring.gpg | sudo dd of=/usr/share/keyrings/githubcli-archive-keyring.gpg
+                  sudo chmod go+r /usr/share/keyrings/githubcli-archive-keyring.gpg
+                  echo "deb [arch=$(dpkg --print-architecture) signed-by=/usr/share/keyrings/githubcli-archive-keyring.gpg] https://cli.github.com/packages stable main" | sudo tee /etc/apt/sources.list.d/github-cli.list > /dev/null
+                  sudo apt-get update && sudo apt-get install -y gh
+
+            - name: Clone gitops
+              run: git clone https://github.com/your-org/gitops.git
+
+            - name: Bump prod tag
+              run: |
+                  cd gitops/services/ai-service/overlays/prod
+                  kustomize edit set image ghcr.io/your-org/ai-service=ghcr.io/your-org/ai-service:${{ github.sha }}
+
+            - name: Create PR in gitops repo
+              env:
+                  GH_TOKEN: ${{ secrets.GH_PAT_GITOPS }}
+              run: |
+                  cd gitops
+                  git config user.name "ci-bot"
+                  git config user.email "ci-bot@users.noreply.github.com"
+                  branch=bump-ai-${{ github.sha }}
+                  git checkout -b $branch
+                  git commit -am "ai-service: bump to ${{ github.sha }}"
+                  git push https://$GH_TOKEN@github.com/your-org/gitops.git $branch
+                  gh pr create --repo your-org/gitops --base main --head $branch \
+                      --title "ai-service: ${{ github.sha }}" --body "Bump image to ${{ github.sha }}"

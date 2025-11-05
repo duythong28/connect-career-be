@@ -1,0 +1,112 @@
+name: connect-career-be CI/CD
+
+on:
+  push:
+    branches: [main]
+    tags:
+      - "*dev/user/**"
+      - "*stg/user/**"
+      - "*beta/user/**"
+      - "*prod/user/**"
+    paths:
+      - "services/connect-career-be/**"
+      - ".github/workflows/connect-career-be-ci.yml"
+  pull_request:
+    branches: [main]
+    paths:
+      - "services/connect-career-be/**"
+      - ".github/workflows/connect-career-be-ci.yml"
+
+env:
+  IMAGE: ghcr.io/your-org/api
+  SERVICE_PATH: services/connect-career-be
+
+jobs:
+  build-push:
+    needs: tag-context
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: docker/login-action@v3
+        with:
+          registry: ghcr.io
+          username: ${{ github.actor }}
+          password: ${{ secrets.GITHUB_TOKEN }}
+      - name: Build & push (ai-service)
+        working-directory: services/ai-service
+        env:
+          IMAGE: ghcr.io/your-org/ai-service
+          VERSION: ${{ needs.tag-context.outputs.version }}
+          ENV_NAME: ${{ needs.tag-context.outputs.env }}
+        run: |
+          # Always build SHA tag; if tag push, also build version and latest-$ENV
+          docker build -t $IMAGE:${{ github.sha }} -t $IMAGE:$VERSION -t $IMAGE:latest-$ENV_NAME .
+          docker push $IMAGE:${{ github.sha }}
+          docker push $IMAGE:$VERSION
+          docker push $IMAGE:latest-$ENV_NAME
+
+  tag-context:
+    runs-on: ubuntu-latest
+    outputs:
+      env: ${{ steps.set.outputs.env }}
+      version: ${{ steps.set.outputs.version }}
+      overlay: ${{ steps.set.outputs.overlay }}
+    steps:
+      - id: set
+        shell: bash
+        run: |
+          REF='${{ github.ref_name }}'        
+          ENV="${REF%%/*}"                    
+          VERSION="${REF#*/}"                 
+          VERSION="${VERSION#*/}"             
+          # Map tag prefix to kustomize overlay names
+          case "$ENV" in
+            dev)   OVERLAY="dev" ;;
+            stg)   OVERLAY="staging" ;;
+            beta)  OVERLAY="beta" ;;          # use if you have beta overlay; else "staging"
+            prod)  OVERLAY="prod" ;;
+            *)     OVERLAY="dev" ;;
+          esac
+          echo "env=$ENV" >> $GITHUB_OUTPUT
+          echo "version=$VERSION" >> $GITHUB_OUTPUT
+          echo "overlay=$OVERLAY" >> $GITHUB_OUTPUT
+  update-gitops:
+    needs: build-push
+    if: github.ref == 'refs/heads/main' && needs.tag-context.outputs.overlay == 'prod'
+    runs-on: ubuntu-latest
+    steps:
+      - name: Install kustomize
+        run: |
+          curl -sSL https://raw.githubusercontent.com/kubernetes-sigs/kustomize/master/hack/install_kustomize.sh | bash
+          sudo mv kustomize /usr/local/bin/kustomize
+
+      - name: Install GitHub CLI
+        run: |
+          type -p curl >/dev/null || sudo apt-get update
+          sudo apt-get install -y curl
+          curl -fsSL https://cli.github.com/packages/githubcli-archive-keyring.gpg | sudo dd of=/usr/share/keyrings/githubcli-archive-keyring.gpg
+          sudo chmod go+r /usr/share/keyrings/githubcli-archive-keyring.gpg
+          echo "deb [arch=$(dpkg --print-architecture) signed-by=/usr/share/keyrings/githubcli-archive-keyring.gpg] https://cli.github.com/packages stable main" | sudo tee /etc/apt/sources.list.d/github-cli.list >/dev/null
+          sudo apt-get update && sudo apt-get install -y gh
+
+      - name: Clone gitops repo
+        run: git clone https://github.com/your-org/gitops.git
+
+      - name: Bump prod tag (api)
+        run: |
+          cd gitops/services/api/overlays/prod
+          kustomize edit set image ${{ env.IMAGE }}=${{ env.IMAGE }}:${{ github.sha }}
+
+      - name: Create PR in gitops repo
+        env:
+          GH_TOKEN: ${{ secrets.GH_PAT_GITOPS }}
+        run: |
+          cd gitops
+          git config user.name "ci-bot"
+          git config user.email "ci-bot@users.noreply.github.com"
+          branch=bump-api-${{ github.sha }}
+          git checkout -b $branch
+          git commit -am "api: bump to ${{ github.sha }}"
+          git push https://$GH_TOKEN@github.com/your-org/gitops.git $branch
+          gh pr create --repo your-org/gitops --base main --head $branch \
+            --title "api: ${{ github.sha }}" --body "Bump image to ${{ github.sha }}"

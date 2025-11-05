@@ -22,23 +22,27 @@ export class RetellAIProvider {
       ],
       start_speaker: 'agent',
     });
-    await this.retellAI.agent.create({
+    const henryInterviewer = await this.retellAI.agent.create({
       response_engine: {
         llm_id: defaultInterviewerModel.llm_id,
         type: 'retell-llm',
       },
-      voice_id: '11labs-Chloe',
+      voice_id: '11labs-Anthony',
       agent_name: 'Henry',
     });
-    await this.retellAI.agent.create({
+    const marcusInterviewer = await this.retellAI.agent.create({
       response_engine: {
         llm_id: defaultInterviewerModel.llm_id,
         type: 'retell-llm',
       },
-      voice_id: '11labs-Chloe',
+      voice_id: '11labs-Amritanshu',
       agent_name: 'Marcus',
     });
-    return defaultInterviewerModel;
+    return {
+      henryInterviewer,
+      marcusInterviewer,
+      defaultInterviewerModel,
+    };
   }
   async createInterviewer() {}
 }

@@ -26,8 +26,14 @@ import {
 import { QueryRunner } from 'typeorm/browser';
 import { User } from 'src/modules/identity/domain/entities';
 import { Industry } from '../../domain/entities/industry.entity';
-import { Offer, OfferStatus } from 'src/modules/applications/domain/entities/offer.entity';
-import { Interview, InterviewStatus } from 'src/modules/applications/domain/entities/interview.entity';
+import {
+  Offer,
+  OfferStatus,
+} from 'src/modules/applications/domain/entities/offer.entity';
+import {
+  Interview,
+  InterviewStatus,
+} from 'src/modules/applications/domain/entities/interview.entity';
 
 @Injectable()
 export class CandidateProfileService {
@@ -468,7 +474,12 @@ export class CandidateProfileService {
       page?: number;
       limit?: number;
     },
-  ): Promise<{ data: Interview[]; total: number; page: number; limit: number }> {
+  ): Promise<{
+    data: Interview[];
+    total: number;
+    page: number;
+    limit: number;
+  }> {
     const candidateProfile = await this.candidateProfileRepository.findOne({
       where: { userId: candidateId },
     });
@@ -492,7 +503,9 @@ export class CandidateProfileService {
       .orderBy('interview.scheduledDate', 'DESC');
 
     if (options?.status) {
-      queryBuilder.andWhere('interview.status = :status', { status: options.status });
+      queryBuilder.andWhere('interview.status = :status', {
+        status: options.status,
+      });
     }
 
     if (options?.startDate) {
@@ -571,7 +584,9 @@ export class CandidateProfileService {
 
     // Apply filters
     if (options?.status) {
-      queryBuilder.andWhere('offer.status = :status', { status: options.status });
+      queryBuilder.andWhere('offer.status = :status', {
+        status: options.status,
+      });
     }
 
     if (options?.applicationId) {

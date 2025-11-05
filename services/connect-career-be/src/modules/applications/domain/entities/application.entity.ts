@@ -456,7 +456,9 @@ export class Application {
       return;
     }
     const cvContent = cv.content;
-    const jobRequirements = (job.requirements || []).map(r => r.toLowerCase().trim());
+    const jobRequirements = (job.requirements || []).map((r) =>
+      r.toLowerCase().trim(),
+    );
 
     const cvSkills = this.extractSkillsFromCV(cvContent);
 
@@ -480,16 +482,18 @@ export class Application {
         missingSkills: this.getMissingSkills(jobRequirements, cvSkills),
         yearsExperience: candidateExperienceYears,
         requiredExperience: requiredExperienceYears,
-        educationLevel: this.getHighestEducationLevel(cvContent.education || []),
+        educationLevel: this.getHighestEducationLevel(
+          cvContent.education || [],
+        ),
         requiredEducation: '',
       },
     };
 
     breakdown.overallScore =
-    breakdown.skillsMatch * 0.4 +
-    breakdown.experienceMatch * 0.3 +
-    breakdown.educationMatch * 0.15 +
-    breakdown.locationMatch * 0.15;
+      breakdown.skillsMatch * 0.4 +
+      breakdown.experienceMatch * 0.3 +
+      breakdown.educationMatch * 0.15 +
+      breakdown.locationMatch * 0.15;
 
     this.matchingScore = Math.round(breakdown.overallScore * 100) / 100;
     this.matchingDetails = breakdown;
@@ -505,7 +509,7 @@ export class Application {
     }
 
     if (typeof cvContent.skills === 'object') {
-      const allSkills: string[] = [];      
+      const allSkills: string[] = [];
       return allSkills.map((s: string) => s.toLowerCase().trim());
     }
 
@@ -530,9 +534,10 @@ export class Application {
       const startDate = this.parseDate(exp.startDate);
       if (!startDate) continue;
 
-      const endDate = exp.current || !exp.endDate || exp.endDate === 'Present'
-        ? now
-        : this.parseDate(exp.endDate);
+      const endDate =
+        exp.current || !exp.endDate || exp.endDate === 'Present'
+          ? now
+          : this.parseDate(exp.endDate);
 
       if (!endDate) continue;
 
@@ -547,7 +552,7 @@ export class Application {
     if (!requirements || requirements.length === 0) return 0;
 
     const text = requirements.join(' ').toLowerCase();
-    
+
     const patterns = [
       /(\d+)\+?\s*years?\s*(?:of\s*)?(?:experience|exp)/i,
       /minimum\s*(\d+)\s*years?/i,
@@ -576,7 +581,7 @@ export class Application {
       if (/^\d{4}-\d{2}$/.test(dateStr)) {
         return new Date(dateStr + '-01');
       }
-      
+
       // Handle "YYYY-MM-DD" format
       if (/^\d{4}-\d{2}-\d{2}$/.test(dateStr)) {
         return new Date(dateStr);
@@ -600,10 +605,7 @@ export class Application {
     return yearsDiff * 12 + monthsDiff;
   }
 
-  private getMatchedSkills(
-    required: string[],
-    candidate: string[],
-  ): string[] {
+  private getMatchedSkills(required: string[], candidate: string[]): string[] {
     const matched: string[] = [];
     for (const skill of required) {
       if (
@@ -617,10 +619,7 @@ export class Application {
     return matched;
   }
 
-  private getMissingSkills(
-    required: string[],
-    candidate: string[],
-  ): string[] {
+  private getMissingSkills(required: string[], candidate: string[]): string[] {
     return required.filter(
       (skill) =>
         !candidate.some((cs) => cs.includes(skill) || skill.includes(cs)),
@@ -638,8 +637,13 @@ export class Application {
 
     if (degrees.length === 0) return '';
 
-    if (degrees.some((d) => d.toLowerCase().includes('phd') ||
-                           d.toLowerCase().includes('doctorate'))) {
+    if (
+      degrees.some(
+        (d) =>
+          d.toLowerCase().includes('phd') ||
+          d.toLowerCase().includes('doctorate'),
+      )
+    ) {
       return 'PhD';
     }
 
@@ -647,9 +651,14 @@ export class Application {
       return 'Master';
     }
 
-    if (degrees.some((d) => d.toLowerCase().includes('bachelor') ||
-                           d.toLowerCase().includes('bs') ||
-                           d.toLowerCase().includes('ba'))) {
+    if (
+      degrees.some(
+        (d) =>
+          d.toLowerCase().includes('bachelor') ||
+          d.toLowerCase().includes('bs') ||
+          d.toLowerCase().includes('ba'),
+      )
+    ) {
       return 'Bachelor';
     }
 
@@ -677,12 +686,9 @@ export class Application {
     return (candidate / required) * 100;
   }
 
-  private calculateEducationMatch(
-    job: Job,
-    cvContent: CV,
-  ): number {
+  private calculateEducationMatch(job: Job, cvContent: CV): number {
     const education = cvContent.content?.education || [];
-    
+
     if (education.length === 0) {
       return 50;
     }
@@ -690,11 +696,21 @@ export class Application {
     const requirements = (job.requirements || []).join(' ').toLowerCase();
     const candidateEducationLevel = this.getHighestEducationLevel(education);
     const candidateEducationText = education
-      .map((e: { degree?: string; fieldOfStudy?: string }) => `${e.degree || ''} ${e.fieldOfStudy || ''}`)
+      .map(
+        (e: { degree?: string; fieldOfStudy?: string }) =>
+          `${e.degree || ''} ${e.fieldOfStudy || ''}`,
+      )
       .join(' ')
       .toLowerCase();
 
-    const degreeKeywords = ['bachelor', 'master', 'phd', 'doctorate', 'degree', 'diploma'];
+    const degreeKeywords = [
+      'bachelor',
+      'master',
+      'phd',
+      'doctorate',
+      'degree',
+      'diploma',
+    ];
     const hasEducationRequirement = degreeKeywords.some((keyword) =>
       requirements.includes(keyword),
     );
@@ -707,7 +723,10 @@ export class Application {
 
     // PhD requirement
     if (requirements.includes('phd') || requirements.includes('doctorate')) {
-      if (educationLevel.includes('phd') || educationLevel.includes('doctorate')) {
+      if (
+        educationLevel.includes('phd') ||
+        educationLevel.includes('doctorate')
+      ) {
         return 100;
       }
       if (educationLevel.includes('master')) {
@@ -721,7 +740,10 @@ export class Application {
       if (educationLevel.includes('master')) {
         return 100;
       }
-      if (educationLevel.includes('phd') || educationLevel.includes('doctorate')) {
+      if (
+        educationLevel.includes('phd') ||
+        educationLevel.includes('doctorate')
+      ) {
         return 100; // Overqualified is fine
       }
       if (educationLevel.includes('bachelor')) {
@@ -732,7 +754,10 @@ export class Application {
 
     // Bachelor requirement
     if (requirements.includes('bachelor') || requirements.includes('degree')) {
-      if (educationLevel.includes('bachelor') || candidateEducationText.includes('degree')) {
+      if (
+        educationLevel.includes('bachelor') ||
+        candidateEducationText.includes('degree')
+      ) {
         return 100;
       }
       if (
@@ -742,7 +767,10 @@ export class Application {
       ) {
         return 100; // Overqualified
       }
-      if (educationLevel.includes('diploma') || candidateEducationText.includes('diploma')) {
+      if (
+        educationLevel.includes('diploma') ||
+        candidateEducationText.includes('diploma')
+      ) {
         return 70; // Diploma is close
       }
       return 40; // Below bachelor
@@ -750,7 +778,10 @@ export class Application {
 
     // Generic degree requirement
     if (requirements.includes('degree') && !requirements.includes('bachelor')) {
-      if (candidateEducationText.includes('degree') || candidateEducationLevel) {
+      if (
+        candidateEducationText.includes('degree') ||
+        candidateEducationLevel
+      ) {
         return 100;
       }
       return 50;
@@ -770,7 +801,9 @@ export class Application {
     }
 
     const jobLocation = job.location.toLowerCase().trim();
-    const cvAddress = (cvContent?.personalInfo?.address || '').toLowerCase().trim();
+    const cvAddress = (cvContent?.personalInfo?.address || '')
+      .toLowerCase()
+      .trim();
 
     // If CV has no address info, return partial score
     if (!cvAddress) {
@@ -778,7 +811,13 @@ export class Application {
     }
 
     // Check for remote work keywords
-    const remoteKeywords = ['remote', 'work from home', 'wfh', 'anywhere', 'distributed'];
+    const remoteKeywords = [
+      'remote',
+      'work from home',
+      'wfh',
+      'anywhere',
+      'distributed',
+    ];
     const isJobRemote = remoteKeywords.some((keyword) =>
       jobLocation.includes(keyword),
     );
@@ -819,7 +858,15 @@ export class Application {
     }
 
     // Check for same region (e.g., both in Vietnam)
-    const vietnamKeywords = ['vietnam', 'viet nam', 'vn', 'ho chi minh', 'hanoi', 'hcm', 'hà nội'];
+    const vietnamKeywords = [
+      'vietnam',
+      'viet nam',
+      'vn',
+      'ho chi minh',
+      'hanoi',
+      'hcm',
+      'hà nội',
+    ];
     const isJobVietnam = vietnamKeywords.some((k) => jobLocation.includes(k));
     const isCVVietnam = vietnamKeywords.some((k) => cvAddress.includes(k));
 
@@ -836,16 +883,16 @@ export class Application {
 
     // Common patterns: "City, Country" or "City" or "City State"
     const parts = location.split(',').map((p) => p.trim());
-    
+
     // First part is usually the city
     if (parts.length > 0) {
       const city = parts[0].toLowerCase();
-      
+
       // Remove common prefixes/suffixes
       const cleanCity = city
         .replace(/^(city of|town of|district of)\s+/i, '')
         .trim();
-      
+
       return cleanCity || null;
     }
 
@@ -856,23 +903,38 @@ export class Application {
     if (!location) return null;
 
     const locationLower = location.toLowerCase();
-    
+
     // Common country keywords
     const countries = [
-      'vietnam', 'viet nam',
-      'united states', 'usa', 'us',
-      'united kingdom', 'uk',
-      'singapore', 'sg',
-      'japan', 'jp',
-      'china', 'cn',
-      'korea', 'kr',
-      'thailand', 'th',
-      'philippines', 'ph',
-      'indonesia', 'id',
-      'malaysia', 'my',
-      'australia', 'au',
-      'canada', 'ca',
-      'india', 'in',
+      'vietnam',
+      'viet nam',
+      'united states',
+      'usa',
+      'us',
+      'united kingdom',
+      'uk',
+      'singapore',
+      'sg',
+      'japan',
+      'jp',
+      'china',
+      'cn',
+      'korea',
+      'kr',
+      'thailand',
+      'th',
+      'philippines',
+      'ph',
+      'indonesia',
+      'id',
+      'malaysia',
+      'my',
+      'australia',
+      'au',
+      'canada',
+      'ca',
+      'india',
+      'in',
     ];
 
     for (const country of countries) {
@@ -915,7 +977,6 @@ export class Application {
 
     return '';
   }
-
 
   updateCalculatedFields(): void {
     const now = new Date();

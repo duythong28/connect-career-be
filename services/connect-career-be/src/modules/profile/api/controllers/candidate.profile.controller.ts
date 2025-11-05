@@ -18,7 +18,10 @@ import {
   CreateCandidateProfileDto,
   UpdateCandidateProfileDto,
 } from '../dtos/candidate-profile.dto';
-import { CandidateInterviewsQueryDto, CandidateOffersQueryDto } from '../dtos/candidate-query.dto';
+import {
+  CandidateInterviewsQueryDto,
+  CandidateOffersQueryDto,
+} from '../dtos/candidate-query.dto';
 
 @Controller('/v1/candidates/profiles')
 @UseGuards(JwtAuthGuard)
@@ -80,7 +83,10 @@ export class CandidateProfileController {
 
   @Get('/me/interviews')
   @ApiOperation({ summary: 'Get all interviews for the current candidate' })
-  @ApiResponse({ status: 200, description: 'Interviews retrieved successfully' })
+  @ApiResponse({
+    status: 200,
+    description: 'Interviews retrieved successfully',
+  })
   @ApiResponse({ status: 404, description: 'Candidate profile not found' })
   async getMyInterviews(
     @Query() query: CandidateInterviewsQueryDto,
@@ -116,7 +122,10 @@ export class CandidateProfileController {
 
   @Get(':id/interviews')
   @ApiOperation({ summary: 'Get all interviews for a candidate by ID' })
-  @ApiResponse({ status: 200, description: 'Interviews retrieved successfully' })
+  @ApiResponse({
+    status: 200,
+    description: 'Interviews retrieved successfully',
+  })
   @ApiResponse({ status: 404, description: 'Candidate profile not found' })
   async getCandidateInterviews(
     @Param('id', ParseUUIDPipe) id: string,

@@ -3,6 +3,7 @@ import {
   IsArray,
   IsBoolean,
   IsEnum,
+  IsNotEmpty,
   IsNumber,
   IsOptional,
   IsString,
@@ -49,7 +50,7 @@ export class CreateMockInterviewDto {
     description: 'ID of the interviewer agent (AI agent)',
     example: 'agent-uuid-here',
   })
-  @IsOptional()
+  @IsNotEmpty()
   @IsUUID()
   interviewerAgentId?: string;
 
@@ -74,17 +75,6 @@ export class CreateMockInterviewDto {
   @Min(1)
   @Max(10)
   duration?: number;
-
-  @ApiPropertyOptional({
-    description: 'Types of questions to include',
-    enum: QuestionType,
-    isArray: true,
-    example: [QuestionType.TECHNICAL, QuestionType.BEHAVIORAL],
-  })
-  @IsOptional()
-  @IsArray()
-  @IsEnum(QuestionType, { each: true })
-  questionTypes?: QuestionType[];
 
   @ApiPropertyOptional({
     description: 'Difficulty level of the interview',
@@ -122,14 +112,6 @@ export class CreateMockInterviewDto {
   @IsOptional()
   @IsBoolean()
   realtimeScoring?: boolean;
-
-  @ApiPropertyOptional({
-    description: 'Optional start date/time for scheduling (ISO string)',
-    example: '2024-01-15T10:00:00Z',
-  })
-  @IsOptional()
-  @IsString()
-  scheduledStartAt?: string;
 
   @ApiProperty({
     description:

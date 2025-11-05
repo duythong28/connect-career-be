@@ -14,7 +14,7 @@ import { InterviewFeedback } from './mock_interview_feedback.entity';
 @TypeOrmEntity('mock_interview_sessions')
 @Index(['candidateId'])
 @Index(['interviewerAgentId'])
-export class MockInterviewSession {
+export class AIMockInterview {
   @PrimaryGeneratedColumn('uuid')
   id: string;
 

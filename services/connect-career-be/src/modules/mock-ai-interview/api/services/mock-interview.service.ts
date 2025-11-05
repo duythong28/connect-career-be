@@ -6,7 +6,7 @@ import {
   NotFoundException,
 } from '@nestjs/common';
 import { InjectRepository } from '@nestjs/typeorm';
-import { MockInterviewSession } from '../../domain/entities/mock_interview_sessions.entity';
+import { AIMockInterview } from '../../domain/entities/mock_interview_sessions.entity';
 import { Repository } from 'typeorm';
 import { InterviewQuestion } from '../../domain/entities/mock_interview_questions.entity';
 import { InterviewResponse } from '../../domain/entities/mock_interview_responses.entity';
@@ -25,7 +25,10 @@ import { OpenAI } from 'openai';
 import { randomUUID } from 'crypto';
 import { ConfigService } from '@nestjs/config';
 import { CreateMockInterviewDto } from '../dto/mock-interview.dto';
-import { GenerateMockInterviewQuestionsDto, GenerateSpecificAreasFromJobDescriptionDto } from '../dto/generate-mock-interview-question.dto';
+import {
+  GenerateMockInterviewQuestionsDto,
+  GenerateSpecificAreasFromJobDescriptionDto,
+} from '../dto/generate-mock-interview-question.dto';
 import { QuestionInputDto } from '../dto/question-input.dto';
 
 @Injectable()
@@ -33,8 +36,8 @@ export class MockInterviewService {
   private readonly logger = new Logger(MockInterviewService.name);
   private readonly openai: OpenAI;
   constructor(
-    @InjectRepository(MockInterviewSession)
-    private readonly sessionRepository: Repository<MockInterviewSession>,
+    @InjectRepository(AIMockInterview)
+    private readonly sessionRepository: Repository<AIMockInterview>,
     @InjectRepository(InterviewQuestion)
     private readonly questionRepository: Repository<InterviewQuestion>,
     @InjectRepository(InterviewResponse)
@@ -64,44 +67,55 @@ export class MockInterviewService {
         messages: [
           {
             role: 'system',
-            content: 'You are an expert AI assistant tasked with analyzing job descriptions for a high-tech recruiting platform. Extract technical skills, tools, and high-level concepts. Return ONLY valid JSON.',
+            content:
+              'You are an expert AI assistant tasked with analyzing job descriptions for a high-tech recruiting platform. Extract technical skills, tools, and high-level concepts. Return ONLY valid JSON.',
           },
           {
             role: 'user',
-            content: this.buildExtractSpecificAreasFromJobDescriptionPrompt(dto.jobDescription ?? ''),
+            content: this.buildExtractSpecificAreasFromJobDescriptionPrompt(
+              dto.jobDescription ?? '',
+            ),
           },
         ],
         temperature: 0.3,
       });
       const content = baseCompletion.choices[0]?.message?.content;
       if (!content || content.trim() === '') {
-        throw new BadRequestException('No content received from base completion.');
+        throw new BadRequestException(
+          'No content received from base completion.',
+        );
       }
       const cleanedContent = content
         .replace(/^```(json\s*)?/i, '')
         .replace(/```$/i, '')
         .trim();
       if (!cleanedContent) {
-        throw new BadRequestException('Content was empty after cleaning markdown fences.');
+        throw new BadRequestException(
+          'Content was empty after cleaning markdown fences.',
+        );
       }
       const parsedResponse = JSON.parse(cleanedContent);
       return parsedResponse as { areas: string[] };
     } catch (error) {
-      this.logger.error('Error generating specific areas from job description:', error);
-      throw new BadRequestException('Failed to generate specific areas from job description');
+      this.logger.error(
+        'Error generating specific areas from job description:',
+        error,
+      );
+      throw new BadRequestException(
+        'Failed to generate specific areas from job description',
+      );
     }
   }
-
 
   async generateMockInterviewQuestion(
     dto: GenerateMockInterviewQuestionsDto,
     candidateId: string,
   ): Promise<{
-    mockInterviewSession: MockInterviewSession;
+    mockInterviewSession: AIMockInterview;
     questions: QuestionInputDto[];
     description: string;
   }> {
-    const session = new MockInterviewSession();
+    const session = new AIMockInterview();
     session.candidateId = candidateId;
     session.customPrompt = dto.customPrompt;
     session.jobDescription = dto.jobDescription;
@@ -248,7 +262,7 @@ export class MockInterviewService {
     }
   }
 
-  async getSession(sessionId: string): Promise<MockInterviewSession | null> {
+  async getSession(sessionId: string): Promise<AIMockInterview | null> {
     const session = await this.sessionRepository.findOne({
       where: { id: sessionId },
       relations: ['questions', 'responses', 'scores', 'feedback'],
@@ -271,7 +285,7 @@ export class MockInterviewService {
   async getMySessions(
     candidateId: string,
     filters: MockInterviewSearchFilters & { page: number; limit: number },
-  ): Promise<{ sessions: MockInterviewSession[]; total: number }> {
+  ): Promise<{ sessions: AIMockInterview[]; total: number }> {
     const queryBuilder = this.sessionRepository
       .createQueryBuilder('session')
       .where('session.candidateId = :candidateId', { candidateId });
@@ -306,7 +320,6 @@ export class MockInterviewService {
   ): InterviewConfiguration {
     return {
       duration: dto.duration || 10,
-      questionTypes: dto.questionTypes,
       focusAreas: dto.focusAreas || [],
       difficulty: dto.difficulty ?? Difficulty.INTERMEDIATE,
       audioEnabled: dto.audioEnabled || false,
@@ -319,7 +332,7 @@ export class MockInterviewService {
       "You are an expert in coming up with follow up questions to uncover deeper insights.";
     `;
   }
-  private buildQuestionPrompt(session: MockInterviewSession): string {
+  private buildQuestionPrompt(session: AIMockInterview): string {
     const hasCustomGoal =
       session.customPrompt && session.customPrompt.trim().length > 0;
     const calculateQuestionCount = () => {
@@ -362,7 +375,6 @@ export class MockInterviewService {
           Job Description: ${session.jobDescription ? `${session.jobDescription}` : 'Not provided'}
           Difficulty Level: ${session.configuration.difficulty}
           Focus Areas: ${session.configuration.focusAreas.join(', ') || 'General'}
-          Question Types: ${session.configuration.questionTypes?.join(', ') || 'behavioral'}  
 
       IMPORTANT OUTPUT FORMAT:
       Generate a 50 word or less second-person description about the interview to be shown to the user in the field 'description'.
@@ -381,7 +393,6 @@ export class MockInterviewService {
       Rules for question types:
       - The first question should have type "opener" and order 1
       - The last question should have type "closing" and order equal to the total number of questions
-      - Middle questions should match the requested question types: ${session.configuration.questionTypes?.join(', ') || 'behavioral, technical'}
       - Distribute question types evenly based on the requested types
       - Persona should be a consistent character name (use 'default' if no specific persona is needed)
 
@@ -405,7 +416,9 @@ export class MockInterviewService {
     return basePrompt.trim();
   }
 
-  private buildExtractSpecificAreasFromJobDescriptionPrompt(jobDescription: string): string {
+  private buildExtractSpecificAreasFromJobDescriptionPrompt(
+    jobDescription: string,
+  ): string {
     return `
       Your goal is to read the provided job description and extract a comprehensive list of all relevant technical skills, tools, and high-level concepts.
 

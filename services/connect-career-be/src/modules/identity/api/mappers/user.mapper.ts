@@ -4,7 +4,9 @@ import { PermissionResponseDto, RoleWithPermissionsDto } from '../dtos';
 import { UserProfileDto } from '../dtos/auth.dto';
 
 export class UserMapper {
-  static toPermissionResponseDto(permission: Permission): PermissionResponseDto {
+  static toPermissionResponseDto(
+    permission: Permission,
+  ): PermissionResponseDto {
     return {
       id: permission.id,
       name: permission.name,
@@ -28,9 +30,10 @@ export class UserMapper {
       isSystemRole: role.isSystemRole,
       createdAt: role.createdAt,
       updatedAt: role.updatedAt,
-      permissions: role.permissions?.map((permission) =>
-        this.toPermissionResponseDto(permission),
-      ) || [],
+      permissions:
+        role.permissions?.map((permission) =>
+          this.toPermissionResponseDto(permission),
+        ) || [],
     };
   }
 

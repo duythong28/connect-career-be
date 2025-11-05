@@ -178,3 +178,122 @@ export interface CreateCustomAgentResponse {
   config: CustomAgentConfig;
   retellAgent: any;
 }
+interface LLMCreateParams {
+  model?: LLMModel;
+  general_prompt?: string;
+  general_tools?: Array<{
+    type: 'end_call' | 'function' | 'transfer_call';
+    name: string;
+    description: string;
+    function_description?: string;
+    parameters?: Record<string, any>;
+  }>;
+  start_speaker?: 'agent' | 'user';
+  enable_transcription?: boolean;
+  transcriber?: {
+    provider?: 'deepgram' | 'assembly_ai' | 'gladia';
+    model?: string;
+    language?: string;
+  };
+  response_delay_ms?: number;
+  enable_backchannel?: boolean;
+  language?: string;
+  temperature?: number;
+  top_p?: number;
+  max_tokens?: number;
+
+  base_url?: string;
+  api_key?: string;
+  model_name?: string;
+}
+
+interface AgentCreateParams {
+  response_engine: {
+    type: 'retell-llm' | 'custom_llm' | 'conversational_ai';
+    llm_id?: string; // Required for retell-llm
+    custom_llm_url?: string; // For custom_llm type
+    conversational_ai_config?: any; // For conversational_ai type
+  };
+  voice: {
+    provider?: '11labs' | 'playht' | 'deepgram' | 'eleven_labs';
+    voice_id?: string; // e.g., '11labs-Chloe', 'deepgram-Aurora'
+    speed?: number; // 0.5 to 2.0
+    stability?: number; // 0-1 (for some providers)
+    similarity_boost?: number; // 0-1 (for some providers)
+    model?: string; // Voice model version
+  };
+  agent_name: string;
+  language?: string;
+
+  // Real-time settings
+  real_time_websocket_protocol?: 'webSocket';
+  real_time_websocket_encoding?:
+    | 'linear16'
+    | 's16le'
+    | 'mulaw'
+    | 'alaw'
+    | 'g711ulaw'
+    | 'g711alaw';
+  real_time_websocket_sample_rate?: 8000 | 16000 | 24000 | 44100 | 48000;
+
+  // Call settings
+  end_call_after_silence_ms?: number; // Auto-end call after silence
+  enable_voicemail_detection?: boolean;
+
+  // Webhooks
+  webhook_url?: string;
+  webhook_events?: string[]; // ['call_started', 'call_ended', 'function_call', etc.]
+
+  // Custom data
+  metadata?: Record<string, any>;
+
+  // Conversation settings
+  enable_backchannel?: boolean;
+  interruption_sensitivity?: 'low' | 'medium' | 'high';
+
+  // Cost optimization
+  reduce_latency?: boolean;
+  enable_webhook_audio?: boolean;
+}
+
+interface CustomLLMConfig {
+  model: 'custom'; // Special identifier
+  custom_llm_url: string; // Your LLM endpoint
+  api_key?: string; // If required
+  model_name?: string;
+
+  // Request format
+  request_format?: {
+    method?: 'POST';
+    headers?: Record<string, string>;
+    body?: {
+      messages?: string; // Path to messages in request
+      stream?: string; // Path to stream flag
+      model?: string; // Path to model name
+    };
+  };
+
+  // Response format
+  response_format?: {
+    messages?: string; // Path to messages in response
+    content?: string; // Path to content in response
+    finish_reason?: string; // Path to finish reason
+  };
+}
+
+enum LLMModel {
+  GPT_5 = 'gpt-5',
+  GPT_5_MINI = 'gpt-5-mini',
+  GPT_5_NANO = 'gpt-5-nano',
+  GPT_4_1 = 'gpt-4.1',
+  GPT_4_1_MINI = 'gpt-4.1-mini',
+  GPT_4_1_NANO = 'gpt-4.1-nano',
+  GPT_4O = 'gpt-4o',
+  GPT_4O_MINI = 'gpt-4o-mini',
+  CLAUDE_3_7_SONNET = 'claude-3.7-sonnet',
+  CLAUDE_3_5_HAIKU = 'claude-3.5-haiku',
+  GEMINI_2_0_FLASH = 'gemini-2.0-flash',
+  GEMINI_2_0_FLASH_LITE = 'gemini-2.0-flash-lite',
+  GEMINI_2_5_FLASH = 'gemini-2.5-flash',
+  GEMINI_2_5_FLASH_LITE = 'gemini-2.5-flash-lite',
+}

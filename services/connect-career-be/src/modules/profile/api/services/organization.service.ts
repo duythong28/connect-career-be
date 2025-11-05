@@ -16,7 +16,10 @@ import { FindOptionsWhere, Repository } from 'typeorm';
 import { OrganizationRBACService } from './organization-rbac.service';
 import { InjectRepository } from '@nestjs/typeorm';
 import { OrganizationRole } from '../../domain/entities/organization-memberships.entity';
-import { Interview, InterviewStatus } from 'src/modules/applications/domain/entities/interview.entity';
+import {
+  Interview,
+  InterviewStatus,
+} from 'src/modules/applications/domain/entities/interview.entity';
 import { Job } from 'src/modules/jobs/domain/entities/job.entity';
 
 @Injectable()
@@ -30,7 +33,6 @@ export class OrganizationService {
     private readonly interviewRepository: Repository<Interview>,
     @InjectRepository(Job)
     private readonly jobRepository: Repository<Job>,
-
   ) {}
 
   async createOrganization(
@@ -249,9 +251,15 @@ export class OrganizationService {
       page?: number;
       limit?: number;
     },
-  ): Promise<{ data: Interview[]; total: number; page: number; limit: number }> {
+  ): Promise<{
+    data: Interview[];
+    total: number;
+    page: number;
+    limit: number;
+  }> {
     // Verify organization exists
-    const organization = await this.organizationRepository.findById(organizationId);
+    const organization =
+      await this.organizationRepository.findById(organizationId);
     if (!organization) {
       throw new NotFoundException('Organization not found');
     }
@@ -274,7 +282,9 @@ export class OrganizationService {
 
     // Apply filters
     if (options?.status) {
-      queryBuilder.andWhere('interview.status = :status', { status: options.status });
+      queryBuilder.andWhere('interview.status = :status', {
+        status: options.status,
+      });
     }
 
     if (options?.startDate) {
@@ -315,7 +325,8 @@ export class OrganizationService {
       limit?: number;
     },
   ): Promise<Interview[]> {
-    const organization = await this.organizationRepository.findById(organizationId);
+    const organization =
+      await this.organizationRepository.findById(organizationId);
     if (!organization) {
       throw new NotFoundException('Organization not found');
     }
@@ -348,5 +359,4 @@ export class OrganizationService {
 
     return queryBuilder.getMany();
   }
-  
 }

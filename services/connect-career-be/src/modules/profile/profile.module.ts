@@ -57,7 +57,7 @@ import { Offer } from '../applications/domain/entities/offer.entity';
       OrganizationInvitation,
       Interview,
       Job,
-      Offer
+      Offer,
     ]),
   ],
   controllers: [

@@ -188,5 +188,4 @@ export class UserProfileDto {
     type: [RoleResponseDto],
   })
   roles?: RoleWithPermissionsDto[];
-
 }

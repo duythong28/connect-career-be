@@ -9,12 +9,8 @@ import {
   Min,
   Max,
 } from 'class-validator';
-import {
-  InterviewStatus,
-} from 'src/modules/applications/domain/entities/interview.entity';
-import {
-  OfferStatus,
-} from 'src/modules/applications/domain/entities/offer.entity';
+import { InterviewStatus } from 'src/modules/applications/domain/entities/interview.entity';
+import { OfferStatus } from 'src/modules/applications/domain/entities/offer.entity';
 
 export class CandidateInterviewsQueryDto {
   @ApiPropertyOptional({

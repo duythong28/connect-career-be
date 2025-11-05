@@ -1,5 +1,4 @@
-import { Body, Controller, Post, UseGuards } from '@nestjs/common';
-import { MockInterviewService } from '../services/mock-interview.service';
+import { Controller, Post, UseGuards } from '@nestjs/common';
 import { AgentInterviewerService } from '../services/agent-interviewer.service';
 import { JwtAuthGuard } from 'src/modules/identity/api/guards/jwt-auth.guard';
 
@@ -7,7 +6,6 @@ import { JwtAuthGuard } from 'src/modules/identity/api/guards/jwt-auth.guard';
 @UseGuards(JwtAuthGuard)
 export class SystemMockAIInterviewController {
   constructor(
-    private readonly mockAIInterviewService: MockInterviewService,
     private readonly agentInterviewerService: AgentInterviewerService,
   ) {}
 

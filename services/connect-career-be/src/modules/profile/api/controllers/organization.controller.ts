@@ -85,7 +85,10 @@ export class OrganizationController {
   @UseGuards(JwtAuthGuard)
   @ApiOperation({ summary: 'Get all interviews for an organization' })
   @ApiParam({ name: 'id', description: 'Organization ID' })
-  @ApiResponse({ status: 200, description: 'Interviews retrieved successfully' })
+  @ApiResponse({
+    status: 200,
+    description: 'Interviews retrieved successfully',
+  })
   @ApiResponse({ status: 404, description: 'Organization not found' })
   async getOrganizationInterviews(
     @Param('organizationId', ParseUUIDPipe) id: string,
@@ -105,7 +108,10 @@ export class OrganizationController {
   @UseGuards(JwtAuthGuard)
   @ApiOperation({ summary: 'Get upcoming interviews for an organization' })
   @ApiParam({ name: 'id', description: 'Organization ID' })
-  @ApiResponse({ status: 200, description: 'Upcoming interviews retrieved successfully' })
+  @ApiResponse({
+    status: 200,
+    description: 'Upcoming interviews retrieved successfully',
+  })
   @ApiResponse({ status: 404, description: 'Organization not found' })
   async getUpcomingOrganizationInterviews(
     @Param('id', ParseUUIDPipe) id: string,
@@ -138,6 +144,4 @@ export class OrganizationController {
       updateOrganizationDto,
     );
   }
-
-
 }

@@ -12,7 +12,7 @@ import {
   ActionItem,
   FeedbackType,
 } from '../value-objects/interview-configuration.vo';
-import { MockInterviewSession } from './mock_interview_sessions.entity';
+import { AIMockInterview } from './mock_interview_sessions.entity';
 
 @TypeOrmEntity('mock_interview_feedback')
 export class InterviewFeedback {
@@ -40,9 +40,9 @@ export class InterviewFeedback {
   @UpdateDateColumn()
   updatedAt: Date;
 
-  @ManyToOne(() => MockInterviewSession, (session) => session.feedback)
+  @ManyToOne(() => AIMockInterview, (session) => session.feedback)
   @JoinColumn({ name: 'sessionId' })
-  session: MockInterviewSession;
+  session: AIMockInterview;
 
   @Column('uuid')
   @Index()

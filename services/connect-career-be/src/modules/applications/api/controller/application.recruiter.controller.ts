@@ -379,7 +379,9 @@ export class ApplicationRecruiterController {
   }
 
   @Post(':id/offers/accept')
-  @ApiOperation({ summary: 'Accept offer (recruiter accepts candidate counter-offer)' })
+  @ApiOperation({
+    summary: 'Accept offer (recruiter accepts candidate counter-offer)',
+  })
   @ApiResponse({ status: 200, description: 'Offer accepted successfully' })
   @ApiResponse({ status: 404, description: 'Application or offer not found' })
   async acceptOffer(
@@ -395,12 +397,16 @@ export class ApplicationRecruiterController {
   @ApiParam({ name: 'applicationId', description: 'Application ID' })
   @ApiResponse({ status: 200, description: 'Offers retrieved successfully' })
   @ApiResponse({ status: 404, description: 'Application not found' })
-  async getApplicationOffersByRecruiter(@Param('applicationId') applicationId: string): Promise<any[]> {
+  async getApplicationOffersByRecruiter(
+    @Param('applicationId') applicationId: string,
+  ): Promise<any[]> {
     return this.offerService.getOffersByApplication(applicationId);
   }
 
   @Post(':id/offers/reject')
-  @ApiOperation({ summary: 'Reject offer (recruiter rejects candidate counter-offer)' })
+  @ApiOperation({
+    summary: 'Reject offer (recruiter rejects candidate counter-offer)',
+  })
   @ApiResponse({ status: 200, description: 'Offer rejected successfully' })
   @ApiResponse({ status: 404, description: 'Application or offer not found' })
   async rejectOffer(

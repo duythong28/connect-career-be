@@ -47,12 +47,6 @@ export class GenerateMockInterviewQuestionsDto {
 
   @ApiPropertyOptional()
   @IsOptional()
-  @IsArray()
-  @IsEnum(QuestionType, { each: true })
-  questionTypes: QuestionType[];
-
-  @ApiPropertyOptional()
-  @IsOptional()
   @IsEnum(Difficulty)
   difficulty?: Difficulty;
 

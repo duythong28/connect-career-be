@@ -7,16 +7,16 @@ import {
   ManyToOne,
 } from 'typeorm';
 import * as interviewConfigurationVo from '../value-objects/interview-configuration.vo';
-import { MockInterviewSession } from './mock_interview_sessions.entity';
+import { AIMockInterview } from './mock_interview_sessions.entity';
 
 @TypeOrmEntity('mock_interview_scores')
 export class InterviewScore {
   @PrimaryGeneratedColumn('uuid')
   id: string;
 
-  @ManyToOne(() => MockInterviewSession, (session) => session.scores)
+  @ManyToOne(() => AIMockInterview, (session) => session.scores)
   @JoinColumn({ name: 'sessionId' })
-  session: MockInterviewSession;
+  session: AIMockInterview;
 
   @Column('uuid')
   @Index()

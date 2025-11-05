@@ -1,6 +1,5 @@
 export interface InterviewConfiguration {
   duration: number;
-  questionTypes: QuestionType[];
   difficulty: Difficulty;
   focusAreas: string[];
   audioEnabled: boolean;

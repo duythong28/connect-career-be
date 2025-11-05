@@ -9,10 +9,13 @@ import {
 
 @Entity('agent_interviewers')
 @Index(['userId'])
-@Index(['agentId'])
+@Index(['retellAgentId'])
 export class AgentInterviewer {
   @PrimaryGeneratedColumn('uuid')
   id: string;
+  
+  @Column('varchar')
+  retellAgentId: string;
 
   @Column('uuid')
   userId: string;
@@ -40,9 +43,6 @@ export class AgentInterviewer {
 
   @Column({ type: 'varchar', nullable: true })
   audio?: string;
-
-  @Column('uuid')
-  agentId: string;
 
   @CreateDateColumn()
   createdAt: Date;

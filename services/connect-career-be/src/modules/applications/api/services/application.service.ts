@@ -177,7 +177,11 @@ export class ApplicationService {
     const cv = await this.cvRepository.findOne({
       where: { id: createDto.cvId },
     });
-    application.calculateMatcingScore(job, cv ?? undefined, candidateProfile ?? undefined);
+    application.calculateMatcingScore(
+      job,
+      cv ?? undefined,
+      candidateProfile ?? undefined,
+    );
     application.updateCalculatedFields();
     return this.applicationRepository.save(application);
   }

@@ -20,7 +20,11 @@ import { ApplicationStatus } from '../../domain/entities/application.entity';
 import { JwtAuthGuard } from 'src/modules/identity/api/guards/jwt-auth.guard';
 import * as decorators from 'src/modules/identity/api/decorators';
 import { ApiOperation, ApiResponse } from '@nestjs/swagger';
-import { AcceptOfferDto, CreateOfferCandidateDto, RejectOfferDto } from '../dtos/offer.dto';
+import {
+  AcceptOfferDto,
+  CreateOfferCandidateDto,
+  RejectOfferDto,
+} from '../dtos/offer.dto';
 import { OfferService } from '../services/offer.service';
 import { PipelineStageType } from 'src/modules/hiring-pipeline/domain/entities/pipeline-stage.entity';
 import { GetMyApplicationsQueryDto } from '../dtos/get-my-application.query.dto';
@@ -421,13 +425,17 @@ export class ApplicationCandidateController {
   @ApiOperation({ summary: 'Accept offer (candidate)' })
   @ApiResponse({ status: 200, description: 'Offer accepted successfully' })
   @ApiResponse({ status: 404, description: 'Application or offer not found' })
-  @ApiResponse({ status: 403, description: 'Application does not belong to candidate' })
+  @ApiResponse({
+    status: 403,
+    description: 'Application does not belong to candidate',
+  })
   async acceptOffer(
     @Param('applicationId', ParseUUIDPipe) applicationId: string,
     @Body() acceptDto: AcceptOfferDto,
     @decorators.CurrentUser() currentUser: decorators.CurrentUserPayload,
   ) {
-    const application = await this.applicationService.getApplicationById(applicationId);
+    const application =
+      await this.applicationService.getApplicationById(applicationId);
     if (!application) {
       throw new NotFoundException('Application not found');
     }
@@ -447,14 +455,18 @@ export class ApplicationCandidateController {
   @ApiOperation({ summary: 'Reject offer (candidate)' })
   @ApiResponse({ status: 200, description: 'Offer rejected successfully' })
   @ApiResponse({ status: 404, description: 'Application or offer not found' })
-  @ApiResponse({ status: 403, description: 'Application does not belong to candidate' })
+  @ApiResponse({
+    status: 403,
+    description: 'Application does not belong to candidate',
+  })
   async rejectOffer(
     @Param('applicationId', ParseUUIDPipe) applicationId: string,
     @Body() rejectDto: RejectOfferDto,
     @decorators.CurrentUser() currentUser: decorators.CurrentUserPayload,
   ) {
     // Verify application belongs to candidate
-    const application = await this.applicationService.getApplicationById(applicationId);
+    const application =
+      await this.applicationService.getApplicationById(applicationId);
     if (!application) {
       throw new NotFoundException('Application not found');
     }

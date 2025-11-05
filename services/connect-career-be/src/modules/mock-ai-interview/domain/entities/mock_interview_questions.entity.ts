@@ -9,16 +9,16 @@ import {
   UpdateDateColumn,
 } from 'typeorm';
 import * as interviewConfigurationVo from '../value-objects/interview-configuration.vo';
-import { MockInterviewSession } from './mock_interview_sessions.entity';
+import { AIMockInterview } from './mock_interview_sessions.entity';
 
 @TypeOrmEntity('mock_interview_questions')
 export class InterviewQuestion {
   @PrimaryGeneratedColumn('uuid')
   id: string;
 
-  @ManyToOne(() => MockInterviewSession, (session) => session.questions)
+  @ManyToOne(() => AIMockInterview, (session) => session.questions)
   @JoinColumn({ name: 'sessionId' })
-  session: MockInterviewSession;
+  session: AIMockInterview;
 
   @Column('uuid')
   @Index()
@@ -26,12 +26,6 @@ export class InterviewQuestion {
 
   @Column({ type: 'text' })
   question: string;
-
-  @Column({ type: 'varchar', length: 50 })
-  type: interviewConfigurationVo.QuestionType;
-
-  @Column({ type: 'varchar', length: 50 })
-  persona: string;
 
   @Column({ type: 'int' })
   order: number;

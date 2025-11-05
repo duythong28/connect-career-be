@@ -136,14 +136,14 @@ export class CVContentDto {
   @IsArray()
   projects?: Array<{
     id: string;
-    name?: string; 
+    name?: string;
     title?: string;
     description: string;
     startDate: string;
     endDate?: string;
     current?: boolean;
-    technologies?: string[]; 
-    techStack?: string[]; 
+    technologies?: string[];
+    techStack?: string[];
     responsibilities?: string[];
     url?: string;
     github?: string;

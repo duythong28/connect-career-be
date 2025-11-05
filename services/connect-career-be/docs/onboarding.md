@@ -42,7 +42,6 @@ Q --> R[Thông báo: Email/Push\n+ cập nhật trạng thái]
 
 ---
 
-
 ```mermaid
 flowchart TD
 A[Sign up as Recruiter] --> B[Auth Service]

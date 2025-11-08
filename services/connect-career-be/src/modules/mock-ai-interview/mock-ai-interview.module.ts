@@ -23,7 +23,7 @@ import { User } from '../identity/domain/entities';
       InterviewScore,
       InterviewFeedback,
       AgentInterviewer,
-      User
+      User,
     ]),
     AIModule,
   ],

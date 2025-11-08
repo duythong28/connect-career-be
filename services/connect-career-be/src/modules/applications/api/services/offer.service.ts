@@ -235,32 +235,32 @@ export class OfferService {
       where: { id },
       relations: ['application', 'application.job'],
     });
-  
+
     if (!offer) {
       throw new NotFoundException('Offer not found');
     }
-  
+
     if (!this.isOfferOwner(offer, userId)) {
       throw new ForbiddenException('Only offer owner can cancel');
     }
-  
+
     const application = offer.application;
     if (!application) {
       throw new NotFoundException('Application not found');
     }
-  
+
     // Update offer status using save() (following createOffer pattern)
     offer.status = OfferStatus.CANCELLED;
     offer.cancelledDate = new Date();
     const savedOffer = await this.offerRepository.save(offer);
-  
+
     // Update application status first (following createOffer pattern)
     await this.applicationRepository.update(application.id, {
       status: ApplicationStatus.OFFER_PENDING,
       lastStatusChange: new Date(),
       daysInCurrentStatus: 0,
     });
-  
+
     // Prepare status history update
     const statusHistory = application.statusHistory || [];
     statusHistory.push({
@@ -270,12 +270,12 @@ export class OfferService {
       reason: reason || 'Offer cancelled',
       notes: `Offer ${offer.id} was cancelled`,
     });
-  
+
     // Update application status history (following createOffer pattern)
     await this.applicationRepository.update(application.id, {
       statusHistory,
     });
-  
+
     return savedOffer;
   }
 

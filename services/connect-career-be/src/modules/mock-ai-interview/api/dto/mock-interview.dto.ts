@@ -51,7 +51,7 @@ export class CreateMockInterviewDto {
     example: 'agent-uuid-here',
   })
   @IsNotEmpty()
-  @IsUUID()
+  @IsString()
   interviewerAgentId?: string;
 
   @ApiPropertyOptional({

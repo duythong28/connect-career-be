@@ -138,7 +138,6 @@ export class CVContentDto {
     description: string;
   }>;
 
-
   @ApiPropertyOptional({ description: 'Custom sections' })
   @IsOptional()
   @IsArray()

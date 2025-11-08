@@ -111,7 +111,7 @@ export class CVService {
       updateData.content = updateCVDto.content as unknown as {
         [key: string]: any;
       };
-      console.log(updateCVDto.content);
+    console.log(updateCVDto.content);
     if (updateCVDto.builderData !== undefined)
       updateData.builderData = updateCVDto.builderData;
 

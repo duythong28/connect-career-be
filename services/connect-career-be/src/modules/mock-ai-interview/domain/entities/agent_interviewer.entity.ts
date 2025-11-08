@@ -13,7 +13,7 @@ import {
 export class AgentInterviewer {
   @PrimaryGeneratedColumn('uuid')
   id: string;
-  
+
   @Column('varchar')
   retellAgentId: string;
 

@@ -34,10 +34,13 @@ import { OrganizationRBACMigrationService } from './infrastructure/organization-
 import { Interview } from '../applications/domain/entities/interview.entity';
 import { Job } from '../jobs/domain/entities/job.entity';
 import { Offer } from '../applications/domain/entities/offer.entity';
+import { IndustryController } from './api/controllers/industry.controller';
+import { IndustryService } from './api/services/industry.service';
 
 @Module({
   imports: [
     TypeOrmModule.forFeature([
+      Industry,
       Organization,
       OrganizationLocation,
       Industry,
@@ -64,6 +67,7 @@ import { Offer } from '../applications/domain/entities/offer.entity';
     OrganizationController,
     CandidateProfileController,
     OrganizationRBACController,
+    IndustryController,
   ],
   providers: [
     OrganizationRepository,
@@ -74,6 +78,7 @@ import { Offer } from '../applications/domain/entities/offer.entity';
     LinkedInPeopleSeeder,
     OrganizationRBACService,
     OrganizationRBACMigrationService,
+    IndustryService,
   ],
   exports: [
     OrganizationService,
@@ -82,6 +87,7 @@ import { Offer } from '../applications/domain/entities/offer.entity';
     IndustrySeeder,
     LinkedInCompanySeeder,
     LinkedInPeopleSeeder,
+    IndustryService,
   ],
 })
 export class ProfileModule {}

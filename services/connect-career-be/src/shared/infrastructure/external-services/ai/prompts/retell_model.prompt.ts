@@ -24,10 +24,10 @@ export const DEFAULT_INTERVIEWERS = {
     exploration: 10,
     empathy: 7,
     speed: 5,
-    image: '/interviewers/Lisa.png',
+    image: '/interviewers/Henry.png',
     description:
       "Hi! I'm Henry, an enthusiastic and empathetic interviewer who loves to explore. With a perfect balance of empathy and rapport, I delve deep into conversations while maintaining a steady pace. Let's embark on this journey together and uncover meaningful insights!",
-    audio: 'Henry.wav',
+    audio: 'interviewers/audio/Henry.wav',
   },
   MARCUS: {
     name: 'Empathetic Marcus',
@@ -38,6 +38,6 @@ export const DEFAULT_INTERVIEWERS = {
     image: '/interviewers/Marcus.png',
     description:
       "Hi! I'm Marcus, your go-to empathetic interviewer. I excel at understanding and connecting with people on a deeper level, ensuring every conversation is insightful and meaningful. With a focus on empathy, I'm here to listen and learn from you. Let's create a genuine connection!",
-    audio: 'Marcus.wav',
+    audio: 'interviewers/audio/Marcus.wav',
   },
 };

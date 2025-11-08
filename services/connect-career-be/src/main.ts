@@ -3,8 +3,10 @@ import { AppModule } from './app.module';
 import { ConfigService } from '@nestjs/config';
 import cookieParser from 'cookie-parser';
 import { ValidationPipe } from '@nestjs/common';
-import { HiringPipelineSeeder } from './modules/hiring-pipeline/infrastructure/seeders/hiring-pipeline.seeder';
-import { ApplicationSeeder } from './modules/applications/infrastructure/seeders/application.seeder';
+import { NestExpressApplication } from '@nestjs/platform-express'; // Add this
+import { join } from 'path';
+// import { HiringPipelineSeeder } from './modules/hiring-pipeline/infrastructure/seeders/hiring-pipeline.seeder';
+// import { ApplicationSeeder } from './modules/applications/infrastructure/seeders/application.seeder';
 // import { DefaultRolesSeeder } from './modules/identity/infrastructure/seeders/default-roles.seeder';
 // import { UserSeeder } from './modules/identity/infrastructure/seeders/user.seeder';
 // import { IndustrySeeder } from './modules/profile/infrastructure/seeders/industry.seeder';
@@ -12,7 +14,7 @@ import { ApplicationSeeder } from './modules/applications/infrastructure/seeders
 // import { LinkedInPeopleSeeder } from './modules/profile/infrastructure/seeders/linkedin-people.seeder';
 // import { LinkedInJobsSeeder } from './modules/jobs/infrastructure/seeders/linkedin-jobs.seeder';
 async function bootstrap() {
-  const app = await NestFactory.create(AppModule);
+  const app = await NestFactory.create<NestExpressApplication>(AppModule);
   const configService = app.get(ConfigService);
   try {
     // Uncomment the seeders you want to run:
@@ -51,6 +53,10 @@ async function bootstrap() {
       error instanceof Error ? error.message : String(error),
     );
   }
+  app.useStaticAssets(join(__dirname, '..', 'public'), {
+    prefix: '/public/',
+  });
+
   app.enableCors({
     origin: ['http://localhost:3000', 'http://localhost:3001'],
     credentials: true,

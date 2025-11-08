@@ -10,6 +10,7 @@ import {
   MaxLength,
 } from 'class-validator';
 import { CVType } from '../../domain/entities/cv.entity';
+import { Type } from 'class-transformer';
 
 export class CreateCVDto {
   @ApiProperty({ description: 'CV title' })
@@ -78,6 +79,7 @@ export class CVContentDto {
   @ApiPropertyOptional({ description: 'Work experience' })
   @IsOptional()
   @IsArray()
+  @Type(() => Object) // Add this
   workExperience?: Array<{
     id: string;
     company: string;
@@ -94,6 +96,7 @@ export class CVContentDto {
   @ApiPropertyOptional({ description: 'Education background' })
   @IsOptional()
   @IsArray()
+  @Type(() => Object) // Add this
   education?: Array<{
     id: string;
     institution: string;
@@ -101,39 +104,14 @@ export class CVContentDto {
     fieldOfStudy: string;
     startDate: string;
     endDate?: string;
-    gpa?: number | string; // NEW: Accept both number and string (e.g., "9.13/10")
+    gpa?: number | string;
     honors?: string[];
-  }>;
-
-  @ApiPropertyOptional({ description: 'Skills - can be object or array' })
-  @IsOptional()
-  skills?:
-    | {
-        technical: string[];
-        soft: string[];
-        languages: Array<{
-          language: string;
-          proficiency: 'beginner' | 'intermediate' | 'advanced' | 'native';
-        }>;
-      }
-    | string[]; // NEW: Support flat array format
-
-  @ApiPropertyOptional({ description: 'Certifications' })
-  @IsOptional()
-  @IsArray()
-  certifications?: Array<{
-    id: string;
-    name: string;
-    issuer: string;
-    issueDate: string;
-    expiryDate?: string;
-    credentialId?: string;
-    url?: string;
   }>;
 
   @ApiPropertyOptional({ description: 'Projects' })
   @IsOptional()
   @IsArray()
+  @Type(() => Object) // Add this
   projects?: Array<{
     id: string;
     name?: string;
@@ -152,12 +130,14 @@ export class CVContentDto {
   @ApiPropertyOptional({ description: 'Awards' })
   @IsOptional()
   @IsArray()
+  @Type(() => Object) // Add this
   awards?: Array<{
     id: string;
     title: string;
     date: string;
     description: string;
   }>;
+
 
   @ApiPropertyOptional({ description: 'Custom sections' })
   @IsOptional()

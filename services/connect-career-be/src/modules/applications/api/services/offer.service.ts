@@ -113,9 +113,8 @@ export class OfferService {
         'Cannot counter offer: latest offer is not negotiable',
       );
     }
-    const isOfferOwner = latestOffer.offeredBy === userId;
 
-    if (!latestOffer.isActive() && !isOfferOwner) {
+    if (!latestOffer.isActive()) {
       throw new BadRequestException(
         'Cannot counter offer: latest offer is not active',
       );

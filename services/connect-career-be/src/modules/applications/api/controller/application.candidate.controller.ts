@@ -401,7 +401,7 @@ export class ApplicationCandidateController {
     return { message: 'Application deleted successfully' };
   }
 
-  @Post(':applicationId/offer')
+  @Post(':applicationId/offers')
   @ApiOperation({ summary: 'Create new offer for application (candidate)' })
   @ApiResponse({ status: 201, description: 'Offer created successfully' })
   @ApiResponse({ status: 404, description: 'Application not found' })
@@ -410,7 +410,7 @@ export class ApplicationCandidateController {
     description: 'Application does not belong to candidate',
   })
   async createOffer(
-    @Param('id', ParseUUIDPipe) applicationId: string,
+    @Param('applicationId', ParseUUIDPipe) applicationId: string,
     @Body() createOfferDto: CreateOfferCandidateDto,
     @decorators.CurrentUser() currentUser: decorators.CurrentUserPayload,
   ) {

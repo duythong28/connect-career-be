@@ -58,7 +58,7 @@ export class CreateOfferDto {
 
 export class CreateOfferCandidateDto extends CreateOfferDto {
   @ApiProperty()
-  @IsString()
+  @IsBoolean()
   isOfferedByCandidate: boolean;
 }
 

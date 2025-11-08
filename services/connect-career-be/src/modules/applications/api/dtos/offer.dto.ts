@@ -215,6 +215,11 @@ export class AcceptOfferDto {
   @IsOptional()
   @IsString()
   notes?: string;
+
+  @ApiPropertyOptional()
+  @IsOptional()
+  @IsBoolean()
+  reason?: string;
 }
 
 export class RejectOfferDto {

@@ -33,7 +33,9 @@ export class HiringEffectivenessQueryDto {
   @IsEnum(HiringMetricsPeriod)
   period?: HiringMetricsPeriod;
 
-  @ApiPropertyOptional({ description: 'Include comparison with previous period' })
+  @ApiPropertyOptional({
+    description: 'Include comparison with previous period',
+  })
   @IsOptional()
   compareWithPrevious?: boolean;
 }
@@ -119,8 +121,6 @@ export interface BaseQueryConditions {
   };
   jobId?: string;
 }
-
- 
 
 export interface HiringEffectivenessSummary {
   overview: {

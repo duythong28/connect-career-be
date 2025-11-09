@@ -16,6 +16,7 @@ import { ApplicationsModule } from './modules/applications/applications.module';
 import { UserModule } from './modules/user/user.module';
 import { HiringPipelineModule } from './modules/hiring-pipeline/hiring-pipeline.module';
 import { MockAIInterviewModule } from './modules/mock-ai-interview/mock-ai-interview.module';
+import { BackofficeModule } from './modules/backoffice/backoffice.module';
 
 @Module({
   imports: [
@@ -49,6 +50,7 @@ import { MockAIInterviewModule } from './modules/mock-ai-interview/mock-ai-inter
     HiringPipelineModule,
     UserModule,
     MockAIInterviewModule,
+    BackofficeModule,
   ],
   providers: [
     {

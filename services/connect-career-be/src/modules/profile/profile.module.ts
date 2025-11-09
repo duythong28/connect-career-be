@@ -39,6 +39,12 @@ import { IndustryService } from './api/services/industry.service';
 import { Application } from '../applications/domain/entities/application.entity';
 import { OrganizationHiringAnalyticsService } from './api/services/organization-hiring-analytics.service';
 import { RecruiterDashboardService } from './api/services/recruiter-dashboard.service';
+import { OrganizationReviewController } from './api/controllers/organization-review.controller';
+import { RecruiterFeedbackController } from './api/controllers/recruiter-review.controller';
+import { OrganizationReviewService } from './api/services/organization-review.service';
+import { RecruiterFeedbackService } from './api/services/recruiter-feedback.service';
+import { OrganizationReview } from './domain/entities/organization-reviews.entity';
+import { RecruiterFeedback } from './domain/entities/recruiter-feedbacks.entity';
 
 @Module({
   imports: [
@@ -68,6 +74,8 @@ import { RecruiterDashboardService } from './api/services/recruiter-dashboard.se
       Interview,
       Job,
       Offer,
+      OrganizationReview,
+      RecruiterFeedback,
     ]),
   ],
   controllers: [
@@ -75,6 +83,8 @@ import { RecruiterDashboardService } from './api/services/recruiter-dashboard.se
     CandidateProfileController,
     OrganizationRBACController,
     IndustryController,
+    OrganizationReviewController,
+    RecruiterFeedbackController,
   ],
   providers: [
     OrganizationRepository,
@@ -87,7 +97,9 @@ import { RecruiterDashboardService } from './api/services/recruiter-dashboard.se
     OrganizationRBACMigrationService,
     IndustryService,
     OrganizationHiringAnalyticsService,
-    RecruiterDashboardService
+    RecruiterDashboardService,
+    OrganizationReviewService,
+    RecruiterFeedbackService,
   ],
   exports: [
     OrganizationService,
@@ -97,7 +109,9 @@ import { RecruiterDashboardService } from './api/services/recruiter-dashboard.se
     LinkedInCompanySeeder,
     LinkedInPeopleSeeder,
     IndustryService,
-    RecruiterDashboardService
+    RecruiterDashboardService,
+    OrganizationReviewService,
+    RecruiterFeedbackService,
   ],
 })
 export class ProfileModule {}

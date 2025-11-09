@@ -78,7 +78,7 @@ export class CandidateProfileService {
     return candidateProfile;
   }
 
-  async getCandidateProfileByUserId(userId: string): Promise<CandidateProfile> {
+  async getCandidateProfileByUserId(userId: string): Promise<any> {
     const candidateProfile = await this.candidateProfileRepository
       .createQueryBuilder('candidateProfile')
       .leftJoinAndSelect('candidateProfile.user', 'user')
@@ -94,7 +94,52 @@ export class CandidateProfileService {
     if (!candidateProfile) {
       throw new NotFoundException('Candidate profile not found');
     }
-    return candidateProfile;
+    const interviews = await this.interviewRepository
+      .createQueryBuilder('interview')
+      .leftJoinAndSelect('interview.application', 'application')
+      .leftJoinAndSelect('application.job', 'job')
+      .leftJoinAndSelect('job.organization', 'organization')
+      .leftJoinAndSelect('interview.interviewer', 'interviewer')
+      .where('application.candidateId = :userId', { userId })
+      .andWhere('interview.feedback IS NOT NULL')
+      .orderBy('interview.scheduledDate', 'DESC')
+      .getMany();
+
+    return {
+      ...candidateProfile,
+      interviewFeedbacks: interviews.map((interview) => ({
+        id: interview.id,
+        applicationId: interview.applicationId,
+        job: interview.application?.job
+          ? {
+              id: interview.application.job.id,
+              title: interview.application.job.title,
+              organization: interview.application.job.organization
+                ? {
+                    id: interview.application.job.organization.id,
+                    name: interview.application.job.organization.name,
+                  }
+                : null,
+            }
+          : null,
+        type: interview.type,
+        status: interview.status,
+        scheduledDate: interview.scheduledDate,
+        date: interview.date,
+        interviewer: interview.interviewer
+          ? {
+              id: interview.interviewer.id,
+              fullName: interview.interviewer.fullName,
+              email: interview.interviewer.email,
+            }
+          : null,
+        interviewerName: interview.interviewerName,
+        feedback: interview.feedback, // This contains comments, strengths, weaknesses, rating, etc.
+        notes: interview.notes,
+        completedAt: interview.completedAt,
+        createdAt: interview.createdAt,
+      })),
+    };
   }
 
   async createCandidateProfile(
@@ -254,7 +299,7 @@ export class CandidateProfileService {
   async updateCandidateProfile(
     userId: string,
     dto: UpdateCandidateProfileDto,
-  ): Promise<CandidateProfile> {
+  ): Promise<any> {
     const queryRunner = this.dataSource.createQueryRunner();
     await queryRunner.connect();
     await queryRunner.startTransaction();
@@ -421,7 +466,7 @@ export class CandidateProfileService {
 
       await queryRunner.commitTransaction();
 
-      return this.getCandidateProfileByUserId(userId);
+      return await this.getCandidateProfileByUserId(userId);
     } catch (error) {
       await queryRunner.rollbackTransaction();
       throw error;

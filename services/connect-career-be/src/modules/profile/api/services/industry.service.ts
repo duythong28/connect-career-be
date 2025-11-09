@@ -1,9 +1,16 @@
-import { BadRequestException, Injectable, NotFoundException } from '@nestjs/common';
+import {
+  BadRequestException,
+  Injectable,
+  NotFoundException,
+} from '@nestjs/common';
 import { InjectRepository } from '@nestjs/typeorm';
 import { Repository, FindOptionsWhere } from 'typeorm';
 import { Industry } from '../../domain/entities/industry.entity';
 import { IndustryQueryDto } from '../dtos/industry-query.dto';
-import { CreateIndustryDto, UpdateIndustryDto } from '../dtos/industry.crud.dto';
+import {
+  CreateIndustryDto,
+  UpdateIndustryDto,
+} from '../dtos/industry.crud.dto';
 
 @Injectable()
 export class IndustryService {

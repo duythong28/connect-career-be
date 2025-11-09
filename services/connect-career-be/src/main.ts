@@ -53,6 +53,7 @@ async function bootstrap() {
       error instanceof Error ? error.message : String(error),
     );
   }
+  app.useLogger(['error', 'warn', 'log']);
   app.useStaticAssets(join(__dirname, '..', 'public'), {
     prefix: '/public/',
   });

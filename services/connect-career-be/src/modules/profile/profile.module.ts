@@ -36,10 +36,17 @@ import { Job } from '../jobs/domain/entities/job.entity';
 import { Offer } from '../applications/domain/entities/offer.entity';
 import { IndustryController } from './api/controllers/industry.controller';
 import { IndustryService } from './api/services/industry.service';
+import { Application } from '../applications/domain/entities/application.entity';
+import { OrganizationHiringAnalyticsService } from './api/services/organization-hiring-analytics.service';
+import { RecruiterDashboardService } from './api/services/recruiter-dashboard.service';
 
 @Module({
   imports: [
     TypeOrmModule.forFeature([
+      Application,
+      Interview,
+      Offer,
+      OrganizationMembership,
       Industry,
       Organization,
       OrganizationLocation,
@@ -79,6 +86,8 @@ import { IndustryService } from './api/services/industry.service';
     OrganizationRBACService,
     OrganizationRBACMigrationService,
     IndustryService,
+    OrganizationHiringAnalyticsService,
+    RecruiterDashboardService
   ],
   exports: [
     OrganizationService,
@@ -88,6 +97,7 @@ import { IndustryService } from './api/services/industry.service';
     LinkedInCompanySeeder,
     LinkedInPeopleSeeder,
     IndustryService,
+    RecruiterDashboardService
   ],
 })
 export class ProfileModule {}

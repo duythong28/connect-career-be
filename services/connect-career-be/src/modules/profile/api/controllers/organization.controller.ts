@@ -22,10 +22,16 @@ import {
 } from '../dtos/organization-query.dto';
 import { ApiOperation, ApiParam, ApiQuery, ApiResponse } from '@nestjs/swagger';
 import { UpdateOrganizationDto } from '../dtos/update-organization.dto';
+import { HiringEffectivenessQueryDto } from '../dtos/hiring-effectiveness.dto';
+import { OrganizationHiringAnalyticsService } from '../services/organization-hiring-analytics.service';
+import { RecruiterDashboardQueryDto } from '../dtos/recruiter-dashboard.dto';
+import { RecruiterDashboardService } from '../services/recruiter-dashboard.service';
 
 @Controller('/v1/organizations')
 export class OrganizationController {
-  constructor(private readonly organizationService: OrganizationService) {}
+  constructor(private readonly organizationService: OrganizationService, 
+    private readonly hiringAnalyticsService: OrganizationHiringAnalyticsService,
+    private readonly recruiterDashboardService: RecruiterDashboardService) {}
 
   @Post()
   @UseGuards(JwtAuthGuard)
@@ -144,4 +150,75 @@ export class OrganizationController {
       updateOrganizationDto,
     );
   }
+
+  @Get(':id/hiring-effectiveness')
+@UseGuards(JwtAuthGuard)
+@ApiOperation({ summary: 'Get comprehensive hiring effectiveness metrics for an organization' })
+@ApiParam({ name: 'id', description: 'Organization ID' })
+@ApiResponse({
+  status: 200,
+  description: 'Hiring effectiveness metrics retrieved successfully',
+})
+@ApiResponse({ status: 404, description: 'Organization not found' })
+async getHiringEffectiveness(
+  @Param('id', ParseUUIDPipe) organizationId: string,
+  @Query() query: HiringEffectivenessQueryDto,
+) {
+  return this.hiringAnalyticsService.getHiringEffectiveness(organizationId, query);
+}
+
+@Get(':id/hiring-effectiveness/summary')
+@UseGuards(JwtAuthGuard)
+@ApiOperation({ summary: 'Get quick summary of key hiring metrics' })
+@ApiParam({ name: 'id', description: 'Organization ID' })
+async getHiringSummary(
+  @Param('id', ParseUUIDPipe) organizationId: string,
+  @Query() query: HiringEffectivenessQueryDto,
+) {
+  const fullMetrics = await this.hiringAnalyticsService.getHiringEffectiveness(organizationId, query);
+  return {
+    overview: fullMetrics.overview,
+    keyMetrics: {
+      averageTimeToHire: fullMetrics.timeMetrics.average,
+      overallConversionRate: fullMetrics.conversionRates.overallFunnel,
+      offerAcceptanceRate: fullMetrics.qualityMetrics.offerAcceptanceRate,
+      topSource: fullMetrics.sourceEffectiveness.topPerformingSources[0],
+    },
+  };
+}
+@Get('recruiters/dashboard')
+@UseGuards(JwtAuthGuard)
+@ApiOperation({ summary: 'Get recruiter dashboard with all work and company information' })
+@ApiResponse({
+  status: 200,
+  description: 'Dashboard data retrieved successfully',
+})
+async getRecruiterDashboard(
+  @CurrentUser() user: decorators.CurrentUserPayload,
+  @Query() query: RecruiterDashboardQueryDto,
+) {
+  return this.recruiterDashboardService.getRecruiterDashboard(user.sub, query);
+}
+
+@Get('recruiters/dashboard/my-work')
+@UseGuards(JwtAuthGuard)
+@ApiOperation({ summary: 'Get only my work summary' })
+async getMyWork(
+  @CurrentUser() user: decorators.CurrentUserPayload,
+  @Query() query: RecruiterDashboardQueryDto,
+) {
+  const dashboard = await this.recruiterDashboardService.getRecruiterDashboard(user.sub, query);
+  return dashboard.myWork;
+}
+
+@Get('recruiters/dashboard/upcoming-tasks')
+@UseGuards(JwtAuthGuard)
+@ApiOperation({ summary: 'Get upcoming tasks and reminders' })
+async getUpcomingTasks(
+  @CurrentUser() user: decorators.CurrentUserPayload,
+  @Query() query: RecruiterDashboardQueryDto,
+) {
+  const dashboard = await this.recruiterDashboardService.getRecruiterDashboard(user.sub, query);
+  return dashboard.upcomingTasks;
+}
 }

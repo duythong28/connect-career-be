@@ -51,6 +51,7 @@ async function bootstrap() {
       error instanceof Error ? error.message : String(error),
     );
   }
+  app.useLogger(['error', 'warn', 'log']);
   app.enableCors({
     origin: ['http://localhost:3000', 'http://localhost:3001'],
     credentials: true,

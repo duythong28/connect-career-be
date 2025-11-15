@@ -9,7 +9,10 @@ import { User } from 'src/modules/identity/domain/entities';
 import { Application } from 'src/modules/applications/domain/entities/application.entity';
 import { Interview } from 'src/modules/applications/domain/entities/interview.entity';
 import { RecruiterFeedback } from '../../domain/entities/recruiter-feedbacks.entity';
-import { CreateRecruiterFeedbackDto, UpdateRecruiterFeedbackDto } from '../dtos/recruiter-feedback.dto';
+import {
+  CreateRecruiterFeedbackDto,
+  UpdateRecruiterFeedbackDto,
+} from '../dtos/recruiter-feedback.dto';
 
 @Injectable()
 export class RecruiterFeedbackService {

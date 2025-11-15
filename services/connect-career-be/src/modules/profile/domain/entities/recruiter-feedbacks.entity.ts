@@ -20,7 +20,7 @@ export enum RecruiterFeedbackType {
 }
 
 @Entity('recruiter_feedbacks')
-@Index(['recruiterUserId', 'candidateId'])  // Composite index - keep this
+@Index(['recruiterUserId', 'candidateId']) // Composite index - keep this
 export class RecruiterFeedback {
   @PrimaryGeneratedColumn('uuid')
   id: string;

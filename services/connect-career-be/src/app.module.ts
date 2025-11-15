@@ -17,6 +17,8 @@ import { UserModule } from './modules/user/user.module';
 import { HiringPipelineModule } from './modules/hiring-pipeline/hiring-pipeline.module';
 import { MockAIInterviewModule } from './modules/mock-ai-interview/mock-ai-interview.module';
 import { BackofficeModule } from './modules/backoffice/backoffice.module';
+import { ReportModule } from './modules/report/report.module';
+import { CacheModule } from './shared/infrastructure/cache/cache.module';
 
 @Module({
   imports: [
@@ -24,6 +26,7 @@ import { BackofficeModule } from './modules/backoffice/backoffice.module';
       isGlobal: true,
       envFilePath: '.env',
     }),
+    CacheModule,
     TypeOrmModule.forRootAsync({
       imports: [ConfigModule],
       useFactory: (configService: ConfigService) => ({
@@ -51,6 +54,7 @@ import { BackofficeModule } from './modules/backoffice/backoffice.module';
     UserModule,
     MockAIInterviewModule,
     BackofficeModule,
+    ReportModule
   ],
   providers: [
     {

@@ -1,4 +1,4 @@
-import { Module } from '@nestjs/common';
+import { MiddlewareConsumer, Module } from '@nestjs/common';
 import { ConfigModule, ConfigService } from '@nestjs/config';
 import { TypeOrmModule } from '@nestjs/typeorm';
 import { APP_GUARD } from '@nestjs/core';
@@ -19,6 +19,10 @@ import { MockAIInterviewModule } from './modules/mock-ai-interview/mock-ai-inter
 import { BackofficeModule } from './modules/backoffice/backoffice.module';
 import { ReportModule } from './modules/report/report.module';
 import { CacheModule } from './shared/infrastructure/cache/cache.module';
+import { WalletModule } from './modules/subscription/subscription.module';
+import { MorganMiddleware } from './shared/kernel/middlewares/morgan.middleware';
+import { WinstonModule } from 'nest-winston';
+import winston from 'winston';
 
 @Module({
   imports: [
@@ -27,6 +31,63 @@ import { CacheModule } from './shared/infrastructure/cache/cache.module';
       envFilePath: '.env',
     }),
     CacheModule,
+    WinstonModule.forRootAsync({
+      imports: [ConfigModule],
+      useFactory: (configService: ConfigService) => {
+        const isDevelopment = configService.get<string>('NODE_ENV') === 'development';
+        const logLevel = configService.get<string>('LOG_LEVEL') || (isDevelopment ? 'debug' : 'info');
+
+        return {
+          level: logLevel,
+          format: winston.format.combine(
+            winston.format.timestamp({ format: 'YYYY-MM-DD HH:mm:ss' }),
+            winston.format.errors({ stack: true }),
+            winston.format.splat(),
+            winston.format.json(),
+          ),
+          defaultMeta: { service: 'connect-career-be' },
+          transports: [
+            // Console transport
+            new winston.transports.Console({
+              format: winston.format.combine(
+                winston.format.colorize(),
+                winston.format.printf(
+                  ({ timestamp, level, message, context, trace, ...meta }) => {
+                    const contextStr = context ? `[${String(context)}]` : '';
+                    const metaStr = Object.keys(meta).length ? JSON.stringify(meta) : '';
+                    return `${timestamp} ${level} ${contextStr} ${message} ${metaStr}`;
+                  },
+                ),
+              ),
+            }),
+            // File transport for errors
+            new winston.transports.File({
+              filename: 'logs/error.log',
+              level: 'error',
+              format: winston.format.combine(
+                winston.format.timestamp(),
+                winston.format.json(),
+              ),
+            }),
+            // File transport for all logs
+            new winston.transports.File({
+              filename: 'logs/combined.log',
+              format: winston.format.combine(
+                winston.format.timestamp(),
+                winston.format.json(),
+              ),
+            }),
+          ],
+          exceptionHandlers: [
+            new winston.transports.File({ filename: 'logs/exceptions.log' }),
+          ],
+          rejectionHandlers: [
+            new winston.transports.File({ filename: 'logs/rejections.log' }),
+          ],
+        };
+      },
+      inject: [ConfigService],
+    }),
     TypeOrmModule.forRootAsync({
       imports: [ConfigModule],
       useFactory: (configService: ConfigService) => ({
@@ -38,7 +99,8 @@ import { CacheModule } from './shared/infrastructure/cache/cache.module';
         database: configService.get('DATABASE_NAME'),
         entities: [__dirname + '/**/*.entity{.ts,.js}'],
         synchronize: configService.get('NODE_ENV') === 'development',
-        logging: configService.get('NODE_ENV') === 'development',
+        logging: false,
+        logger: 'advanced-console',
       }),
       inject: [ConfigService],
     }),
@@ -54,7 +116,8 @@ import { CacheModule } from './shared/infrastructure/cache/cache.module';
     UserModule,
     MockAIInterviewModule,
     BackofficeModule,
-    ReportModule
+    ReportModule,
+    WalletModule,
   ],
   providers: [
     {
@@ -71,4 +134,9 @@ import { CacheModule } from './shared/infrastructure/cache/cache.module';
     },
   ],
 })
-export class AppModule {}
+export class AppModule {
+  configure(consumer: MiddlewareConsumer) {
+    consumer.apply(MorganMiddleware).forRoutes('*');
+  }
+
+}

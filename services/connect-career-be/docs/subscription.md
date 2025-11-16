@@ -1,73 +1,92 @@
-Use cases and implementation guidance for a subscription system:
+Reviewing the current subscription structure, then redesigning it as a Pay-As-You-Go wallet system.
 
-## Subscription use cases
+[3 tools called]
 
-### For employers/recruiters
+Redesigning the system as a Pay-As-You-Go wallet model. Proposed design:
 
-1. AI features
-   - Free: No features
-   - Standard: AI auto reject base on requirements, CV scoring, can use chatbot features
-   - Premium: Full AI suite (matching, pipeline orchestration, interview assistance)
+## Pay-As-You-Go Wallet System Design
 
-2. Team collaboration
-   - Free: Single user
-   - Standard: Up to 3 team members
-   - Premium: Unlimited team members, role-based permissions
-
-3. Application management
-   - Free: Manual pipeline
-   - Standard: Automated workflows
-   - Premium: AI-powered pipeline orchestration, bulk actions
-
-### For candidates
-
-1. AI CV enhancement
-   - Free: 1 CV enhancement/month
-   - Standard: 5/month
-   - Premium: Unlimited
-
-2. Mock AI interviews
-   - Free: 1 session/month
-   - Standard: 5 sessions/month
-   - Premium: Unlimited, advanced feedback
-
-## Implementation architecture
-
-### 1. Database schema
+### 1. Database Schema
 
 ```typescript
-// subscription-plan.entity.ts
-@Entity('subscription_plans')
-export class SubscriptionPlan {
+// user-wallet.entity.ts
+@Entity('user_wallets')
+export class UserWallet {
+  @PrimaryGeneratedColumn('uuid')
+  id: string;
+
+  @OneToOne(() => User, { nullable: false })
+  @JoinColumn({ name: 'userId' })
+  user: User;
+
+  @Column('uuid', { unique: true })
+  userId: string;
+
+  @Column({ type: 'decimal', precision: 10, scale: 2, default: 0 })
+  creditBalance: number; // The wallet balance
+
+  @Column({ type: 'varchar', length: 3, default: 'USD' })
+  currency: string;
+
+  @Column({ type: 'varchar', nullable: true })
+  stripeCustomerId?: string; // For payment processing
+
+  @Column({ type: 'varchar', nullable: true })
+  paymentMethodId?: string; // Default payment method
+
+  @Column({ type: 'boolean', default: false })
+  autoTopUpEnabled: boolean;
+
+  @Column({ type: 'decimal', precision: 10, scale: 2, nullable: true })
+  autoTopUpThreshold?: number; // Auto top-up when balance falls below this
+
+  @Column({ type: 'decimal', precision: 10, scale: 2, nullable: true })
+  autoTopUpAmount?: number; // Amount to top-up automatically
+
+  @CreateDateColumn()
+  createdAt: Date;
+
+  @UpdateDateColumn()
+  updatedAt: Date;
+
+  hasSufficientBalance(amount: number): boolean {
+    return this.creditBalance >= amount;
+  }
+}
+
+// billable-action.entity.ts
+@Entity('billable_actions')
+export class BillableAction {
   @PrimaryGeneratedColumn('uuid')
   id: string;
 
   @Column({ type: 'varchar', unique: true })
-  name: string; // 'free', 'standard', 'premium'
+  actionCode: string; // e.g., 'POST_JOB', 'BOOST_APPLICATION'
 
   @Column({ type: 'varchar' })
-  displayName: string; // 'Free', 'Standard', 'Premium'
+  actionName: string; // Display name
 
   @Column({ type: 'text', nullable: true })
   description?: string;
 
-  @Column({ type: 'decimal', precision: 10, scale: 2 })
-  price: number;
-
-  @Column({ type: 'varchar', length: 3 })
-  currency: string; // 'USD', 'VND'
-
   @Column({ type: 'varchar' })
-  billingPeriod: 'monthly' | 'yearly';
+  category: 'recruiter' | 'candidate' | 'both';
 
-  @Column({ type: 'jsonb' })
-  features: SubscriptionFeatures; // Feature limits
+  @Column({ type: 'decimal', precision: 10, scale: 2 })
+  cost: number; // Cost in default currency
+
+  @Column({ type: 'varchar', length: 3, default: 'USD' })
+  currency: string;
 
   @Column({ type: 'boolean', default: true })
   isActive: boolean;
 
-  @Column({ type: 'int', nullable: true })
-  sortOrder?: number;
+  @Column({ type: 'jsonb', nullable: true })
+  metadata?: {
+    requiresProfile?: 'candidate' | 'recruiter';
+    maxPerPeriod?: number; // Optional limit per day/month
+    period?: 'daily' | 'monthly';
+  };
 
   @CreateDateColumn()
   createdAt: Date;
@@ -76,107 +95,1070 @@ export class SubscriptionPlan {
   updatedAt: Date;
 }
 
-// subscription.entity.ts
-@Entity('subscriptions')
-export class Subscription {
+// usage-ledger.entity.ts
+@Entity('usage_ledger')
+export class UsageLedger {
   @PrimaryGeneratedColumn('uuid')
   id: string;
 
-  @ManyToOne(() => User)
+  @ManyToOne(() => User, { nullable: false })
+  @JoinColumn({ name: 'userId' })
+  user: User;
+
+  @Column('uuid')
+  userId: string; // Who paid (always the User)
+
+  @ManyToOne(() => BillableAction, { nullable: false })
+  @JoinColumn({ name: 'actionId' })
+  action: BillableAction;
+
+  @Column('uuid')
+  actionId: string;
+
+  @Column({ type: 'decimal', precision: 10, scale: 2 })
+  amountDeducted: number;
+
+  @Column({ type: 'varchar', length: 3 })
+  currency: string;
+
+  @Column({ type: 'decimal', precision: 10, scale: 2 })
+  balanceBefore: number; // Wallet balance before deduction
+
+  @Column({ type: 'decimal', precision: 10, scale: 2 })
+  balanceAfter: number; // Wallet balance after deduction
+
+  // Optional: Link to the profile that performed the action
+  @Column('uuid', { nullable: true })
+  candidateProfileId?: string;
+
+  @Column('uuid', { nullable: true })
+  recruiterProfileId?: string; // Or organizationMembershipId
+
+  @Column('uuid', { nullable: true })
+  organizationId?: string;
+
+  // Link to the entity that was created/modified
+  @Column('uuid', { nullable: true })
+  relatedEntityId?: string; // e.g., Job ID, Application ID
+
+  @Column({ type: 'varchar', nullable: true })
+  relatedEntityType?: string; // e.g., 'job', 'application', 'cv_enhancement'
+
+  @Column({ type: 'jsonb', nullable: true })
+  metadata?: Record<string, any>; // Additional context
+
+  @Column({ type: 'timestamp', default: () => 'CURRENT_TIMESTAMP' })
+  timestamp: Date;
+
+  @CreateDateColumn()
+  createdAt: Date;
+}
+
+// wallet-transaction.entity.ts
+@Entity('wallet_transactions')
+export class WalletTransaction {
+  @PrimaryGeneratedColumn('uuid')
+  id: string;
+
+  @ManyToOne(() => UserWallet, { nullable: false })
+  @JoinColumn({ name: 'walletId' })
+  wallet: UserWallet;
+
+  @Column('uuid')
+  walletId: string;
+
+  @Column('uuid')
+  userId: string;
+
+  @Column({
+    type: 'enum',
+    enum: TransactionType,
+  })
+  type: TransactionType; // CREDIT, DEBIT, REFUND, ADJUSTMENT
+
+  @Column({ type: 'decimal', precision: 10, scale: 2 })
+  amount: number;
+
+  @Column({ type: 'varchar', length: 3 })
+  currency: string;
+
+  @Column({ type: 'decimal', precision: 10, scale: 2 })
+  balanceBefore: number;
+
+  @Column({ type: 'decimal', precision: 10, scale: 2 })
+  balanceAfter: number;
+
+  @Column({
+    type: 'enum',
+    enum: TransactionStatus,
+    default: TransactionStatus.COMPLETED,
+  })
+  status: TransactionStatus; // PENDING, COMPLETED, FAILED, CANCELLED
+
+  @Column({ type: 'varchar', nullable: true })
+  description?: string;
+
+  @Column({ type: 'varchar', nullable: true })
+  paymentMethodId?: string;
+
+  @Column({ type: 'varchar', nullable: true })
+  paymentGatewayTransactionId?: string; // Stripe payment intent ID
+
+  @Column('uuid', { nullable: true })
+  relatedUsageLedgerId?: string; // If this is a refund for a usage
+
+  @Column({ type: 'jsonb', nullable: true })
+  metadata?: Record<string, any>;
+
+  @CreateDateColumn()
+  createdAt: Date;
+
+  @UpdateDateColumn()
+  updatedAt: Date;
+}
+
+enum TransactionType {
+  CREDIT = 'credit', // Top-up, refund
+  DEBIT = 'debit', // Usage deduction
+  REFUND = 'refund', // Refund for usage
+  ADJUSTMENT = 'adjustment', // Admin adjustment
+}
+
+enum TransactionStatus {
+  PENDING = 'pending',
+  COMPLETED = 'completed',
+  FAILED = 'failed',
+  CANCELLED = 'cancelled',
+}
+```
+
+### 2. Billable Actions Configuration
+
+```typescript
+// billable-actions.config.ts
+export const DEFAULT_BILLABLE_ACTIONS = [
+  // Recruiter Actions
+  {
+    actionCode: 'POST_JOB',
+    actionName: 'Post Job',
+    description: 'Post a new job listing',
+    category: 'recruiter',
+    cost: 10.0,
+    currency: 'USD',
+    metadata: {
+      requiresProfile: 'recruiter',
+    },
+  },
+  {
+    actionCode: 'FEATURE_JOB',
+    actionName: 'Feature Job',
+    description: 'Feature a job post for better visibility',
+    category: 'recruiter',
+    cost: 5.0,
+    currency: 'USD',
+    metadata: {
+      requiresProfile: 'recruiter',
+      maxPerPeriod: 1,
+      period: 'daily',
+    },
+  },
+  {
+    actionCode: 'VIEW_CANDIDATE_CONTACT',
+    actionName: 'View Candidate Contact',
+    description: 'View candidate contact information',
+    category: 'recruiter',
+    cost: 1.0,
+    currency: 'USD',
+    metadata: {
+      requiresProfile: 'recruiter',
+    },
+  },
+  {
+    actionCode: 'SEND_INMAIL',
+    actionName: 'Send InMail',
+    description: 'Send InMail message to candidate',
+    category: 'recruiter',
+    cost: 0.1,
+    currency: 'USD',
+    metadata: {
+      requiresProfile: 'recruiter',
+    },
+  },
+  {
+    actionCode: 'AI_CANDIDATE_MATCHING',
+    actionName: 'AI Candidate Matching',
+    description: 'Use AI to find matching candidates',
+    category: 'recruiter',
+    cost: 2.0,
+    currency: 'USD',
+    metadata: {
+      requiresProfile: 'recruiter',
+    },
+  },
+  {
+    actionCode: 'ADVANCED_SEARCH',
+    actionName: 'Advanced Candidate Search',
+    description: 'Use advanced filters for candidate search',
+    category: 'recruiter',
+    cost: 0.5,
+    currency: 'USD',
+    metadata: {
+      requiresProfile: 'recruiter',
+    },
+  },
+  {
+    actionCode: 'EXPORT_CANDIDATES',
+    actionName: 'Export Candidate List',
+    description: 'Export candidate list to CSV/Excel',
+    category: 'recruiter',
+    cost: 1.0,
+    currency: 'USD',
+    metadata: {
+      requiresProfile: 'recruiter',
+    },
+  },
+
+  // Candidate Actions
+  {
+    actionCode: 'BOOST_APPLICATION',
+    actionName: 'Boost Application',
+    description: 'Boost application to top of recruiter list for 24h',
+    category: 'candidate',
+    cost: 2.0,
+    currency: 'USD',
+    metadata: {
+      requiresProfile: 'candidate',
+    },
+  },
+  {
+    actionCode: 'AI_CV_ENHANCEMENT',
+    actionName: 'AI CV Enhancement',
+    description: 'Get AI-powered CV improvement suggestions',
+    category: 'candidate',
+    cost: 3.0,
+    currency: 'USD',
+    metadata: {
+      requiresProfile: 'candidate',
+    },
+  },
+  {
+    actionCode: 'VERIFIED_BADGE',
+    actionName: 'Get Verified Badge',
+    description: 'Get verified badge on profile',
+    category: 'candidate',
+    cost: 5.0,
+    currency: 'USD',
+    metadata: {
+      requiresProfile: 'candidate',
+    },
+  },
+  {
+    actionCode: 'MOCK_AI_INTERVIEW',
+    actionName: 'Mock AI Interview',
+    description: 'Practice interview with AI',
+    category: 'candidate',
+    cost: 2.0,
+    currency: 'USD',
+    metadata: {
+      requiresProfile: 'candidate',
+    },
+  },
+  {
+    actionCode: 'ADVANCED_INTERVIEW_FEEDBACK',
+    actionName: 'Advanced Interview Feedback',
+    description: 'Get detailed AI feedback on interview performance',
+    category: 'candidate',
+    cost: 5.0,
+    currency: 'USD',
+    metadata: {
+      requiresProfile: 'candidate',
+    },
+  },
+  {
+    actionCode: 'JOB_APPLICATION_INSIGHTS',
+    actionName: 'Application Insights',
+    description: 'Get insights on why application was viewed/rejected',
+    category: 'candidate',
+    cost: 1.0,
+    currency: 'USD',
+    metadata: {
+      requiresProfile: 'candidate',
+    },
+  },
+  {
+    actionCode: 'PREMIUM_LEARNING_COURSE',
+    actionName: 'Premium Learning Course',
+    description: 'Access premium learning course',
+    category: 'candidate',
+    cost: 10.0,
+    currency: 'USD',
+    metadata: {
+      requiresProfile: 'candidate',
+    },
+  },
+];
+```
+
+### 3. Updated User Entity
+
+```typescript
+// Add to User entity
+@Entity('users')
+export class User {
+  // ... existing fields ...
+
+  @OneToOne(() => UserWallet, (wallet) => wallet.user, { cascade: true })
+  wallet?: UserWallet;
+
+  // Helper method
+  async getWallet(): Promise<UserWallet> {
+    // Lazy load or ensure wallet exists
+    if (!this.wallet) {
+      // Create wallet if doesn't exist
+    }
+    return this.wallet;
+  }
+}
+```
+
+### 4. Service Layer
+
+```typescript
+// wallet.service.ts
+@Injectable()
+export class WalletService {
+  constructor(
+    @InjectRepository(UserWallet)
+    private walletRepository: Repository<UserWallet>,
+    @InjectRepository(UsageLedger)
+    private usageLedgerRepository: Repository<UsageLedger>,
+    @InjectRepository(WalletTransaction)
+    private transactionRepository: Repository<WalletTransaction>,
+    @InjectRepository(BillableAction)
+    private billableActionRepository: Repository<BillableAction>,
+  ) {}
+
+  async getWalletBalance(userId: string): Promise<number> {
+    const wallet = await this.getOrCreateWallet(userId);
+    return wallet.creditBalance;
+  }
+
+  async checkBalance(userId: string, amount: number): Promise<boolean> {
+    const wallet = await this.getOrCreateWallet(userId);
+    return wallet.hasSufficientBalance(amount);
+  }
+
+  async deductForAction(
+    userId: string,
+    actionCode: string,
+    context: {
+      candidateProfileId?: string;
+      recruiterProfileId?: string;
+      organizationId?: string;
+      relatedEntityId?: string;
+      relatedEntityType?: string;
+      metadata?: Record<string, any>;
+    },
+  ): Promise<{ success: boolean; newBalance: number; error?: string }> {
+    // Get action cost
+    const action = await this.billableActionRepository.findOne({
+      where: { actionCode, isActive: true },
+    });
+
+    if (!action) {
+      return { success: false, newBalance: 0, error: 'Action not found' };
+    }
+
+    // Check balance
+    const wallet = await this.getOrCreateWallet(userId);
+    if (!wallet.hasSufficientBalance(action.cost)) {
+      return {
+        success: false,
+        newBalance: wallet.creditBalance,
+        error: 'Insufficient balance',
+      };
+    }
+
+    // Deduct from wallet
+    const balanceBefore = wallet.creditBalance;
+    wallet.creditBalance -= action.cost;
+    const balanceAfter = wallet.creditBalance;
+
+    await this.walletRepository.save(wallet);
+
+    // Create usage ledger entry
+    const usage = this.usageLedgerRepository.create({
+      userId,
+      actionId: action.id,
+      amountDeducted: action.cost,
+      currency: action.currency,
+      balanceBefore,
+      balanceAfter,
+      candidateProfileId: context.candidateProfileId,
+      recruiterProfileId: context.recruiterProfileId,
+      organizationId: context.organizationId,
+      relatedEntityId: context.relatedEntityId,
+      relatedEntityType: context.relatedEntityType,
+      metadata: context.metadata,
+    });
+
+    await this.usageLedgerRepository.save(usage);
+
+    // Create transaction record
+    const transaction = this.transactionRepository.create({
+      walletId: wallet.id,
+      userId,
+      type: TransactionType.DEBIT,
+      amount: action.cost,
+      currency: action.currency,
+      balanceBefore,
+      balanceAfter,
+      status: TransactionStatus.COMPLETED,
+      description: `Charged for ${action.actionName}`,
+      relatedUsageLedgerId: usage.id,
+    });
+
+    await this.transactionRepository.save(transaction);
+
+    // Check auto top-up
+    if (
+      wallet.autoTopUpEnabled &&
+      wallet.creditBalance < (wallet.autoTopUpThreshold || 0)
+    ) {
+      await this.triggerAutoTopUp(userId);
+    }
+
+    return { success: true, newBalance: balanceAfter };
+  }
+
+  async topUpWallet(
+    userId: string,
+    amount: number,
+    paymentMethodId: string,
+  ): Promise<{ success: boolean; transactionId?: string; error?: string }> {
+    // Process payment via Stripe
+    // ... payment processing logic ...
+
+    const wallet = await this.getOrCreateWallet(userId);
+    const balanceBefore = wallet.creditBalance;
+    wallet.creditBalance += amount;
+    const balanceAfter = wallet.creditBalance;
+
+    await this.walletRepository.save(wallet);
+
+    // Create transaction
+    const transaction = this.transactionRepository.create({
+      walletId: wallet.id,
+      userId,
+      type: TransactionType.CREDIT,
+      amount,
+      currency: wallet.currency,
+      balanceBefore,
+      balanceAfter,
+      status: TransactionStatus.COMPLETED,
+      description: `Wallet top-up`,
+      paymentMethodId,
+    });
+
+    await this.transactionRepository.save(transaction);
+
+    return { success: true, transactionId: transaction.id };
+  }
+
+  private async getOrCreateWallet(userId: string): Promise<UserWallet> {
+    let wallet = await this.walletRepository.findOne({ where: { userId } });
+
+    if (!wallet) {
+      wallet = this.walletRepository.create({
+        userId,
+        creditBalance: 0,
+        currency: 'USD',
+      });
+      await this.walletRepository.save(wallet);
+    }
+
+    return wallet;
+  }
+}
+```
+
+### 5. Guard for Billable Actions
+
+```typescript
+// wallet-balance.guard.ts
+@Injectable()
+export class WalletBalanceGuard implements CanActivate {
+  constructor(
+    private walletService: WalletService,
+    private reflector: Reflector,
+  ) {}
+
+  async canActivate(context: ExecutionContext): Promise<boolean> {
+    const actionCode = this.reflector.get<string>(
+      'billableAction',
+      context.getHandler(),
+    );
+
+    if (!actionCode) {
+      return true; // No billing required
+    }
+
+    const request = context.switchToHttp().getRequest();
+    const userId = request.user?.id;
+
+    if (!userId) {
+      throw new UnauthorizedException('User not authenticated');
+    }
+
+    const hasBalance = await this.walletService.checkBalanceForAction(
+      userId,
+      actionCode,
+    );
+
+    if (!hasBalance) {
+      const balance = await this.walletService.getWalletBalance(userId);
+      const action = await this.walletService.getActionCost(actionCode);
+
+      throw new PaymentRequiredException({
+        message: 'Insufficient wallet balance',
+        requiredAmount: action.cost,
+        currentBalance: balance,
+        actionCode,
+      });
+    }
+
+    return true;
+  }
+}
+
+// Decorator
+export const RequireWalletBalance = (actionCode: string) =>
+  SetMetadata('billableAction', actionCode);
+```
+
+### 6. Activity Diagrams
+
+#### UC-W1: User Tops Up Wallet
+
+```mermaid
+flowchart TD
+    Start([User wants to add credits]) --> ViewBalance[View current wallet balance]
+    ViewBalance --> SelectAmount[Select top-up amount:<br/>$10, $20, $50, $100, Custom]
+    SelectAmount --> EnterPayment[Enter payment method]
+    EnterPayment --> ValidatePayment{Payment method<br/>valid?}
+
+    ValidatePayment -->|No| ShowError[Show payment error]
+    ShowError --> EnterPayment
+
+    ValidatePayment -->|Yes| ProcessPayment[Process payment via gateway]
+    ProcessPayment --> PaymentSuccess{Payment<br/>successful?}
+
+    PaymentSuccess -->|No| ShowFailure[Show payment failure]
+    ShowFailure --> End1([End])
+
+    PaymentSuccess -->|Yes| CreditWallet[Credit wallet balance]
+    CreditWallet --> CreateTransaction[Create credit transaction]
+    CreateTransaction --> UpdateBalance[Update wallet balance]
+    UpdateBalance --> SendConfirmation[Send confirmation email]
+    SendConfirmation --> ShowSuccess[Show success message with new balance]
+    ShowSuccess --> End2([End])
+```
+
+#### UC-W2: Recruiter Posts Job (PAYG)
+
+```mermaid
+flowchart TD
+    Start([Recruiter posts job]) --> FillJobForm[Fill job posting form]
+    FillJobForm --> ValidateForm{Form valid?}
+
+    ValidateForm -->|No| ShowErrors[Show validation errors]
+    ShowErrors --> FillJobForm
+
+    ValidateForm -->|Yes| CheckAction[Check billable action:<br/>POST_JOB]
+    CheckAction --> GetCost[Get action cost: $10]
+    GetCost --> CheckBalance[Check wallet balance]
+    CheckBalance --> HasBalance{Sufficient<br/>balance?}
+
+    HasBalance -->|No| ShowInsufficient[Show insufficient balance:<br/>"Need $10. You have $X.<br/>Top up wallet to continue"]
+    ShowInsufficient --> ShowTopUp[Show top-up options]
+    ShowTopUp --> End1([End])
+
+    HasBalance -->|Yes| CreateJob[Create job posting]
+    CreateJob --> DeductBalance[Deduct $10 from wallet]
+    DeductBalance --> CreateUsageLedger[Create usage ledger entry]
+    CreateUsageLedger --> CreateTransaction[Create debit transaction]
+    CreateTransaction --> ShowNewBalance[Show new wallet balance]
+    ShowNewBalance --> Success[Job posted successfully]
+    Success --> CheckAutoTopUp{Auto top-up<br/>enabled?}
+
+    CheckAutoTopUp -->|Yes| CheckThreshold{Balance below<br/>threshold?}
+    CheckThreshold -->|Yes| TriggerAutoTopUp[Trigger auto top-up]
+    TriggerAutoTopUp --> End2([End])
+
+    CheckThreshold -->|No| End2
+    CheckAutoTopUp -->|No| End2
+```
+
+#### UC-W3: Candidate Boosts Application (PAYG)
+
+```mermaid
+flowchart TD
+    Start([Candidate wants to boost application]) --> SelectApplication[Select application to boost]
+    SelectApplication --> CheckAction[Check billable action:<br/>BOOST_APPLICATION]
+    CheckAction --> GetCost[Get action cost: $2]
+    GetCost --> CheckBalance[Check wallet balance]
+    CheckBalance --> HasBalance{Sufficient<br/>balance?}
+
+    HasBalance -->|No| ShowInsufficient[Show insufficient balance:<br/>"Need $2. You have $X.<br/>Top up wallet to boost"]
+    ShowInsufficient --> ShowTopUp[Show top-up options]
+    ShowTopUp --> End1([End])
+
+    HasBalance -->|Yes| ConfirmBoost{Confirm boost?}
+    ConfirmBoost -->|No| End2([End])
+
+    ConfirmBoost -->|Yes| BoostApplication[Boost application to top]
+    BoostApplication --> SetBoostExpiry[Set 24h boost expiry]
+    SetBoostExpiry --> DeductBalance[Deduct $2 from wallet]
+    DeductBalance --> CreateUsageLedger[Create usage ledger entry]
+    CreateUsageLedger --> CreateTransaction[Create debit transaction]
+    CreateTransaction --> ShowNewBalance[Show new balance]
+    ShowNewBalance --> Success[Application boosted successfully]
+    Success --> End3([End])
+```
+
+#### UC-W4: User Views Wallet & Usage History
+
+```mermaid
+flowchart TD
+    Start([User views wallet]) --> RequestWallet[Request wallet information]
+    RequestWallet --> GetWallet[Get user wallet]
+    GetWallet --> GetBalance[Get current balance]
+    GetBalance --> GetTransactions[Get recent transactions]
+    GetTransactions --> GetUsageHistory[Get usage ledger history]
+    GetUsageHistory --> FilterByProfile{Filter by<br/>profile?}
+
+    FilterByProfile -->|Candidate| FilterCandidate[Filter candidate actions]
+    FilterByProfile -->|Recruiter| FilterRecruiter[Filter recruiter actions]
+    FilterByProfile -->|All| ShowAll[Show all actions]
+
+    FilterCandidate --> CompileData[Compile wallet data]
+    FilterRecruiter --> CompileData
+    ShowAll --> CompileData
+
+    CompileData --> DisplayWallet[Display wallet dashboard:<br/>- Current balance<br/>- Recent transactions<br/>- Usage history by profile<br/>- Top-up options]
+    DisplayWallet --> ShowStats[Show statistics:<br/>- Total spent this month<br/>- Spent as candidate<br/>- Spent as recruiter<br/>- Most used actions]
+    ShowStats --> End([End])
+```
+
+#### UC-W5: User Enables Auto Top-Up
+
+```mermaid
+flowchart TD
+    Start([User enables auto top-up]) --> ViewSettings[View wallet settings]
+    ViewSettings --> EnableAutoTopUp[Enable auto top-up]
+    EnableAutoTopUp --> SetThreshold[Set threshold amount<br/>e.g., $5]
+    SetThreshold --> SetTopUpAmount[Set top-up amount<br/>e.g., $50]
+    SetTopUpAmount --> SavePaymentMethod[Save payment method]
+    SavePaymentMethod --> SaveSettings[Save auto top-up settings]
+    SaveSettings --> ConfirmSettings[Confirm settings saved]
+    ConfirmSettings --> MonitorBalance[System monitors balance]
+
+    MonitorBalance --> CheckBalance{Balance below<br/>threshold?}
+    CheckBalance -->|No| MonitorBalance
+    CheckBalance -->|Yes| TriggerTopUp[Trigger automatic top-up]
+    TriggerTopUp --> ProcessPayment[Process payment]
+    ProcessPayment --> PaymentSuccess{Payment<br/>successful?}
+
+    PaymentSuccess -->|No| NotifyFailure[Notify user of failure]
+    NotifyFailure --> End1([End])
+
+    PaymentSuccess -->|Yes| CreditWallet[Credit wallet]
+    CreditWallet --> NotifySuccess[Notify user of auto top-up]
+    NotifySuccess --> End2([End])
+```
+
+#### UC-W6: Recruiter Views Candidate Contact (PAYG)
+
+```mermaid
+flowchart TD
+    Start([Recruiter views candidate contact]) --> SelectCandidate[Select candidate profile]
+    SelectCandidate --> CheckAction[Check billable action:<br/>VIEW_CANDIDATE_CONTACT]
+    CheckAction --> GetCost[Get action cost: $1]
+    GetCost --> CheckBalance[Check wallet balance]
+    CheckBalance --> HasBalance{Sufficient<br/>balance?}
+
+    HasBalance -->|No| ShowInsufficient[Show insufficient balance]
+    ShowInsufficient --> ShowTopUp[Show top-up options]
+    ShowTopUp --> End1([End])
+
+    HasBalance -->|Yes| ShowPreview[Show contact preview:<br/>"Viewing contact costs $1"]
+    ShowPreview --> ConfirmView{Confirm view?}
+
+    ConfirmView -->|No| End2([End])
+    ConfirmView -->|Yes| DeductBalance[Deduct $1 from wallet]
+    DeductBalance --> CreateUsageLedger[Create usage ledger entry]
+    CreateUsageLedger --> ShowContact[Show full contact information]
+    ShowContact --> LogView[Log contact view]
+    LogView --> End3([End])
+```
+
+#### UC-W7: Candidate Uses AI CV Enhancement (PAYG)
+
+```mermaid
+flowchart TD
+    Start([Candidate enhances CV]) --> SelectCV[Select CV to enhance]
+    SelectCV --> CheckAction[Check billable action:<br/>AI_CV_ENHANCEMENT]
+    CheckAction --> GetCost[Get action cost: $3]
+    GetCost --> CheckBalance[Check wallet balance]
+    CheckBalance --> HasBalance{Sufficient<br/>balance?}
+
+    HasBalance -->|No| ShowInsufficient[Show insufficient balance:<br/>"CV enhancement costs $3"]
+    ShowInsufficient --> ShowTopUp[Show top-up options]
+    ShowTopUp --> End1([End])
+
+    HasBalance -->|Yes| UploadCV[Upload CV file]
+    UploadCV --> ProcessEnhancement[Process AI enhancement]
+    ProcessEnhancement --> GenerateSuggestions[Generate improvement suggestions]
+    GenerateSuggestions --> DeductBalance[Deduct $3 from wallet]
+    DeductBalance --> CreateUsageLedger[Create usage ledger entry]
+    CreateUsageLedger --> ShowResults[Show enhanced CV with suggestions]
+    ShowResults --> ShowNewBalance[Show new wallet balance]
+    ShowNewBalance --> End2([End])
+```
+
+### 7. Integration with Existing Controllers
+
+```typescript
+// job.controller.ts (Updated)
+@Controller('jobs')
+export class JobController {
+  constructor(
+    private jobService: JobService,
+    private walletService: WalletService,
+  ) {}
+
+  @Post()
+  @UseGuards(WalletBalanceGuard)
+  @RequireWalletBalance('POST_JOB')
+  async createJob(@Body() dto: CreateJobDto, @Request() req) {
+    // Create job
+    const job = await this.jobService.create(dto, req.user.id);
+
+    // Deduct from wallet
+    await this.walletService.deductForAction(req.user.id, 'POST_JOB', {
+      recruiterProfileId: req.user.recruiterProfileId,
+      organizationId: req.user.organizationId,
+      relatedEntityId: job.id,
+      relatedEntityType: 'job',
+    });
+
+    return job;
+  }
+}
+
+// application.controller.ts (Updated)
+@Controller('applications')
+export class ApplicationController {
+  @Post(':applicationId/boost')
+  @UseGuards(WalletBalanceGuard)
+  @RequireWalletBalance('BOOST_APPLICATION')
+  async boostApplication(
+    @Param('applicationId') applicationId: string,
+    @Request() req,
+  ) {
+    // Boost application
+    const application = await this.applicationService.boost(applicationId);
+
+    // Deduct from wallet
+    await this.walletService.deductForAction(req.user.id, 'BOOST_APPLICATION', {
+      candidateProfileId: req.user.candidateProfileId,
+      relatedEntityId: applicationId,
+      relatedEntityType: 'application',
+    });
+
+    return application;
+  }
+}
+```
+
+This design:
+
+- User-centric: billing tied to the User, not organizations
+- Pay-as-you-go: pay only for actions used
+- Single wallet: one balance for all actions
+- Profile-agnostic billing: actions tracked by profile, but User pays
+- Flexible: easy to add new billable actions
+- Transparent: usage ledger shows all spending
+
+Designing a multi-payment gateway system for wallet top-ups. Recommended payment methods:
+
+## Recommended Payment Methods
+
+### 1. International payment gateways
+
+- Stripe — cards, Apple Pay, Google Pay, SEPA, iDEAL, etc.
+- PayPal — PayPal balance, cards, bank accounts
+- Square — cards, digital wallets
+
+### 2. Regional payment methods (Asia/Vietnam)
+
+- MoMo (Vietnam)
+- ZaloPay (Vietnam)
+- VNPay (Vietnam)
+- GrabPay (Southeast Asia)
+- Alipay (China/Asia)
+- WeChat Pay (China/Asia)
+
+### 3. Bank transfers
+
+- Direct bank transfer
+- ACH (US)
+- SEPA (Europe)
+- Local bank networks
+
+### 4. Cryptocurrency (optional)
+
+- USDT/USDC
+- Bitcoin
+
+## Implementation Design
+
+### 1. Payment Gateway Abstraction Layer
+
+```typescript
+// payment-provider.interface.ts
+export interface IPaymentProvider {
+  name: string;
+  providerCode: string;
+  supportedMethods: PaymentMethod[];
+  supportedCurrencies: string[];
+  supportedRegions?: string[];
+
+  // Create payment intent/order
+  createPaymentIntent(
+    amount: number,
+    currency: string,
+    metadata: PaymentMetadata,
+  ): Promise<PaymentIntentResult>;
+
+  // Confirm payment
+  confirmPayment(
+    paymentId: string,
+    confirmationData?: any,
+  ): Promise<PaymentResult>;
+
+  // Refund payment
+  refundPayment(
+    paymentId: string,
+    amount?: number,
+    reason?: string,
+  ): Promise<RefundResult>;
+
+  // Get payment status
+  getPaymentStatus(paymentId: string): Promise<PaymentStatus>;
+
+  // Webhook handler
+  handleWebhook(payload: any, signature: string): Promise<WebhookEvent>;
+}
+
+export interface PaymentMetadata {
+  userId: string;
+  walletId: string;
+  description?: string;
+  returnUrl?: string;
+  cancelUrl?: string;
+  [key: string]: any;
+}
+
+export interface PaymentIntentResult {
+  paymentId: string;
+  clientSecret?: string; // For Stripe
+  redirectUrl?: string; // For redirect-based payments
+  qrCode?: string; // For QR code payments
+  paymentUrl?: string; // For payment links
+  expiresAt?: Date;
+}
+
+export interface PaymentResult {
+  success: boolean;
+  paymentId: string;
+  transactionId: string;
+  amount: number;
+  currency: string;
+  status: PaymentStatus;
+  gatewayResponse?: any;
+}
+
+export enum PaymentMethod {
+  // Cards
+  CREDIT_CARD = 'credit_card',
+  DEBIT_CARD = 'debit_card',
+
+  // Digital Wallets
+  APPLE_PAY = 'apple_pay',
+  GOOGLE_PAY = 'google_pay',
+  PAYPAL = 'paypal',
+
+  // E-Wallets (Vietnam/Asia)
+  MOMO = 'momo',
+  ZALOPAY = 'zalopay',
+  VNPAY = 'vnpay',
+  GRABPAY = 'grabpay',
+
+  // Bank Transfer
+  BANK_TRANSFER = 'bank_transfer',
+  ACH = 'ach',
+  SEPA = 'sepa',
+
+  // Cryptocurrency
+  CRYPTO = 'crypto',
+
+  // Others
+  CASH = 'cash', // For manual top-up
+}
+```
+
+### 2. Payment Method Entity
+
+```typescript
+// payment-method.entity.ts
+@Entity('payment_methods')
+export class PaymentMethod {
+  @PrimaryGeneratedColumn('uuid')
+  id: string;
+
+  @ManyToOne(() => User, { nullable: false })
   @JoinColumn({ name: 'userId' })
   user: User;
 
   @Column('uuid')
   userId: string;
 
-  @ManyToOne(() => Organization, { nullable: true })
-  @JoinColumn({ name: 'organizationId' })
-  organization?: Organization;
-
-  @Column('uuid', { nullable: true })
-  organizationId?: string;
-
-  @ManyToOne(() => SubscriptionPlan)
-  @JoinColumn({ name: 'planId' })
-  plan: SubscriptionPlan;
-
-  @Column('uuid')
-  planId: string;
-
   @Column({
     type: 'enum',
-    enum: SubscriptionStatus,
-    default: SubscriptionStatus.ACTIVE,
+    enum: PaymentMethodType,
   })
-  status: SubscriptionStatus; // ACTIVE, CANCELLED, EXPIRED, SUSPENDED
+  type: PaymentMethodType;
 
-  @Column({ type: 'timestamp' })
-  startDate: Date;
+  @Column({ type: 'varchar' })
+  provider: string; // 'stripe', 'paypal', 'momo', etc.
 
-  @Column({ type: 'timestamp' })
-  endDate: Date;
+  @Column({ type: 'varchar' })
+  providerCode: string; // Provider-specific code
 
-  @Column({ type: 'timestamp', nullable: true })
-  cancelledAt?: Date;
-
-  @Column({ type: 'boolean', default: false })
-  autoRenew: boolean;
+  @Column({ type: 'varchar', nullable: true })
+  displayName?: string; // e.g., "Visa •••• 4242"
 
   @Column({ type: 'jsonb', nullable: true })
-  paymentDetails?: {
-    paymentMethodId?: string;
-    lastPaymentDate?: Date;
-    nextBillingDate?: Date;
+  metadata?: {
+    last4?: string;
+    brand?: string;
+    expiryMonth?: number;
+    expiryYear?: number;
+    bankName?: string;
+    accountNumber?: string;
+    [key: string]: any;
   };
+
+  @Column({ type: 'boolean', default: true })
+  isActive: boolean;
+
+  @Column({ type: 'boolean', default: false })
+  isDefault: boolean;
+
+  @Column({ type: 'timestamp', nullable: true })
+  lastUsedAt?: Date;
 
   @CreateDateColumn()
   createdAt: Date;
 
   @UpdateDateColumn()
   updatedAt: Date;
-
-  isActive(): boolean {
-    return (
-      this.status === SubscriptionStatus.ACTIVE &&
-      new Date() >= this.startDate &&
-      new Date() <= this.endDate
-    );
-  }
-
-  isExpired(): boolean {
-    return new Date() > this.endDate;
-  }
 }
 
-// subscription-usage.entity.ts
-@Entity('subscription_usage')
-export class SubscriptionUsage {
+enum PaymentMethodType {
+  CREDIT_CARD = 'credit_card',
+  DEBIT_CARD = 'debit_card',
+  DIGITAL_WALLET = 'digital_wallet',
+  E_WALLET = 'e_wallet',
+  BANK_ACCOUNT = 'bank_account',
+  CRYPTO = 'crypto',
+}
+```
+
+### 3. Payment Transaction Entity
+
+```typescript
+// payment-transaction.entity.ts
+@Entity('payment_transactions')
+export class PaymentTransaction {
   @PrimaryGeneratedColumn('uuid')
   id: string;
 
+  @ManyToOne(() => UserWallet, { nullable: false })
+  @JoinColumn({ name: 'walletId' })
+  wallet: UserWallet;
+
   @Column('uuid')
-  subscriptionId: string;
+  walletId: string;
 
   @Column('uuid')
   userId: string;
 
   @Column({ type: 'varchar' })
-  feature: string; 
-
-  @Column({ type: 'int', default: 0 })
-  used: number;
-
-  @Column({ type: 'int' })
-  limit: number;
+  provider: string; // 'stripe', 'paypal', 'momo', etc.
 
   @Column({ type: 'varchar' })
-  period: 'monthly' | 'yearly'; // Reset period
+  providerPaymentId: string; // Payment ID from provider
 
-  @Column({ type: 'timestamp' })
-  periodStart: Date;
+  @Column({ type: 'varchar', nullable: true })
+  providerTransactionId?: string;
 
-  @Column({ type: 'timestamp' })
-  periodEnd: Date;
+  @Column({
+    type: 'enum',
+    enum: PaymentMethod,
+  })
+  paymentMethod: PaymentMethod;
+
+  @Column('uuid', { nullable: true })
+  paymentMethodId?: string; // Link to saved payment method
+
+  @Column({ type: 'decimal', precision: 10, scale: 2 })
+  amount: number;
+
+  @Column({ type: 'varchar', length: 3 })
+  currency: string;
+
+  @Column({
+    type: 'enum',
+    enum: PaymentStatus,
+    default: PaymentStatus.PENDING,
+  })
+  status: PaymentStatus;
+
+  @Column({
+    type: 'enum',
+    enum: PaymentType,
+  })
+  type: PaymentType; // TOP_UP, REFUND, ADJUSTMENT
+
+  @Column({ type: 'text', nullable: true })
+  description?: string;
+
+  @Column({ type: 'jsonb', nullable: true })
+  providerResponse?: any; // Full response from provider
+
+  @Column({ type: 'jsonb', nullable: true })
+  metadata?: Record<string, any>;
+
+  @Column({ type: 'timestamp', nullable: true })
+  completedAt?: Date;
+
+  @Column({ type: 'timestamp', nullable: true })
+  failedAt?: Date;
+
+  @Column({ type: 'text', nullable: true })
+  failureReason?: string;
 
   @CreateDateColumn()
   createdAt: Date;
@@ -184,1001 +1166,1151 @@ export class SubscriptionUsage {
   @UpdateDateColumn()
   updatedAt: Date;
 }
-```
 
-### 2. Feature limits configuration
-
-```typescript
-// subscription-features.interface.ts
-export interface SubscriptionFeatures {
-  // Employer features
-  jobPostings?: {
-    limit: number; // -1 for unlimited
-    featuredJobs?: number;
-  };
-  candidateSearches?: {
-    monthlyLimit: number;
-    advancedFilters: boolean;
-    aiMatching: boolean;
-  };
-  teamMembers?: {
-    limit: number;
-  };
-  hiringAnalytics?: {
-    enabled: boolean;
-    historyDays: number;
-    customReports: boolean;
-  };
-  aiFeatures?: {
-    cvScreening: boolean;
-    candidateMatching: boolean;
-    pipelineOrchestration: boolean;
-  };
-
-  // Candidate features
-  jobApplications?: {
-    monthlyLimit: number;
-  };
-  cvEnhancements?: {
-    monthlyLimit: number;
-  };
-  mockInterviews?: {
-    monthlyLimit: number;
-    advancedFeedback: boolean;
-  };
-  profileVisibility?: {
-    level: 'standard' | 'enhanced' | 'featured';
-  };
-  learningResources?: {
-    accessLevel: 'basic' | 'all' | 'premium';
-  };
+enum PaymentStatus {
+  PENDING = 'pending',
+  PROCESSING = 'processing',
+  COMPLETED = 'completed',
+  FAILED = 'failed',
+  CANCELLED = 'cancelled',
+  REFUNDED = 'refunded',
 }
 
-// Default plans configuration
-export const DEFAULT_PLANS: Partial<SubscriptionPlan>[] = [
-  {
-    name: 'free',
-    displayName: 'Free',
-    price: 0,
-    currency: 'USD',
-    billingPeriod: 'monthly',
-    features: {
-      jobPostings: { limit: 1, featuredJobs: 0 },
-      candidateSearches: {
-        monthlyLimit: 10,
-        advancedFilters: false,
-        aiMatching: false,
-      },
-      teamMembers: { limit: 1 },
-      hiringAnalytics: { enabled: false, historyDays: 0, customReports: false },
-      aiFeatures: {
-        cvScreening: false,
-        candidateMatching: false,
-        pipelineOrchestration: false,
-      },
-      jobApplications: { monthlyLimit: 5 },
-      cvEnhancements: { monthlyLimit: 1 },
-      mockInterviews: { monthlyLimit: 1 },
-      profileVisibility: { level: 'standard' },
-      learningResources: { accessLevel: 'basic' },
-    },
-  },
-  {
-    name: 'standard',
-    displayName: 'Standard',
-    price: 29.99,
-    currency: 'USD',
-    billingPeriod: 'monthly',
-    features: {
-      jobPostings: { limit: 10, featuredJobs: 2 },
-      candidateSearches: {
-        monthlyLimit: 100,
-        advancedFilters: true,
-        aiMatching: true,
-      },
-      teamMembers: { limit: 3 },
-      hiringAnalytics: { enabled: true, historyDays: 30, customReports: false },
-      aiFeatures: {
-        cvScreening: true,
-        candidateMatching: true,
-        pipelineOrchestration: false,
-      },
-      jobApplications: { monthlyLimit: 20 },
-      cvEnhancements: { monthlyLimit: 5 },
-      mockInterviews: { monthlyLimit: 5 },
-      profileVisibility: { level: 'enhanced' },
-      learningResources: { accessLevel: 'all' },
-    },
-  },
-  {
-    name: 'premium',
-    displayName: 'Premium',
-    price: 99.99,
-    currency: 'USD',
-    billingPeriod: 'monthly',
-    features: {
-      jobPostings: { limit: -1, featuredJobs: -1 }, // -1 = unlimited
-      candidateSearches: {
-        monthlyLimit: -1,
-        advancedFilters: true,
-        aiMatching: true,
-      },
-      teamMembers: { limit: -1 },
-      hiringAnalytics: { enabled: true, historyDays: -1, customReports: true },
-      aiFeatures: {
-        cvScreening: true,
-        candidateMatching: true,
-        pipelineOrchestration: true,
-      },
-      jobApplications: { monthlyLimit: -1 },
-      cvEnhancements: { monthlyLimit: -1 },
-      mockInterviews: { monthlyLimit: -1 },
-      profileVisibility: { level: 'featured' },
-      learningResources: { accessLevel: 'premium' },
-    },
-  },
-];
+enum PaymentType {
+  TOP_UP = 'top_up',
+  REFUND = 'refund',
+  ADJUSTMENT = 'adjustment',
+}
 ```
 
-### 3. Service layer
+### 4. Payment Service with Multiple Providers
 
 ```typescript
-// subscription.service.ts
+// payment.service.ts
 @Injectable()
-export class SubscriptionService {
-  constructor(
-    @InjectRepository(Subscription)
-    private subscriptionRepository: Repository<Subscription>,
-    @InjectRepository(SubscriptionPlan)
-    private planRepository: Repository<SubscriptionPlan>,
-    @InjectRepository(SubscriptionUsage)
-    private usageRepository: Repository<SubscriptionUsage>,
-  ) {}
+export class PaymentService {
+  private providers: Map<string, IPaymentProvider> = new Map();
 
-  async getActiveSubscription(
-    userId: string,
-    organizationId?: string,
-  ): Promise<Subscription | null> {
-    return this.subscriptionRepository.findOne({
-      where: {
-        userId,
-        organizationId: organizationId || null,
-        status: SubscriptionStatus.ACTIVE,
-      },
-      relations: ['plan'],
-      order: { createdAt: 'DESC' },
-    });
+  constructor(
+    @InjectRepository(PaymentTransaction)
+    private paymentTransactionRepository: Repository<PaymentTransaction>,
+    @InjectRepository(PaymentMethod)
+    private paymentMethodRepository: Repository<PaymentMethod>,
+    @InjectRepository(UserWallet)
+    private walletRepository: Repository<UserWallet>,
+    private stripeProvider: StripeProvider,
+    private paypalProvider: PayPalProvider,
+    private momoProvider: MoMoProvider,
+    private vnpayProvider: VNPayProvider,
+    // ... other providers
+  ) {
+    // Register all providers
+    this.providers.set('stripe', this.stripeProvider);
+    this.providers.set('paypal', this.paypalProvider);
+    this.providers.set('momo', this.momoProvider);
+    this.providers.set('vnpay', this.vnpayProvider);
   }
 
-  async checkFeatureAccess(
+  async initiateTopUp(
     userId: string,
-    feature: string,
-    organizationId?: string,
-  ): Promise<{ allowed: boolean; remaining?: number; limit?: number }> {
-    const subscription = await this.getActiveSubscription(
+    amount: number,
+    currency: string,
+    paymentMethod: PaymentMethod,
+    provider: string,
+  ): Promise<PaymentIntentResult> {
+    // Get or create wallet
+    const wallet = await this.getOrCreateWallet(userId);
+
+    // Get provider
+    const paymentProvider = this.providers.get(provider);
+    if (!paymentProvider) {
+      throw new BadRequestException(
+        `Payment provider ${provider} not supported`,
+      );
+    }
+
+    // Create payment transaction
+    const transaction = this.paymentTransactionRepository.create({
+      walletId: wallet.id,
       userId,
-      organizationId,
+      provider,
+      paymentMethod: paymentMethod.type,
+      paymentMethodId: paymentMethod.id,
+      amount,
+      currency,
+      status: PaymentStatus.PENDING,
+      type: PaymentType.TOP_UP,
+      description: `Wallet top-up of ${amount} ${currency}`,
+    });
+
+    await this.paymentTransactionRepository.save(transaction);
+
+    // Create payment intent with provider
+    const intentResult = await paymentProvider.createPaymentIntent(
+      amount,
+      currency,
+      {
+        userId,
+        walletId: wallet.id,
+        paymentTransactionId: transaction.id,
+        description: `Wallet top-up`,
+        returnUrl: `${process.env.FRONTEND_URL}/wallet/top-up/success`,
+        cancelUrl: `${process.env.FRONTEND_URL}/wallet/top-up/cancel`,
+      },
     );
 
-    if (!subscription || !subscription.isActive()) {
-      // Return free tier limits
-      return this.getFreeTierLimits(feature);
+    // Update transaction with provider payment ID
+    transaction.providerPaymentId = intentResult.paymentId;
+    await this.paymentTransactionRepository.save(transaction);
+
+    return intentResult;
+  }
+
+  async confirmPayment(
+    provider: string,
+    paymentId: string,
+    confirmationData?: any,
+  ): Promise<PaymentResult> {
+    const paymentProvider = this.providers.get(provider);
+    if (!paymentProvider) {
+      throw new BadRequestException(
+        `Payment provider ${provider} not supported`,
+      );
     }
 
-    const planFeatures = subscription.plan.features;
-    const featureConfig = this.getFeatureConfig(planFeatures, feature);
+    // Confirm with provider
+    const result = await paymentProvider.confirmPayment(
+      paymentId,
+      confirmationData,
+    );
 
-    if (!featureConfig || featureConfig.limit === -1) {
-      return { allowed: true, remaining: -1, limit: -1 };
+    // Update transaction
+    const transaction = await this.paymentTransactionRepository.findOne({
+      where: { providerPaymentId: paymentId, provider },
+    });
+
+    if (transaction) {
+      transaction.status = result.status;
+      transaction.providerTransactionId = result.transactionId;
+      transaction.providerResponse = result.gatewayResponse;
+
+      if (result.status === PaymentStatus.COMPLETED) {
+        transaction.completedAt = new Date();
+        // Credit wallet
+        await this.creditWallet(transaction.walletId, transaction.amount);
+      } else if (result.status === PaymentStatus.FAILED) {
+        transaction.failedAt = new Date();
+        transaction.failureReason = result.gatewayResponse?.error?.message;
+      }
+
+      await this.paymentTransactionRepository.save(transaction);
     }
 
-    // Check usage
-    const usage = await this.getCurrentUsage(subscription.id, feature);
-    const remaining = featureConfig.limit - usage.used;
+    return result;
+  }
+
+  async getAvailablePaymentMethods(
+    userId: string,
+    amount: number,
+    currency: string,
+  ): Promise<AvailablePaymentMethod[]> {
+    const userCountry = await this.getUserCountry(userId);
+    const methods: AvailablePaymentMethod[] = [];
+
+    // Check each provider
+    for (const [providerCode, provider] of this.providers.entries()) {
+      // Check if provider supports currency and region
+      if (
+        provider.supportedCurrencies.includes(currency) &&
+        (!provider.supportedRegions ||
+          provider.supportedRegions.includes(userCountry))
+      ) {
+        for (const method of provider.supportedMethods) {
+          methods.push({
+            provider: providerCode,
+            method,
+            name: this.getMethodDisplayName(method, providerCode),
+            icon: this.getMethodIcon(method, providerCode),
+            fees: this.calculateFees(providerCode, method, amount),
+            estimatedProcessingTime: this.getProcessingTime(
+              method,
+              providerCode,
+            ),
+          });
+        }
+      }
+    }
+
+    return methods;
+  }
+
+  private async creditWallet(walletId: string, amount: number): Promise<void> {
+    const wallet = await this.walletRepository.findOne({
+      where: { id: walletId },
+    });
+    if (wallet) {
+      wallet.creditBalance += amount;
+      await this.walletRepository.save(wallet);
+    }
+  }
+}
+```
+
+### 5. Provider Implementations
+
+```typescript
+// providers/stripe.provider.ts
+@Injectable()
+export class StripeProvider implements IPaymentProvider {
+  name = 'Stripe';
+  providerCode = 'stripe';
+  supportedMethods = [
+    PaymentMethod.CREDIT_CARD,
+    PaymentMethod.DEBIT_CARD,
+    PaymentMethod.APPLE_PAY,
+    PaymentMethod.GOOGLE_PAY,
+  ];
+  supportedCurrencies = ['USD', 'EUR', 'GBP', 'VND', 'SGD', 'JPY', 'AUD'];
+  supportedRegions = ['US', 'EU', 'VN', 'SG', 'JP', 'AU'];
+
+  private stripe: Stripe;
+
+  constructor() {
+    this.stripe = new Stripe(process.env.STRIPE_SECRET_KEY);
+  }
+
+  async createPaymentIntent(
+    amount: number,
+    currency: string,
+    metadata: PaymentMetadata,
+  ): Promise<PaymentIntentResult> {
+    const paymentIntent = await this.stripe.paymentIntents.create({
+      amount: Math.round(amount * 100), // Convert to cents
+      currency: currency.toLowerCase(),
+      metadata,
+      payment_method_types: ['card'],
+    });
 
     return {
-      allowed: remaining > 0,
-      remaining: Math.max(0, remaining),
-      limit: featureConfig.limit,
+      paymentId: paymentIntent.id,
+      clientSecret: paymentIntent.client_secret,
+      expiresAt: new Date(Date.now() + 24 * 60 * 60 * 1000), // 24 hours
     };
   }
 
-  async incrementUsage(
-    subscriptionId: string,
-    feature: string,
-    amount: number = 1,
-  ): Promise<void> {
-    const usage = await this.getCurrentUsage(subscriptionId, feature);
+  async confirmPayment(
+    paymentId: string,
+    confirmationData?: any,
+  ): Promise<PaymentResult> {
+    const paymentIntent = await this.stripe.paymentIntents.retrieve(paymentId);
 
-    await this.usageRepository.update(usage.id, {
-      used: usage.used + amount,
-    });
+    return {
+      success: paymentIntent.status === 'succeeded',
+      paymentId: paymentIntent.id,
+      transactionId: paymentIntent.latest_charge as string,
+      amount: paymentIntent.amount / 100,
+      currency: paymentIntent.currency.toUpperCase(),
+      status: this.mapStripeStatus(paymentIntent.status),
+      gatewayResponse: paymentIntent,
+    };
   }
 
-  private async getCurrentUsage(
-    subscriptionId: string,
-    feature: string,
-  ): Promise<SubscriptionUsage> {
-    const now = new Date();
-    const periodStart = new Date(now.getFullYear(), now.getMonth(), 1);
-    const periodEnd = new Date(
-      now.getFullYear(),
-      now.getMonth() + 1,
-      0,
-      23,
-      59,
-      59,
+  async handleWebhook(payload: any, signature: string): Promise<WebhookEvent> {
+    const event = this.stripe.webhooks.constructEvent(
+      payload,
+      signature,
+      process.env.STRIPE_WEBHOOK_SECRET,
     );
 
-    let usage = await this.usageRepository.findOne({
-      where: {
-        subscriptionId,
-        feature,
-        periodStart: LessThanOrEqual(periodStart),
-        periodEnd: MoreThanOrEqual(periodEnd),
-      },
-    });
-
-    if (!usage) {
-      const subscription = await this.subscriptionRepository.findOne({
-        where: { id: subscriptionId },
-        relations: ['plan'],
-      });
-
-      const featureConfig = this.getFeatureConfig(
-        subscription.plan.features,
-        feature,
-      );
-
-      usage = this.usageRepository.create({
-        subscriptionId,
-        userId: subscription.userId,
-        feature,
-        used: 0,
-        limit: featureConfig?.limit || 0,
-        period: 'monthly',
-        periodStart,
-        periodEnd,
-      });
-
-      await this.usageRepository.save(usage);
-    }
-
-    return usage;
+    return {
+      type: event.type,
+      data: event.data.object,
+      paymentId: event.data.object.id,
+    };
   }
+
+  // ... other methods
 }
-```
 
-### 4. Guards and decorators
-
-```typescript
-// subscription-feature.guard.ts
+// providers/momo.provider.ts
 @Injectable()
-export class SubscriptionFeatureGuard implements CanActivate {
-  constructor(
-    private subscriptionService: SubscriptionService,
-    private reflector: Reflector,
-  ) {}
+export class MoMoProvider implements IPaymentProvider {
+  name = 'MoMo';
+  providerCode = 'momo';
+  supportedMethods = [PaymentMethod.E_WALLET];
+  supportedCurrencies = ['VND'];
+  supportedRegions = ['VN'];
 
-  async canActivate(context: ExecutionContext): Promise<boolean> {
-    const feature = this.reflector.get<string>(
-      'subscriptionFeature',
-      context.getHandler(),
-    );
+  async createPaymentIntent(
+    amount: number,
+    currency: string,
+    metadata: PaymentMetadata,
+  ): Promise<PaymentIntentResult> {
+    // MoMo API integration
+    const momoResponse = await this.callMoMoAPI({
+      amount,
+      orderId: metadata.paymentTransactionId,
+      orderInfo: metadata.description,
+      returnUrl: metadata.returnUrl,
+      notifyUrl: `${process.env.API_URL}/webhooks/momo`,
+    });
 
-    if (!feature) {
-      return true; // No feature requirement
-    }
-
-    const request = context.switchToHttp().getRequest();
-    const userId = request.user?.id;
-    const organizationId = request.user?.organizationId;
-
-    const access = await this.subscriptionService.checkFeatureAccess(
-      userId,
-      feature,
-      organizationId,
-    );
-
-    if (!access.allowed) {
-      throw new ForbiddenException(
-        `Feature limit reached. ${access.remaining || 0} remaining of ${access.limit}`,
-      );
-    }
-
-    // Attach usage info to request for later increment
-    request.subscriptionUsage = access;
-    return true;
+    return {
+      paymentId: momoResponse.orderId,
+      paymentUrl: momoResponse.payUrl,
+      qrCode: momoResponse.qrCode,
+    };
   }
+
+  // ... other methods
 }
 
-// subscription-feature.decorator.ts
-export const RequireSubscriptionFeature = (feature: string) =>
-  SetMetadata('subscriptionFeature', feature);
-```
-
-### 5. Usage in controllers
-
-```typescript
-// job.controller.ts
-@Controller('jobs')
-export class JobController {
-  constructor(
-    private jobService: JobService,
-    private subscriptionService: SubscriptionService,
-  ) {}
-
-  @Post()
-  @UseGuards(SubscriptionFeatureGuard)
-  @RequireSubscriptionFeature('job_postings')
-  async createJob(@Body() dto: CreateJobDto, @Request() req) {
-    const job = await this.jobService.create(dto, req.user.id);
-
-    // Increment usage after successful creation
-    const subscription = await this.subscriptionService.getActiveSubscription(
-      req.user.id,
-      req.user.organizationId,
-    );
-
-    if (subscription) {
-      await this.subscriptionService.incrementUsage(
-        subscription.id,
-        'job_postings',
-      );
-    }
-
-    return job;
-  }
-}
-```
-
-### 6. Middleware for automatic checks
-
-```typescript
-// subscription-check.middleware.ts
+// providers/vnpay.provider.ts
 @Injectable()
-export class SubscriptionCheckMiddleware implements NestMiddleware {
-  constructor(private subscriptionService: SubscriptionService) {}
+export class VNPayProvider implements IPaymentProvider {
+  name = 'VNPay';
+  providerCode = 'vnpay';
+  supportedMethods = [
+    PaymentMethod.CREDIT_CARD,
+    PaymentMethod.DEBIT_CARD,
+    PaymentMethod.BANK_TRANSFER,
+  ];
+  supportedCurrencies = ['VND'];
+  supportedRegions = ['VN'];
 
-  async use(req: Request, res: Response, next: NextFunction) {
-    if (req.user) {
-      const subscription = await this.subscriptionService.getActiveSubscription(
-        req.user.id,
-        req.user.organizationId,
-      );
+  // ... implementation
+}
+```
 
-      // Attach subscription info to request
-      req.user.subscription = subscription
-        ? {
-            plan: subscription.plan.name,
-            features: subscription.plan.features,
-            expiresAt: subscription.endDate,
-          }
-        : {
-            plan: 'free',
-            features: this.getFreeTierFeatures(),
-          };
-    }
-    next();
+### 6. Controller for Payment
+
+```typescript
+// payment.controller.ts
+@Controller('v1/payments')
+export class PaymentController {
+  constructor(private paymentService: PaymentService) {}
+
+  @Get('methods')
+  @ApiOperation({ summary: 'Get available payment methods' })
+  async getAvailableMethods(
+    @Query('amount') amount: number,
+    @Query('currency') currency: string = 'USD',
+    @CurrentUser() user: any,
+  ) {
+    return this.paymentService.getAvailablePaymentMethods(
+      user.id,
+      amount,
+      currency,
+    );
+  }
+
+  @Post('top-up/initiate')
+  @ApiOperation({ summary: 'Initiate wallet top-up' })
+  async initiateTopUp(@Body() dto: InitiateTopUpDto, @CurrentUser() user: any) {
+    return this.paymentService.initiateTopUp(
+      user.id,
+      dto.amount,
+      dto.currency,
+      dto.paymentMethod,
+      dto.provider,
+    );
+  }
+
+  @Post('confirm/:provider')
+  @ApiOperation({ summary: 'Confirm payment' })
+  async confirmPayment(
+    @Param('provider') provider: string,
+    @Body() dto: ConfirmPaymentDto,
+  ) {
+    return this.paymentService.confirmPayment(
+      provider,
+      dto.paymentId,
+      dto.confirmationData,
+    );
+  }
+
+  @Post('webhooks/:provider')
+  @ApiOperation({ summary: 'Handle payment webhooks' })
+  async handleWebhook(
+    @Param('provider') provider: string,
+    @Body() payload: any,
+    @Headers('x-signature') signature: string,
+  ) {
+    return this.paymentService.handleWebhook(provider, payload, signature);
   }
 }
 ```
 
-## Implementation steps
+### 7. Activity Diagram: Multi-Payment Top-Up
 
-1. Create entities: `SubscriptionPlan`, `Subscription`, `SubscriptionUsage`
-2. Create seeders for default plans
-3. Implement `SubscriptionService` with feature checking
-4. Create guards and decorators for feature protection
-5. Integrate checks into existing controllers (jobs, applications, AI features)
-6. Add usage tracking when features are used
-7. Create subscription management endpoints (subscribe, cancel, upgrade)
-8. Add payment integration (Stripe, PayPal, etc.)
-9. Create admin endpoints for plan management
-10. Add subscription status checks to frontend
+```mermaid
+flowchart TD
+    Start([User wants to top up wallet]) --> SelectAmount[Select top-up amount]
+    SelectAmount --> GetMethods[Get available payment methods<br/>based on user location/currency]
+    GetMethods --> DisplayMethods[Display payment options:<br/>- Credit/Debit Cards<br/>- PayPal<br/>- MoMo<br/>- VNPay<br/>- Bank Transfer<br/>- etc.]
+    DisplayMethods --> SelectMethod[User selects payment method]
+    SelectMethod --> CheckSaved{Has saved<br/>payment method?}
 
-Reviewing the subscription documentation, then outlining Back Office API use cases for refunds, plans, subscriptions, and billing.
+    CheckSaved -->|Yes| UseSaved[Use saved payment method]
+    CheckSaved -->|No| EnterDetails[Enter payment details]
+
+    UseSaved --> InitiatePayment[Initiate payment with provider]
+    EnterDetails --> InitiatePayment
+
+    InitiatePayment --> ProviderType{Provider<br/>type?}
+
+    ProviderType -->|Stripe| StripeFlow[Create Stripe Payment Intent<br/>Get clientSecret]
+    ProviderType -->|PayPal| PayPalFlow[Create PayPal Order<br/>Get redirect URL]
+    ProviderType -->|MoMo| MoMoFlow[Create MoMo Payment<br/>Get QR code/URL]
+    ProviderType -->|VNPay| VNPayFlow[Create VNPay Payment<br/>Get redirect URL]
+    ProviderType -->|Bank Transfer| BankFlow[Generate bank details<br/>Show instructions]
+
+    StripeFlow --> ProcessStripe[Process with Stripe Elements]
+    PayPalFlow --> RedirectPayPal[Redirect to PayPal]
+    MoMoFlow --> ShowQR[Show QR code or redirect]
+    VNPayFlow --> RedirectVNPay[Redirect to VNPay]
+    BankFlow --> ShowBankDetails[Show bank account details]
+
+    ProcessStripe --> WaitConfirmation[Wait for payment confirmation]
+    RedirectPayPal --> WaitConfirmation
+    ShowQR --> WaitConfirmation
+    RedirectVNPay --> WaitConfirmation
+    ShowBankDetails --> WaitManual[Wait for manual bank transfer]
+
+    WaitConfirmation --> WebhookReceived{Webhook<br/>received?}
+    WaitManual --> VerifyTransfer[Admin verifies bank transfer]
+    VerifyTransfer --> WebhookReceived
+
+    WebhookReceived -->|Yes| VerifyWebhook[Verify webhook signature]
+    VerifyWebhook --> UpdateTransaction[Update payment transaction]
+    UpdateTransaction --> PaymentSuccess{Payment<br/>successful?}
+
+    PaymentSuccess -->|Yes| CreditWallet[Credit wallet balance]
+    CreditWallet --> CreateTransaction[Create wallet transaction]
+    CreateTransaction --> SendConfirmation[Send confirmation email]
+    SendConfirmation --> ShowSuccess[Show success message]
+    ShowSuccess --> End1([End])
+
+    PaymentSuccess -->|No| ShowFailure[Show failure message]
+    ShowFailure --> End2([End])
+```
+
+## Recommended Payment Providers by Region
+
+### Global
+
+- Stripe — cards, digital wallets, 40+ countries
+- PayPal — PayPal balance, cards, bank accounts
+
+### Vietnam
+
+- MoMo — e-wallet
+- ZaloPay — e-wallet
+- VNPay — cards, bank transfer
+- VietQR — bank transfer via QR
+
+### Southeast Asia
+
+- GrabPay
+- TrueMoney
+- DANA (Indonesia)
+
+### China
+
+- Alipay
+- WeChat Pay
+
+## Implementation Priority
+
+1. Phase 1: Stripe (global coverage)
+2. Phase 2: VNPay + MoMo (Vietnam)
+3. Phase 3: PayPal (global)
+4. Phase 4: Bank transfer (manual verification)
+5. Phase 5: Additional regional providers
+
+This design supports multiple payment methods with a unified interface. Should I implement a specific provider first?
+Designing Back Office APIs for the wallet-based system, covering refunds, plans (billable actions), subscriptions (if needed), and billing. Reviewing the current structure:
 
 [3 tools called]
 
-Reviewing the backoffice structure to understand the existing patterns:
+Designing Back Office APIs for the wallet-based system. Complete implementation:
 
-[3 tools called]
+## Back Office API Design for Wallet System
 
-Back Office API use cases for subscription management. Add this to your `subscription.md`:
-
-## Back Office API Use Cases
-
-### 1. Subscription Plans Management
-
-#### Use Cases
-
-**UC1: Admin Views All Plans**
-
-- Actor: Admin
-- Precondition: Admin authenticated with `manage:subscription` permission
-- Main flow:
-  1. Admin requests list of subscription plans
-  2. System returns all plans with status, pricing, features
-  3. Admin can filter by status (active/inactive), billing period
-  4. System returns paginated results
-
-**UC2: Admin Creates New Plan**
-
-- Actor: Admin
-- Precondition: Admin authenticated
-- Main flow:
-  1. Admin provides plan details (name, price, features, billing period)
-  2. System validates plan name is unique
-  3. System validates feature configuration
-  4. System creates plan with `isActive: false` (requires activation)
-  5. System returns created plan
-
-**UC3: Admin Updates Plan**
-
-- Actor: Admin
-- Precondition: Plan exists
-- Main flow:
-  1. Admin selects plan to update
-  2. Admin modifies fields (price, features, description)
-  3. System validates changes
-  4. System checks if plan has active subscriptions (warn if yes)
-  5. System updates plan
-  6. System logs change history
-
-**UC4: Admin Activates/Deactivates Plan**
-
-- Actor: Admin
-- Precondition: Plan exists
-- Main flow:
-  1. Admin toggles plan status
-  2. If deactivating: System checks for active subscriptions
-  3. If active subscriptions exist: System prevents deactivation or shows warning
-  4. System updates `isActive` flag
-  5. System prevents new subscriptions to deactivated plans
-
-**UC5: Admin Views Plan Statistics**
-
-- Actor: Admin
-- Main flow:
-  1. Admin requests plan statistics
-  2. System calculates: total subscribers, revenue, churn rate, conversion rate
-  3. System returns analytics per plan
-
----
-
-### 2. Subscription Management
-
-#### Use Cases
-
-**UC6: Admin Views All Subscriptions**
-
-- Actor: Admin
-- Precondition: Admin authenticated
-- Main flow:
-  1. Admin requests subscriptions list
-  2. System returns subscriptions with filters:
-     - Status (ACTIVE, CANCELLED, EXPIRED, SUSPENDED)
-     - Plan type
-     - Date range (start/end date)
-     - User/Organization
-     - Payment status
-  3. System returns paginated results with user/org details
-
-**UC7: Admin Views Subscription Details**
-
-- Actor: Admin
-- Precondition: Subscription exists
-- Main flow:
-  1. Admin requests subscription by ID
-  2. System returns:
-     - Subscription details (plan, dates, status)
-     - User/Organization info
-     - Payment history
-     - Usage statistics
-     - Transaction history
-     - Refund history (if any)
-
-**UC8: Admin Manually Creates Subscription**
-
-- Actor: Admin
-- Precondition: User/Organization exists, Plan exists and active
-- Main flow:
-  1. Admin selects user/organization
-  2. Admin selects plan
-  3. Admin sets start/end dates
-  4. Admin can mark as "complimentary" (no payment required)
-  5. System creates subscription
-  6. System grants access to features immediately
-  7. System logs admin action
-
-**UC9: Admin Updates Subscription**
-
-- Actor: Admin
-- Precondition: Subscription exists
-- Main flow:
-  1. Admin can update:
-     - Plan (upgrade/downgrade with proration)
-     - End date (extend/reduce)
-     - Status (suspend/reactivate)
-     - Auto-renew flag
-  2. System validates changes
-  3. System handles proration if plan changed
-  4. System updates subscription
-  5. System logs change with admin ID
-
-**UC10: Admin Suspends Subscription**
-
-- Actor: Admin
-- Precondition: Subscription is ACTIVE
-- Main flow:
-  1. Admin selects subscription to suspend
-  2. Admin provides reason (optional)
-  3. System changes status to SUSPENDED
-  4. System revokes feature access
-  5. System notifies user
-  6. System logs suspension
-
-**UC11: Admin Reactivates Subscription**
-
-- Actor: Admin
-- Precondition: Subscription is SUSPENDED or EXPIRED
-- Main flow:
-  1. Admin selects subscription
-  2. Admin can extend end date if expired
-  3. System changes status to ACTIVE
-  4. System restores feature access
-  5. System notifies user
-  6. System logs reactivation
-
-**UC12: Admin Cancels Subscription**
-
-- Actor: Admin
-- Precondition: Subscription is ACTIVE
-- Main flow:
-  1. Admin selects subscription
-  2. Admin provides cancellation reason
-  3. Admin chooses: immediate or end of period
-  4. System updates status to CANCELLED
-  5. System sets `cancelledAt` timestamp
-  6. System disables auto-renew
-  7. If immediate: System revokes access
-  8. System logs cancellation
-
-**UC13: Admin Extends Subscription**
-
-- Actor: Admin
-- Precondition: Subscription exists
-- Main flow:
-  1. Admin selects subscription
-  2. Admin specifies extension period (days/months)
-  3. System calculates new end date
-  4. System updates `endDate`
-  5. System logs extension with reason
-
-**UC14: Admin Views Subscription Usage**
-
-- Actor: Admin
-- Precondition: Subscription exists
-- Main flow:
-  1. Admin requests usage statistics
-  2. System returns:
-     - Feature usage (job postings, CV enhancements, etc.)
-     - Usage vs limits
-     - Historical usage trends
-     - Peak usage periods
-
----
-
-### 3. Refund Management
-
-#### Use Cases
-
-**UC15: Admin Views Refund Requests**
-
-- Actor: Admin
-- Precondition: Admin authenticated
-- Main flow:
-  1. Admin requests refund list
-  2. System returns refunds with filters:
-     - Status (PENDING, APPROVED, REJECTED, PROCESSED)
-     - Subscription ID
-     - Date range
-     - Amount range
-  3. System shows associated subscription and payment details
-
-**UC16: Admin Processes Refund Request**
-
-- Actor: Admin
-- Precondition: Refund request exists
-- Main flow:
-  1. Admin reviews refund request
-  2. Admin views:
-     - Original payment details
-     - Subscription usage
-     - Refund reason
-     - User history
-  3. Admin approves or rejects
-  4. If approved:
-     - System calculates refund amount (full/partial/prorated)
-     - System creates refund record
-     - System processes payment refund (via payment gateway)
-     - System updates subscription status if needed
-     - System notifies user
-  5. System logs refund action
-
-**UC17: Admin Creates Manual Refund**
-
-- Actor: Admin
-- Precondition: Subscription with payment exists
-- Main flow:
-  1. Admin selects subscription
-  2. Admin specifies:
-     - Refund amount (full/partial)
-     - Refund reason
-     - Refund method (original payment method/credit)
-  3. System validates refund amount ≤ paid amount
-  4. System creates refund record
-  5. System processes refund
-  6. System updates subscription if needed
-  7. System logs manual refund
-
-**UC18: Admin Views Refund History**
-
-- Actor: Admin
-- Main flow:
-  1. Admin requests refund history
-  2. System returns:
-     - All refunds with status
-     - Refund statistics (total amount, count by status)
-     - Refund trends over time
-     - Top refund reasons
-
-**UC19: Admin Reverses Refund**
-
-- Actor: Admin
-- Precondition: Refund is PROCESSED
-- Main flow:
-  1. Admin identifies refund to reverse
-  2. System validates reversal is possible
-  3. Admin provides reversal reason
-  4. System creates reversal transaction
-  5. System charges user again (if payment method available)
-  6. System updates refund status
-  7. System logs reversal
-
----
-
-### 4. Billing Management
-
-#### Use Cases
-
-**UC20: Admin Views All Invoices**
-
-- Actor: Admin
-- Precondition: Admin authenticated
-- Main flow:
-  1. Admin requests invoices list
-  2. System returns invoices with filters:
-     - Payment status (PAID, PENDING, FAILED, REFUNDED)
-     - Date range
-     - User/Organization
-     - Amount range
-     - Subscription plan
-  3. System returns paginated results
-
-**UC21: Admin Views Invoice Details**
-
-- Actor: Admin
-- Precondition: Invoice exists
-- Main flow:
-  1. Admin requests invoice by ID
-  2. System returns:
-     - Invoice details (number, date, amount, tax)
-     - Line items
-     - Payment method
-     - Payment status
-     - Associated subscription
-     - Downloadable PDF link
-
-**UC22: Admin Manually Creates Invoice**
-
-- Actor: Admin
-- Precondition: Subscription exists
-- Main flow:
-  1. Admin selects subscription
-  2. Admin specifies:
-     - Invoice amount
-     - Line items
-     - Due date
-     - Payment terms
-  3. System generates invoice number
-  4. System creates invoice record
-  5. System notifies user
-  6. System logs manual invoice creation
-
-**UC23: Admin Marks Invoice as Paid**
-
-- Actor: Admin
-- Precondition: Invoice exists with PENDING status
-- Main flow:
-  1. Admin selects invoice
-  2. Admin records payment:
-     - Payment method
-     - Payment date
-     - Transaction ID (optional)
-     - Payment amount
-  3. System updates invoice status to PAID
-  4. System updates subscription if needed
-  5. System logs payment record
-
-**UC24: Admin Views Billing Statistics**
-
-- Actor: Admin
-- Main flow:
-  1. Admin requests billing dashboard
-  2. System returns:
-     - Revenue metrics (MRR, ARR, total revenue)
-     - Payment success/failure rates
-     - Outstanding invoices amount
-     - Revenue by plan
-     - Revenue trends (daily/weekly/monthly)
-     - Churn rate
-     - Average revenue per user (ARPU)
-
-**UC25: Admin Exports Billing Reports**
-
-- Actor: Admin
-- Main flow:
-  1. Admin requests billing report
-  2. Admin specifies:
-     - Report type (revenue, invoices, subscriptions)
-     - Date range
-     - Format (CSV, PDF, Excel)
-  3. System generates report
-  4. System returns download link or sends via email
-
-**UC26: Admin Handles Failed Payments**
-
-- Actor: Admin
-- Precondition: Payment failure detected
-- Main flow:
-  1. System flags subscription with failed payment
-  2. Admin views failed payment list
-  3. Admin can:
-     - Retry payment
-     - Update payment method
-     - Suspend subscription
-     - Contact user
-  4. System logs all actions
-
-**UC27: Admin Views Payment History**
-
-- Actor: Admin
-- Precondition: User/Subscription exists
-- Main flow:
-  1. Admin requests payment history
-  2. System returns:
-     - All payments (successful/failed)
-     - Refunds
-     - Payment methods used
-     - Transaction IDs
-     - Timeline of all billing events
-
----
-
-## API Endpoints Structure
+### 1. Billable Actions Management (Plans/Pricing)
 
 ```typescript
-// subscription-backoffice.controller.ts
-@ApiTags('BackOffice - Subscription Management')
-@Controller('v1/backoffice/subscriptions')
+// backoffice-billable-actions.controller.ts
+@ApiTags('BackOffice - Billable Actions Management')
+@Controller('v1/backoffice/billable-actions')
 @UseGuards(JwtAuthGuard, RolesGuard)
 @ApiBearerAuth()
 @decorators.Roles('super_admin', 'admin')
-export class SubscriptionBackofficeController {
-  // ========== PLANS MANAGEMENT ==========
-  @Get('plans')
-  @ApiOperation({ summary: 'Get all subscription plans' })
-  async getPlans(@Query() query: PlanListQueryDto) {
-    // UC1: View all plans
-  }
+export class BillableActionsBackofficeController {
+  constructor(
+    private readonly billableActionsService: BillableActionsBackofficeService,
+  ) {}
 
-  @Get('plans/:id')
-  @ApiOperation({ summary: 'Get plan by ID' })
-  async getPlanById(@Param('id') id: string) {
-    // UC1: View plan details
-  }
-
-  @Post('plans')
-  @ApiOperation({ summary: 'Create new subscription plan' })
-  async createPlan(@Body() dto: CreatePlanDto) {
-    // UC2: Create plan
-  }
-
-  @Put('plans/:id')
-  @ApiOperation({ summary: 'Update subscription plan' })
-  async updatePlan(@Param('id') id: string, @Body() dto: UpdatePlanDto) {
-    // UC3: Update plan
-  }
-
-  @Put('plans/:id/status')
-  @ApiOperation({ summary: 'Activate/Deactivate plan' })
-  async togglePlanStatus(
-    @Param('id') id: string,
-    @Body() dto: UpdatePlanStatusDto,
-  ) {
-    // UC4: Toggle plan status
-  }
-
-  @Get('plans/:id/statistics')
-  @ApiOperation({ summary: 'Get plan statistics' })
-  async getPlanStatistics(@Param('id') id: string) {
-    // UC5: Plan statistics
-  }
-
-  // ========== SUBSCRIPTION MANAGEMENT ==========
+  // ========== BILLABLE ACTIONS (PRICING PLANS) ==========
   @Get()
-  @ApiOperation({ summary: 'Get all subscriptions' })
-  async getSubscriptions(@Query() query: SubscriptionListQueryDto) {
-    // UC6: View all subscriptions
+  @ApiOperation({ summary: 'Get all billable actions with filtering' })
+  async getBillableActions(@Query() query: BillableActionsListQueryDto) {
+    return this.billableActionsService.getBillableActions(query);
   }
 
   @Get(':id')
-  @ApiOperation({ summary: 'Get subscription details' })
-  async getSubscriptionById(@Param('id') id: string) {
-    // UC7: View subscription details
+  @ApiOperation({ summary: 'Get billable action by ID' })
+  async getBillableActionById(@Param('id') id: string) {
+    return this.billableActionsService.getBillableActionById(id);
   }
 
   @Post()
-  @ApiOperation({ summary: 'Manually create subscription' })
-  async createSubscription(@Body() dto: CreateSubscriptionDto) {
-    // UC8: Create subscription
+  @ApiOperation({ summary: 'Create new billable action' })
+  async createBillableAction(@Body() dto: CreateBillableActionDto) {
+    return this.billableActionsService.createBillableAction(dto);
   }
 
   @Put(':id')
-  @ApiOperation({ summary: 'Update subscription' })
-  async updateSubscription(
+  @ApiOperation({ summary: 'Update billable action' })
+  async updateBillableAction(
     @Param('id') id: string,
-    @Body() dto: UpdateSubscriptionDto,
+    @Body() dto: UpdateBillableActionDto,
   ) {
-    // UC9: Update subscription
+    return this.billableActionsService.updateBillableAction(id, dto);
   }
 
-  @Put(':id/suspend')
-  @ApiOperation({ summary: 'Suspend subscription' })
-  async suspendSubscription(
+  @Put(':id/status')
+  @ApiOperation({ summary: 'Activate/Deactivate billable action' })
+  async toggleBillableActionStatus(
     @Param('id') id: string,
-    @Body() dto: SuspendSubscriptionDto,
+    @Body() dto: UpdateBillableActionStatusDto,
   ) {
-    // UC10: Suspend subscription
+    return this.billableActionsService.toggleStatus(id, dto);
   }
 
-  @Put(':id/reactivate')
-  @ApiOperation({ summary: 'Reactivate subscription' })
-  async reactivateSubscription(
-    @Param('id') id: string,
-    @Body() dto: ReactivateSubscriptionDto,
-  ) {
-    // UC11: Reactivate subscription
+  @Get(':id/statistics')
+  @ApiOperation({ summary: 'Get billable action usage statistics' })
+  async getBillableActionStatistics(@Param('id') id: string) {
+    return this.billableActionsService.getStatistics(id);
   }
 
-  @Put(':id/cancel')
-  @ApiOperation({ summary: 'Cancel subscription' })
-  async cancelSubscription(
-    @Param('id') id: string,
-    @Body() dto: CancelSubscriptionDto,
-  ) {
-    // UC12: Cancel subscription
-  }
-
-  @Put(':id/extend')
-  @ApiOperation({ summary: 'Extend subscription period' })
-  async extendSubscription(
-    @Param('id') id: string,
-    @Body() dto: ExtendSubscriptionDto,
-  ) {
-    // UC13: Extend subscription
-  }
-
-  @Get(':id/usage')
-  @ApiOperation({ summary: 'Get subscription usage statistics' })
-  async getSubscriptionUsage(@Param('id') id: string) {
-    // UC14: View usage
-  }
-
-  // ========== REFUND MANAGEMENT ==========
-  @Get('refunds')
-  @ApiOperation({ summary: 'Get all refund requests' })
-  async getRefunds(@Query() query: RefundListQueryDto) {
-    // UC15: View refunds
-  }
-
-  @Get('refunds/:id')
-  @ApiOperation({ summary: 'Get refund details' })
-  async getRefundById(@Param('id') id: string) {
-    // UC15: View refund details
-  }
-
-  @Post('refunds')
-  @ApiOperation({ summary: 'Create manual refund' })
-  async createRefund(@Body() dto: CreateRefundDto) {
-    // UC17: Create manual refund
-  }
-
-  @Put('refunds/:id/process')
-  @ApiOperation({ summary: 'Process refund request' })
-  async processRefund(@Param('id') id: string, @Body() dto: ProcessRefundDto) {
-    // UC16: Process refund
-  }
-
-  @Get('refunds/statistics')
-  @ApiOperation({ summary: 'Get refund statistics' })
-  async getRefundStatistics(@Query() query: RefundStatsQueryDto) {
-    // UC18: Refund statistics
-  }
-
-  @Put('refunds/:id/reverse')
-  @ApiOperation({ summary: 'Reverse processed refund' })
-  async reverseRefund(@Param('id') id: string, @Body() dto: ReverseRefundDto) {
-    // UC19: Reverse refund
-  }
-
-  // ========== BILLING MANAGEMENT ==========
-  @Get('invoices')
-  @ApiOperation({ summary: 'Get all invoices' })
-  async getInvoices(@Query() query: InvoiceListQueryDto) {
-    // UC20: View invoices
-  }
-
-  @Get('invoices/:id')
-  @ApiOperation({ summary: 'Get invoice details' })
-  async getInvoiceById(@Param('id') id: string) {
-    // UC21: View invoice details
-  }
-
-  @Post('invoices')
-  @ApiOperation({ summary: 'Create manual invoice' })
-  async createInvoice(@Body() dto: CreateInvoiceDto) {
-    // UC22: Create invoice
-  }
-
-  @Put('invoices/:id/mark-paid')
-  @ApiOperation({ summary: 'Mark invoice as paid' })
-  async markInvoicePaid(
-    @Param('id') id: string,
-    @Body() dto: MarkInvoicePaidDto,
-  ) {
-    // UC23: Mark invoice paid
-  }
-
-  @Get('billing/statistics')
-  @ApiOperation({ summary: 'Get billing statistics' })
-  async getBillingStatistics(@Query() query: BillingStatsQueryDto) {
-    // UC24: Billing statistics
-  }
-
-  @Post('billing/reports/export')
-  @ApiOperation({ summary: 'Export billing report' })
-  async exportBillingReport(@Body() dto: ExportBillingReportDto) {
-    // UC25: Export reports
-  }
-
-  @Get('payments/failed')
-  @ApiOperation({ summary: 'Get failed payments' })
-  async getFailedPayments(@Query() query: FailedPaymentQueryDto) {
-    // UC26: Failed payments
-  }
-
-  @Get('payments/history/:subscriptionId')
-  @ApiOperation({ summary: 'Get payment history for subscription' })
-  async getPaymentHistory(@Param('subscriptionId') subscriptionId: string) {
-    // UC27: Payment history
+  @Delete(':id')
+  @HttpCode(HttpStatus.NO_CONTENT)
+  @ApiOperation({ summary: 'Delete billable action' })
+  async deleteBillableAction(@Param('id') id: string) {
+    return this.billableActionsService.deleteBillableAction(id);
   }
 }
 ```
 
-## Additional Entities Needed
+### 2. Wallet Management
+
+```typescript
+// backoffice-wallet.controller.ts
+@ApiTags('BackOffice - Wallet Management')
+@Controller('v1/backoffice/wallets')
+@UseGuards(JwtAuthGuard, RolesGuard)
+@ApiBearerAuth()
+@decorators.Roles('super_admin', 'admin')
+export class WalletBackofficeController {
+  constructor(
+    private readonly walletBackofficeService: WalletBackofficeService,
+  ) {}
+
+  // ========== WALLET MANAGEMENT ==========
+  @Get()
+  @ApiOperation({ summary: 'Get all user wallets with filtering' })
+  async getWallets(@Query() query: WalletListQueryDto) {
+    return this.walletBackofficeService.getWallets(query);
+  }
+
+  @Get(':userId')
+  @ApiOperation({ summary: 'Get wallet by user ID' })
+  async getWalletByUserId(@Param('userId') userId: string) {
+    return this.walletBackofficeService.getWalletByUserId(userId);
+  }
+
+  @Post(':userId/adjust')
+  @ApiOperation({ summary: 'Manually adjust wallet balance' })
+  async adjustWalletBalance(
+    @Param('userId') userId: string,
+    @Body() dto: AdjustWalletBalanceDto,
+    @CurrentUser() admin: any,
+  ) {
+    return this.walletBackofficeService.adjustBalance(userId, dto, admin.sub);
+  }
+
+  @Get(':userId/transactions')
+  @ApiOperation({ summary: 'Get wallet transactions for user' })
+  async getWalletTransactions(
+    @Param('userId') userId: string,
+    @Query() query: WalletTransactionsQueryDto,
+  ) {
+    return this.walletBackofficeService.getWalletTransactions(userId, query);
+  }
+
+  @Get(':userId/usage-history')
+  @ApiOperation({ summary: 'Get usage ledger history for user' })
+  async getUsageHistory(
+    @Param('userId') userId: string,
+    @Query() query: UsageHistoryQueryDto,
+  ) {
+    return this.walletBackofficeService.getUsageHistory(userId, query);
+  }
+}
+```
+
+### 3. Refund Management
+
+```typescript
+// backoffice-refund.controller.ts
+@ApiTags('BackOffice - Refund Management')
+@Controller('v1/backoffice/refunds')
+@UseGuards(JwtAuthGuard, RolesGuard)
+@ApiBearerAuth()
+@decorators.Roles('super_admin', 'admin')
+export class RefundBackofficeController {
+  constructor(
+    private readonly refundBackofficeService: RefundBackofficeService,
+  ) {}
+
+  // ========== REFUND MANAGEMENT ==========
+  @Get()
+  @ApiOperation({ summary: 'Get all refund requests' })
+  async getRefunds(@Query() query: RefundListQueryDto) {
+    return this.refundBackofficeService.getRefunds(query);
+  }
+
+  @Get(':id')
+  @ApiOperation({ summary: 'Get refund details' })
+  async getRefundById(@Param('id') id: string) {
+    return this.refundBackofficeService.getRefundById(id);
+  }
+
+  @Post()
+  @ApiOperation({ summary: 'Create manual refund' })
+  async createRefund(@Body() dto: CreateRefundDto, @CurrentUser() admin: any) {
+    return this.refundBackofficeService.createRefund(dto, admin.sub);
+  }
+
+  @Put(':id/process')
+  @ApiOperation({ summary: 'Process refund request' })
+  async processRefund(
+    @Param('id') id: string,
+    @Body() dto: ProcessRefundDto,
+    @CurrentUser() admin: any,
+  ) {
+    return this.refundBackofficeService.processRefund(id, dto, admin.sub);
+  }
+
+  @Put(':id/reject')
+  @ApiOperation({ summary: 'Reject refund request' })
+  async rejectRefund(
+    @Param('id') id: string,
+    @Body() dto: RejectRefundDto,
+    @CurrentUser() admin: any,
+  ) {
+    return this.refundBackofficeService.rejectRefund(id, dto, admin.sub);
+  }
+
+  @Put(':id/reverse')
+  @ApiOperation({ summary: 'Reverse processed refund' })
+  async reverseRefund(
+    @Param('id') id: string,
+    @Body() dto: ReverseRefundDto,
+    @CurrentUser() admin: any,
+  ) {
+    return this.refundBackofficeService.reverseRefund(id, dto, admin.sub);
+  }
+
+  @Get('statistics')
+  @ApiOperation({ summary: 'Get refund statistics' })
+  async getRefundStatistics(@Query() query: RefundStatsQueryDto) {
+    return this.refundBackofficeService.getStatistics(query);
+  }
+}
+```
+
+### 4. Payment & Billing Management
+
+```typescript
+// backoffice-billing.controller.ts
+@ApiTags('BackOffice - Billing Management')
+@Controller('v1/backoffice/billing')
+@UseGuards(JwtAuthGuard, RolesGuard)
+@ApiBearerAuth()
+@decorators.Roles('super_admin', 'admin')
+export class BillingBackofficeController {
+  constructor(
+    private readonly billingBackofficeService: BillingBackofficeService,
+  ) {}
+
+  // ========== PAYMENT TRANSACTIONS ==========
+  @Get('transactions')
+  @ApiOperation({ summary: 'Get all payment transactions' })
+  async getPaymentTransactions(@Query() query: PaymentTransactionsQueryDto) {
+    return this.billingBackofficeService.getPaymentTransactions(query);
+  }
+
+  @Get('transactions/:id')
+  @ApiOperation({ summary: 'Get payment transaction details' })
+  async getPaymentTransactionById(@Param('id') id: string) {
+    return this.billingBackofficeService.getPaymentTransactionById(id);
+  }
+
+  @Put('transactions/:id/status')
+  @ApiOperation({ summary: 'Update payment transaction status' })
+  async updateTransactionStatus(
+    @Param('id') id: string,
+    @Body() dto: UpdateTransactionStatusDto,
+    @CurrentUser() admin: any,
+  ) {
+    return this.billingBackofficeService.updateTransactionStatus(
+      id,
+      dto,
+      admin.sub,
+    );
+  }
+
+  @Post('transactions/:id/refund')
+  @ApiOperation({ summary: 'Refund payment transaction' })
+  async refundTransaction(
+    @Param('id') id: string,
+    @Body() dto: RefundTransactionDto,
+    @CurrentUser() admin: any,
+  ) {
+    return this.billingBackofficeService.refundTransaction(id, dto, admin.sub);
+  }
+
+  // ========== USAGE LEDGER ==========
+  @Get('usage')
+  @ApiOperation({ summary: 'Get all usage ledger entries' })
+  async getUsageLedger(@Query() query: UsageLedgerQueryDto) {
+    return this.billingBackofficeService.getUsageLedger(query);
+  }
+
+  @Get('usage/:id')
+  @ApiOperation({ summary: 'Get usage ledger entry details' })
+  async getUsageLedgerById(@Param('id') id: string) {
+    return this.billingBackofficeService.getUsageLedgerById(id);
+  }
+
+  @Post('usage/:id/refund')
+  @ApiOperation({ summary: 'Refund usage (reverse charge)' })
+  async refundUsage(
+    @Param('id') id: string,
+    @Body() dto: RefundUsageDto,
+    @CurrentUser() admin: any,
+  ) {
+    return this.billingBackofficeService.refundUsage(id, dto, admin.sub);
+  }
+
+  // ========== BILLING STATISTICS ==========
+  @Get('statistics')
+  @ApiOperation({ summary: 'Get billing statistics and analytics' })
+  async getBillingStatistics(@Query() query: BillingStatsQueryDto) {
+    return this.billingBackofficeService.getStatistics(query);
+  }
+
+  @Get('revenue')
+  @ApiOperation({ summary: 'Get revenue analytics' })
+  async getRevenueAnalytics(@Query() query: RevenueAnalyticsQueryDto) {
+    return this.billingBackofficeService.getRevenueAnalytics(query);
+  }
+
+  @Post('reports/export')
+  @ApiOperation({ summary: 'Export billing report' })
+  async exportBillingReport(@Body() dto: ExportBillingReportDto) {
+    return this.billingBackofficeService.exportReport(dto);
+  }
+
+  // ========== FAILED PAYMENTS ==========
+  @Get('payments/failed')
+  @ApiOperation({ summary: 'Get failed payment transactions' })
+  async getFailedPayments(@Query() query: FailedPaymentsQueryDto) {
+    return this.billingBackofficeService.getFailedPayments(query);
+  }
+
+  @Post('payments/:id/retry')
+  @ApiOperation({ summary: 'Retry failed payment' })
+  async retryPayment(@Param('id') id: string, @Body() dto: RetryPaymentDto) {
+    return this.billingBackofficeService.retryPayment(id, dto);
+  }
+}
+```
+
+### 5. Complete Service Implementation
+
+```typescript
+// refund-backoffice.service.ts
+@Injectable()
+export class RefundBackofficeService {
+  constructor(
+    @InjectRepository(Refund)
+    private refundRepository: Repository<Refund>,
+    @InjectRepository(PaymentTransaction)
+    private paymentTransactionRepository: Repository<PaymentTransaction>,
+    @InjectRepository(UsageLedger)
+    private usageLedgerRepository: Repository<UsageLedger>,
+    @InjectRepository(UserWallet)
+    private walletRepository: Repository<UserWallet>,
+    private paymentService: PaymentService,
+  ) {}
+
+  async getRefunds(query: RefundListQueryDto) {
+    const queryBuilder = this.refundRepository
+      .createQueryBuilder('refund')
+      .leftJoinAndSelect('refund.user', 'user')
+      .leftJoinAndSelect('refund.paymentTransaction', 'paymentTransaction');
+
+    if (query.status) {
+      queryBuilder.andWhere('refund.status = :status', {
+        status: query.status,
+      });
+    }
+
+    if (query.userId) {
+      queryBuilder.andWhere('refund.userId = :userId', {
+        userId: query.userId,
+      });
+    }
+
+    if (query.dateFrom) {
+      queryBuilder.andWhere('refund.createdAt >= :dateFrom', {
+        dateFrom: query.dateFrom,
+      });
+    }
+
+    if (query.dateTo) {
+      queryBuilder.andWhere('refund.createdAt <= :dateTo', {
+        dateTo: query.dateTo,
+      });
+    }
+
+    if (query.minAmount) {
+      queryBuilder.andWhere('refund.amount >= :minAmount', {
+        minAmount: query.minAmount,
+      });
+    }
+
+    if (query.maxAmount) {
+      queryBuilder.andWhere('refund.amount <= :maxAmount', {
+        maxAmount: query.maxAmount,
+      });
+    }
+
+    queryBuilder.orderBy('refund.createdAt', 'DESC');
+
+    const [data, total] = await queryBuilder
+      .skip((query.page - 1) * query.limit)
+      .take(query.limit)
+      .getManyAndCount();
+
+    return {
+      data,
+      total,
+      page: query.page,
+      limit: query.limit,
+      totalPages: Math.ceil(total / query.limit),
+    };
+  }
+
+  async createRefund(dto: CreateRefundDto, adminId: string): Promise<Refund> {
+    // Validate refund amount
+    const paymentTransaction = await this.paymentTransactionRepository.findOne({
+      where: { id: dto.paymentTransactionId },
+      relations: ['wallet'],
+    });
+
+    if (!paymentTransaction) {
+      throw new NotFoundException('Payment transaction not found');
+    }
+
+    if (dto.amount > paymentTransaction.amount) {
+      throw new BadRequestException(
+        'Refund amount cannot exceed payment amount',
+      );
+    }
+
+    // Check if already refunded
+    const existingRefund = await this.refundRepository.findOne({
+      where: {
+        paymentTransactionId: dto.paymentTransactionId,
+        status: In([
+          RefundStatus.PENDING,
+          RefundStatus.APPROVED,
+          RefundStatus.PROCESSED,
+        ]),
+      },
+    });
+
+    if (existingRefund) {
+      throw new BadRequestException('Refund already exists for this payment');
+    }
+
+    // Create refund
+    const refund = this.refundRepository.create({
+      userId: paymentTransaction.userId,
+      paymentTransactionId: dto.paymentTransactionId,
+      amount: dto.amount,
+      currency: paymentTransaction.currency,
+      reason: dto.reason,
+      adminNotes: dto.adminNotes,
+      status: RefundStatus.APPROVED, // Auto-approve manual refunds
+      processedBy: adminId,
+      processedAt: new Date(),
+    });
+
+    await this.refundRepository.save(refund);
+
+    // Process refund
+    await this.processRefund(refund.id, { autoProcess: true }, adminId);
+
+    return refund;
+  }
+
+  async processRefund(
+    refundId: string,
+    dto: ProcessRefundDto,
+    adminId: string,
+  ): Promise<Refund> {
+    const refund = await this.refundRepository.findOne({
+      where: { id: refundId },
+      relations: ['paymentTransaction', 'paymentTransaction.wallet'],
+    });
+
+    if (!refund) {
+      throw new NotFoundException('Refund not found');
+    }
+
+    if (refund.status !== RefundStatus.PENDING && !dto.autoProcess) {
+      throw new BadRequestException('Refund is not in pending status');
+    }
+
+    // Update refund status
+    refund.status = RefundStatus.APPROVED;
+    refund.processedBy = adminId;
+    refund.processedAt = new Date();
+    refund.adminNotes = dto.adminNotes || refund.adminNotes;
+
+    await this.refundRepository.save(refund);
+
+    // Process refund via payment gateway
+    try {
+      const refundResult = await this.paymentService.refundPayment(
+        refund.paymentTransaction.provider,
+        refund.paymentTransaction.providerTransactionId,
+        refund.amount,
+        refund.reason,
+      );
+
+      // Update refund with gateway response
+      refund.status = RefundStatus.PROCESSED;
+      refund.providerRefundId = refundResult.refundId;
+      refund.metadata = { gatewayResponse: refundResult };
+
+      // Credit wallet if payment was for top-up
+      if (refund.paymentTransaction.type === PaymentType.TOP_UP) {
+        const wallet = refund.paymentTransaction.wallet;
+        wallet.creditBalance -= refund.amount; // Deduct from wallet
+        await this.walletRepository.save(wallet);
+
+        // Create wallet transaction
+        await this.createWalletTransaction({
+          walletId: wallet.id,
+          userId: wallet.userId,
+          type: TransactionType.REFUND,
+          amount: -refund.amount, // Negative for refund
+          currency: refund.currency,
+          description: `Refund for payment ${refund.paymentTransactionId}`,
+          relatedRefundId: refund.id,
+        });
+      }
+
+      await this.refundRepository.save(refund);
+
+      // Notify user
+      await this.notificationService.sendRefundProcessedNotification(
+        refund.userId,
+        refund,
+      );
+
+      return refund;
+    } catch (error) {
+      refund.status = RefundStatus.FAILED;
+      refund.metadata = {
+        ...refund.metadata,
+        error: error.message,
+      };
+      await this.refundRepository.save(refund);
+      throw error;
+    }
+  }
+
+  async rejectRefund(
+    refundId: string,
+    dto: RejectRefundDto,
+    adminId: string,
+  ): Promise<Refund> {
+    const refund = await this.refundRepository.findOne({
+      where: { id: refundId },
+    });
+
+    if (!refund) {
+      throw new NotFoundException('Refund not found');
+    }
+
+    if (refund.status !== RefundStatus.PENDING) {
+      throw new BadRequestException('Only pending refunds can be rejected');
+    }
+
+    refund.status = RefundStatus.REJECTED;
+    refund.processedBy = adminId;
+    refund.processedAt = new Date();
+    refund.adminNotes = dto.reason;
+
+    await this.refundRepository.save(refund);
+
+    // Notify user
+    await this.notificationService.sendRefundRejectedNotification(
+      refund.userId,
+      refund,
+    );
+
+    return refund;
+  }
+
+  async getStatistics(query: RefundStatsQueryDto) {
+    const queryBuilder = this.refundRepository.createQueryBuilder('refund');
+
+    if (query.dateFrom) {
+      queryBuilder.andWhere('refund.createdAt >= :dateFrom', {
+        dateFrom: query.dateFrom,
+      });
+    }
+
+    if (query.dateTo) {
+      queryBuilder.andWhere('refund.createdAt <= :dateTo', {
+        dateTo: query.dateTo,
+      });
+    }
+
+    const [totalRefunds, totalAmount, byStatus, byReason] = await Promise.all([
+      queryBuilder.getCount(),
+      queryBuilder.select('SUM(refund.amount)', 'total').getRawOne(),
+      queryBuilder
+        .select('refund.status', 'status')
+        .addSelect('COUNT(*)', 'count')
+        .groupBy('refund.status')
+        .getRawMany(),
+      queryBuilder
+        .select('refund.reason', 'reason')
+        .addSelect('COUNT(*)', 'count')
+        .where('refund.reason IS NOT NULL')
+        .groupBy('refund.reason')
+        .orderBy('count', 'DESC')
+        .limit(10)
+        .getRawMany(),
+    ]);
+
+    return {
+      totalRefunds,
+      totalAmount: parseFloat(totalAmount?.total || '0'),
+      byStatus,
+      topReasons: byReason,
+    };
+  }
+}
+```
+
+### 6. DTOs
+
+```typescript
+// refund-backoffice.dto.ts
+export class RefundListQueryDto extends PaginationDto {
+  @IsOptional()
+  @IsEnum(RefundStatus)
+  status?: RefundStatus;
+
+  @IsOptional()
+  @IsUUID()
+  userId?: string;
+
+  @IsOptional()
+  @IsDateString()
+  dateFrom?: string;
+
+  @IsOptional()
+  @IsDateString()
+  dateTo?: string;
+
+  @IsOptional()
+  @IsNumber()
+  minAmount?: number;
+
+  @IsOptional()
+  @IsNumber()
+  maxAmount?: number;
+}
+
+export class CreateRefundDto {
+  @IsUUID()
+  @ApiProperty()
+  paymentTransactionId: string;
+
+  @IsNumber()
+  @Min(0.01)
+  @ApiProperty()
+  amount: number;
+
+  @IsString()
+  @IsOptional()
+  @ApiProperty({ required: false })
+  reason?: string;
+
+  @IsString()
+  @IsOptional()
+  @ApiProperty({ required: false })
+  adminNotes?: string;
+}
+
+export class ProcessRefundDto {
+  @IsString()
+  @IsOptional()
+  @ApiProperty({ required: false })
+  adminNotes?: string;
+
+  @IsBoolean()
+  @IsOptional()
+  @ApiProperty({ required: false })
+  autoProcess?: boolean;
+}
+
+export class RejectRefundDto {
+  @IsString()
+  @MinLength(10)
+  @ApiProperty()
+  reason: string;
+}
+
+export class AdjustWalletBalanceDto {
+  @IsNumber()
+  @ApiProperty()
+  amount: number; // Can be positive (credit) or negative (debit)
+
+  @IsString()
+  @IsOptional()
+  @ApiProperty({ required: false })
+  reason?: string;
+
+  @IsString()
+  @IsOptional()
+  @ApiProperty({ required: false })
+  notes?: string;
+}
+```
+
+### 7. Refund Entity
 
 ```typescript
 // refund.entity.ts
@@ -1187,15 +2319,19 @@ export class Refund {
   @PrimaryGeneratedColumn('uuid')
   id: string;
 
-  @ManyToOne(() => Subscription)
-  @JoinColumn({ name: 'subscriptionId' })
-  subscription: Subscription;
+  @ManyToOne(() => User, { nullable: false })
+  @JoinColumn({ name: 'userId' })
+  user: User;
 
   @Column('uuid')
-  subscriptionId: string;
+  userId: string;
+
+  @ManyToOne(() => PaymentTransaction, { nullable: false })
+  @JoinColumn({ name: 'paymentTransactionId' })
+  paymentTransaction: PaymentTransaction;
 
   @Column('uuid')
-  invoiceId?: string;
+  paymentTransactionId: string;
 
   @Column({ type: 'decimal', precision: 10, scale: 2 })
   amount: number;
@@ -1208,7 +2344,7 @@ export class Refund {
     enum: RefundStatus,
     default: RefundStatus.PENDING,
   })
-  status: RefundStatus; // PENDING, APPROVED, REJECTED, PROCESSED, REVERSED
+  status: RefundStatus;
 
   @Column({ type: 'text', nullable: true })
   reason?: string;
@@ -1223,7 +2359,7 @@ export class Refund {
   processedAt?: Date;
 
   @Column({ type: 'varchar', nullable: true })
-  paymentGatewayRefundId?: string;
+  providerRefundId?: string; // Gateway refund ID
 
   @Column({ type: 'jsonb', nullable: true })
   metadata?: Record<string, any>;
@@ -1235,652 +2371,846 @@ export class Refund {
   updatedAt: Date;
 }
 
-// invoice.entity.ts
-@Entity('invoices')
-export class Invoice {
-  @PrimaryGeneratedColumn('uuid')
-  id: string;
-
-  @Column({ type: 'varchar', unique: true })
-  invoiceNumber: string;
-
-  @ManyToOne(() => Subscription)
-  @JoinColumn({ name: 'subscriptionId' })
-  subscription: Subscription;
-
-  @Column('uuid')
-  subscriptionId: string;
-
-  @Column('uuid')
-  userId: string;
-
-  @Column({ type: 'decimal', precision: 10, scale: 2 })
-  amount: number;
-
-  @Column({ type: 'decimal', precision: 10, scale: 2, default: 0 })
-  tax: number;
-
-  @Column({ type: 'decimal', precision: 10, scale: 2 })
-  totalAmount: number;
-
-  @Column({ type: 'varchar', length: 3 })
-  currency: string;
-
-  @Column({
-    type: 'enum',
-    enum: InvoiceStatus,
-    default: InvoiceStatus.PENDING,
-  })
-  status: InvoiceStatus; // PENDING, PAID, FAILED, REFUNDED, CANCELLED
-
-  @Column({ type: 'timestamp' })
-  issueDate: Date;
-
-  @Column({ type: 'timestamp' })
-  dueDate: Date;
-
-  @Column({ type: 'timestamp', nullable: true })
-  paidDate?: Date;
-
-  @Column({ type: 'jsonb' })
-  lineItems: InvoiceLineItem[];
-
-  @Column({ type: 'jsonb', nullable: true })
-  paymentDetails?: {
-    paymentMethodId?: string;
-    transactionId?: string;
-    gatewayResponse?: any;
-  };
-
-  @Column({ type: 'text', nullable: true })
-  pdfUrl?: string;
-
-  @CreateDateColumn()
-  createdAt: Date;
-
-  @UpdateDateColumn()
-  updatedAt: Date;
+enum RefundStatus {
+  PENDING = 'pending',
+  APPROVED = 'approved',
+  REJECTED = 'rejected',
+  PROCESSED = 'processed',
+  FAILED = 'failed',
+  REVERSED = 'reversed',
 }
 ```
 
-Creating activity diagrams for all candidate and recruiter subscription use cases. Reviewing the subscription documentation to ensure completeness:
-
-[1 tool called]
-
-Activity diagrams for all candidate and recruiter subscription use cases:
-
-## Activity Diagrams for Candidate & Recruiter Subscription Use Cases
-
-### CANDIDATE USE CASES
-
-#### UC-C1: Candidate Views Subscription Plans
+### 8. Activity Diagram: Admin Processes Refund
 
 ```mermaid
 flowchart TD
-    Start([Candidate wants to view plans]) --> Authenticate{Authenticated?}
-    Authenticate -->|No| Login[Redirect to login]
-    Login --> End1([End])
+    Start([Admin views refund requests]) --> ViewRefunds[View refund list with filters]
+    ViewRefunds --> SelectRefund[Select refund to process]
+    SelectRefund --> ViewDetails[View refund details:<br/>- Original payment<br/>- User info<br/>- Refund reason<br/>- Amount]
+    ViewDetails --> ReviewPayment[Review original payment transaction]
+    ReviewPayment --> CheckEligibility{Refund<br/>eligible?}
 
-    Authenticate -->|Yes| RequestPlans[Request subscription plans]
-    RequestPlans --> GetPlans[System fetches active plans]
-    GetPlans --> FilterPlans[Filter plans for candidates]
-    FilterPlans --> CheckCurrent[Check current subscription]
-    CheckCurrent --> DisplayPlans[Display plans with:<br/>- Name & price<br/>- Features comparison<br/>- Current plan highlighted]
-    DisplayPlans --> End2([End])
+    CheckEligibility -->|No| RejectRefund[Reject refund]
+    RejectRefund --> EnterRejectionReason[Enter rejection reason]
+    EnterRejectionReason --> UpdateStatus[Update status to REJECTED]
+    UpdateStatus --> NotifyUser[Notify user of rejection]
+    NotifyUser --> End1([End])
+
+    CheckEligibility -->|Yes| ApproveRefund[Approve refund]
+    ApproveRefund --> CalculateAmount[Calculate refund amount:<br/>Full or partial]
+    CalculateAmount --> ProcessGateway[Process refund via payment gateway]
+    ProcessGateway --> GatewaySuccess{Gateway<br/>successful?}
+
+    GatewaySuccess -->|No| MarkFailed[Mark refund as FAILED]
+    MarkFailed --> LogError[Log error details]
+    LogError --> NotifyAdmin[Notify admin of failure]
+    NotifyAdmin --> End2([End])
+
+    GatewaySuccess -->|Yes| UpdateRefundStatus[Update status to PROCESSED]
+    UpdateRefundStatus --> DeductWallet{Payment was<br/>top-up?}
+
+    DeductWallet -->|Yes| DeductBalance[Deduct amount from wallet]
+    DeductWallet -->|No| SkipDeduct[Skip wallet deduction]
+
+    DeductBalance --> CreateTransaction[Create wallet transaction]
+    SkipDeduct --> CreateTransaction
+    CreateTransaction --> SaveRefund[Save refund with gateway ID]
+    SaveRefund --> NotifyUser2[Notify user of successful refund]
+    NotifyUser2 --> End3([End])
 ```
 
-#### UC-C2: Candidate Subscribes to Plan
+This design provides Back Office APIs for:
+
+- Billable Actions Management (pricing/plans)
+- Wallet Management (balance adjustments, transactions)
+- Refund Management (create, process, reject, reverse)
+- Billing Management (transactions, usage ledger, statistics, reports)
+
+All APIs follow the existing backoffice pattern with proper authentication, authorization, and error handling. Should I create the complete service implementations or specific DTOs?All Back Office APIs are connected to the wallet system. Here’s how they integrate:
+
+## Wallet-Centric Back Office System Architecture
+
+### Complete Flow Diagram
 
 ```mermaid
-flowchart TD
-    Start([Candidate selects plan]) --> SelectPlan[Select subscription plan]
-    SelectPlan --> CheckExisting{Has active<br/>subscription?}
+flowchart TB
+    subgraph "User Wallet (Central Hub)"
+        W[UserWallet<br/>creditBalance]
+    end
 
-    CheckExisting -->|Yes| ShowWarning[Show warning:<br/>Current subscription will be replaced]
-    ShowWarning --> ConfirmReplace{Confirm<br/>replacement?}
-    ConfirmReplace -->|No| End1([End])
-    ConfirmReplace -->|Yes| CalculateProration[Calculate prorated refund/charge]
+    subgraph "Money IN (Credits)"
+        P1[Payment Transaction<br/>TOP_UP]
+        P2[Admin Adjustment<br/>CREDIT]
+        P3[Refund<br/>PROCESSED]
+    end
 
-    CheckExisting -->|No| SelectBilling[Select billing period:<br/>Monthly/Yearly]
+    subgraph "Money OUT (Debits)"
+        U1[Usage Ledger<br/>POST_JOB: $10]
+        U2[Usage Ledger<br/>BOOST_APP: $2]
+        U3[Usage Ledger<br/>AI_CV: $3]
+        U4[Admin Adjustment<br/>DEBIT]
+    end
 
-    CalculateProration --> SelectBilling
-    SelectBilling --> EnterPayment[Enter payment details]
-    EnterPayment --> ValidatePayment{Payment valid?}
+    subgraph "Back Office APIs"
+        BO1[Billable Actions<br/>Management]
+        BO2[Wallet<br/>Management]
+        BO3[Refund<br/>Management]
+        BO4[Billing<br/>Management]
+    end
 
-    ValidatePayment -->|No| ShowError[Show payment error]
-    ShowError --> EnterPayment
+    P1 -->|Credits| W
+    P2 -->|Credits| W
+    P3 -->|Credits| W
 
-    ValidatePayment -->|Yes| ProcessPayment[Process payment via gateway]
-    ProcessPayment --> PaymentSuccess{Payment<br/>successful?}
+    W -->|Debits| U1
+    W -->|Debits| U2
+    W -->|Debits| U3
+    W -->|Debits| U4
 
-    PaymentSuccess -->|No| ShowFailure[Show payment failure]
-    ShowFailure --> End2([End])
+    BO1 -.Controls.-> U1
+    BO1 -.Controls.-> U2
+    BO1 -.Controls.-> U3
 
-    PaymentSuccess -->|Yes| CreateSubscription[Create subscription record]
-    CreateSubscription --> SetDates[Set start/end dates]
-    SetDates --> GrantAccess[Grant feature access]
-    GrantAccess --> CreateInvoice[Create invoice]
-    CreateInvoice --> SendConfirmation[Send confirmation email]
-    SendConfirmation --> NotifyUser[Notify user of activation]
-    NotifyUser --> End3([End - Subscription Active])
+    BO2 -.Manages.-> W
+    BO2 -.Creates.-> P2
+    BO2 -.Creates.-> U4
+
+    BO3 -.Processes.-> P3
+    BO3 -.Refunds.-> P1
+
+    BO4 -.Views.-> P1
+    BO4 -.Views.-> U1
+    BO4 -.Views.-> U2
+    BO4 -.Views.-> U3
 ```
 
-#### UC-C3: Candidate Upgrades Subscription
+### How Each Back Office API Connects to Wallet
+
+#### 1. Billable Actions Management → Wallet
+
+```typescript
+// When admin updates pricing, it affects future wallet deductions
+BillableAction (POST_JOB: $10)
+  → User performs action
+  → System checks wallet balance
+  → Deducts $10 from wallet
+  → Creates UsageLedger entry
+```
+
+Connection:
+
+- Admin sets action prices → affects wallet deductions
+- No direct wallet modification, but controls how much is deducted
+
+#### 2. Wallet Management → Wallet (direct)
+
+```typescript
+// Admin directly manages wallet balances
+Admin adjusts wallet
+  → Creates WalletTransaction (ADJUSTMENT)
+  → Updates UserWallet.creditBalance
+  → Logs in WalletTransaction
+```
+
+Connection:
+
+- Direct wallet balance adjustments
+- View wallet transactions
+- View usage history per wallet
+
+#### 3. Refund Management → Wallet
+
+```typescript
+// Refunds flow back to wallet
+User top-ups wallet ($100)
+  → PaymentTransaction created
+  → Wallet credited $100
+
+User requests refund
+  → Admin processes refund
+  → Refund payment via gateway
+  → Deduct $100 from wallet (if top-up refund)
+  → Create WalletTransaction (REFUND)
+```
+
+Connection:
+
+- Refunds for top-up payments deduct from wallet
+- Refunds for usage actions credit wallet back
+
+#### 4. Billing Management → Wallet
+
+```typescript
+// All billing flows through wallet
+PaymentTransaction (TOP_UP)
+  → Credits wallet
+
+UsageLedger (POST_JOB)
+  → Debits wallet
+
+Admin views all transactions
+  → Shows wallet impact
+```
+
+Connection:
+
+- View all transactions that affect wallet
+- Track revenue (money in) and usage (money out)
+- Analytics on wallet activity
+
+### Updated Service Implementation Showing Wallet Connections
+
+```typescript
+// wallet-backoffice.service.ts
+@Injectable()
+export class WalletBackofficeService {
+  constructor(
+    @InjectRepository(UserWallet)
+    private walletRepository: Repository<UserWallet>,
+    @InjectRepository(WalletTransaction)
+    private walletTransactionRepository: Repository<WalletTransaction>,
+    @InjectRepository(UsageLedger)
+    private usageLedgerRepository: Repository<UsageLedger>,
+    @InjectRepository(PaymentTransaction)
+    private paymentTransactionRepository: Repository<PaymentTransaction>,
+  ) {}
+
+  async adjustBalance(
+    userId: string,
+    dto: AdjustWalletBalanceDto,
+    adminId: string,
+  ): Promise<{ wallet: UserWallet; transaction: WalletTransaction }> {
+    // Get wallet
+    const wallet = await this.getOrCreateWallet(userId);
+
+    const balanceBefore = wallet.creditBalance;
+
+    // Adjust wallet balance
+    wallet.creditBalance += dto.amount; // Can be positive or negative
+    const balanceAfter = wallet.creditBalance;
+
+    // Validate balance doesn't go negative (unless admin override)
+    if (balanceAfter < 0 && !dto.allowNegative) {
+      throw new BadRequestException('Balance cannot be negative');
+    }
+
+    await this.walletRepository.save(wallet);
+
+    // Create wallet transaction
+    const transaction = this.walletTransactionRepository.create({
+      walletId: wallet.id,
+      userId,
+      type: dto.amount > 0 ? TransactionType.CREDIT : TransactionType.DEBIT,
+      amount: Math.abs(dto.amount),
+      currency: wallet.currency,
+      balanceBefore,
+      balanceAfter,
+      status: TransactionStatus.COMPLETED,
+      description: dto.reason || 'Admin adjustment',
+      metadata: {
+        adjustedBy: adminId,
+        notes: dto.notes,
+        reason: dto.reason,
+      },
+    });
+
+    await this.walletTransactionRepository.save(transaction);
+
+    return { wallet, transaction };
+  }
+
+  async getWalletTransactions(
+    userId: string,
+    query: WalletTransactionsQueryDto,
+  ) {
+    const wallet = await this.walletRepository.findOne({ where: { userId } });
+
+    if (!wallet) {
+      return { data: [], total: 0, page: 1, limit: query.limit, totalPages: 0 };
+    }
+
+    const queryBuilder = this.walletTransactionRepository
+      .createQueryBuilder('transaction')
+      .where('transaction.walletId = :walletId', { walletId: wallet.id });
+
+    if (query.type) {
+      queryBuilder.andWhere('transaction.type = :type', { type: query.type });
+    }
+
+    if (query.status) {
+      queryBuilder.andWhere('transaction.status = :status', {
+        status: query.status,
+      });
+    }
+
+    if (query.dateFrom) {
+      queryBuilder.andWhere('transaction.createdAt >= :dateFrom', {
+        dateFrom: query.dateFrom,
+      });
+    }
+
+    if (query.dateTo) {
+      queryBuilder.andWhere('transaction.createdAt <= :dateTo', {
+        dateTo: query.dateTo,
+      });
+    }
+
+    queryBuilder.orderBy('transaction.createdAt', 'DESC');
+
+    const [data, total] = await queryBuilder
+      .skip((query.page - 1) * query.limit)
+      .take(query.limit)
+      .getManyAndCount();
+
+    return {
+      data,
+      total,
+      page: query.page,
+      limit: query.limit,
+      totalPages: Math.ceil(total / query.limit),
+      currentBalance: wallet.creditBalance,
+    };
+  }
+
+  async getUsageHistory(userId: string, query: UsageHistoryQueryDto) {
+    const wallet = await this.walletRepository.findOne({ where: { userId } });
+
+    if (!wallet) {
+      return { data: [], total: 0, page: 1, limit: query.limit, totalPages: 0 };
+    }
+
+    const queryBuilder = this.usageLedgerRepository
+      .createQueryBuilder('usage')
+      .leftJoinAndSelect('usage.action', 'action')
+      .where('usage.userId = :userId', { userId });
+
+    if (query.actionCode) {
+      queryBuilder.andWhere('action.actionCode = :actionCode', {
+        actionCode: query.actionCode,
+      });
+    }
+
+    if (query.dateFrom) {
+      queryBuilder.andWhere('usage.timestamp >= :dateFrom', {
+        dateFrom: query.dateFrom,
+      });
+    }
+
+    if (query.dateTo) {
+      queryBuilder.andWhere('usage.timestamp <= :dateTo', {
+        dateTo: query.dateTo,
+      });
+    }
+
+    queryBuilder.orderBy('usage.timestamp', 'DESC');
+
+    const [data, total] = await queryBuilder
+      .skip((query.page - 1) * query.limit)
+      .take(query.limit)
+      .getManyAndCount();
+
+    // Calculate total spent
+    const totalSpent = await this.usageLedgerRepository
+      .createQueryBuilder('usage')
+      .select('SUM(usage.amountDeducted)', 'total')
+      .where('usage.userId = :userId', { userId })
+      .getRawOne();
+
+    return {
+      data,
+      total,
+      page: query.page,
+      limit: query.limit,
+      totalPages: Math.ceil(total / query.limit),
+      totalSpent: parseFloat(totalSpent?.total || '0'),
+      currentBalance: wallet.creditBalance,
+    };
+  }
+}
+```
+
+### Refund Service with Wallet Integration
+
+```typescript
+// refund-backoffice.service.ts (Wallet-connected version)
+async processRefund(
+  refundId: string,
+  dto: ProcessRefundDto,
+  adminId: string,
+): Promise<Refund> {
+  const refund = await this.refundRepository.findOne({
+    where: { id: refundId },
+    relations: ['paymentTransaction', 'paymentTransaction.wallet'],
+  });
+
+  // ... validation ...
+
+  // Process refund via gateway
+  const refundResult = await this.paymentService.refundPayment(
+    refund.paymentTransaction.provider,
+    refund.paymentTransaction.providerTransactionId,
+    refund.amount,
+  );
+
+  refund.status = RefundStatus.PROCESSED;
+  refund.providerRefundId = refundResult.refundId;
+
+  // WALLET CONNECTION: If refunding a top-up, deduct from wallet
+  if (refund.paymentTransaction.type === PaymentType.TOP_UP) {
+    const wallet = refund.paymentTransaction.wallet;
+    const balanceBefore = wallet.creditBalance;
+
+    // Deduct refunded amount from wallet
+    wallet.creditBalance -= refund.amount;
+    const balanceAfter = wallet.creditBalance;
+
+    await this.walletRepository.save(wallet);
+
+    // Create wallet transaction for refund
+    await this.walletTransactionRepository.save({
+      walletId: wallet.id,
+      userId: wallet.userId,
+      type: TransactionType.DEBIT,
+      amount: refund.amount,
+      currency: refund.currency,
+      balanceBefore,
+      balanceAfter,
+      status: TransactionStatus.COMPLETED,
+      description: `Refund for payment ${refund.paymentTransactionId}`,
+      relatedRefundId: refund.id,
+      relatedPaymentTransactionId: refund.paymentTransactionId,
+    });
+  }
+
+  // WALLET CONNECTION: If refunding a usage action, credit wallet back
+  if (refund.paymentTransaction.type === PaymentType.USAGE) {
+    const usageLedger = await this.usageLedgerRepository.findOne({
+      where: { id: refund.relatedUsageId },
+      relations: ['user'],
+    });
+
+    if (usageLedger) {
+      const wallet = await this.getOrCreateWallet(usageLedger.userId);
+      const balanceBefore = wallet.creditBalance;
+
+      // Credit wallet back
+      wallet.creditBalance += refund.amount;
+      const balanceAfter = wallet.creditBalance;
+
+      await this.walletRepository.save(wallet);
+
+      // Create wallet transaction
+      await this.walletTransactionRepository.save({
+        walletId: wallet.id,
+        userId: wallet.userId,
+        type: TransactionType.CREDIT,
+        amount: refund.amount,
+        currency: refund.currency,
+        balanceBefore,
+        balanceAfter,
+        status: TransactionStatus.COMPLETED,
+        description: `Refund for ${usageLedger.action.actionName}`,
+        relatedRefundId: refund.id,
+        relatedUsageLedgerId: usageLedger.id,
+      });
+    }
+  }
+
+  await this.refundRepository.save(refund);
+  return refund;
+}
+```
+
+### Billing Statistics with Wallet Context
+
+```typescript
+// billing-backoffice.service.ts
+async getStatistics(query: BillingStatsQueryDto) {
+  // Wallet-related statistics
+  const [
+    totalWallets,
+    totalBalance,
+    totalTopUps,
+    totalUsage,
+    walletDistribution,
+  ] = await Promise.all([
+    // Total wallets
+    this.walletRepository.count(),
+
+    // Total balance across all wallets
+    this.walletRepository
+      .createQueryBuilder('wallet')
+      .select('SUM(wallet.creditBalance)', 'total')
+      .getRawOne(),
+
+    // Total money in (top-ups)
+    this.paymentTransactionRepository
+      .createQueryBuilder('payment')
+      .select('SUM(payment.amount)', 'total')
+      .where('payment.type = :type', { type: PaymentType.TOP_UP })
+      .andWhere('payment.status = :status', { status: PaymentStatus.COMPLETED })
+      .getRawOne(),
+
+    // Total money out (usage)
+    this.usageLedgerRepository
+      .createQueryBuilder('usage')
+      .select('SUM(usage.amountDeducted)', 'total')
+      .getRawOne(),
+
+    // Wallet balance distribution
+    this.walletRepository
+      .createQueryBuilder('wallet')
+      .select('CASE')
+      .addSelect('WHEN wallet.creditBalance = 0 THEN \'zero\'')
+      .addSelect('WHEN wallet.creditBalance < 10 THEN \'low\'')
+      .addSelect('WHEN wallet.creditBalance < 50 THEN \'medium\'')
+      .addSelect('ELSE \'high\' END', 'range')
+      .addSelect('COUNT(*)', 'count')
+      .groupBy('range')
+      .getRawMany(),
+  ]);
+
+  return {
+    wallets: {
+      total: totalWallets,
+      totalBalance: parseFloat(totalBalance?.total || '0'),
+      distribution: walletDistribution,
+    },
+    revenue: {
+      totalTopUps: parseFloat(totalTopUps?.total || '0'),
+      totalUsage: parseFloat(totalUsage?.total || '0'),
+      netRevenue: parseFloat(totalTopUps?.total || '0') - parseFloat(totalUsage?.total || '0'),
+    },
+    // ... other stats
+  };
+}
+```
+
+## Summary: All Back Office APIs Connect to Wallet
+
+| Back Office API        | Wallet Connection | How It Works                                                            |
+| ---------------------- | ----------------- | ----------------------------------------------------------------------- |
+| **Billable Actions**   | Indirect          | Sets prices → Controls how much is deducted from wallet                 |
+| **Wallet Management**  | Direct            | Adjusts `creditBalance`, views transactions, usage history              |
+| **Refund Management**  | Direct            | Refunds top-ups → Deducts from wallet<br>Refunds usage → Credits wallet |
+| **Billing Management** | Direct            | Views all transactions that affect wallet (top-ups, usage, adjustments) |
+
+Everything flows through the wallet:
+
+- Money IN: Payment transactions → Wallet
+- Money OUT: Usage ledger → Wallet
+- Admin control: Adjustments → Wallet
+- Refunds: Reverse transactions → Wallet
+
+The wallet is the single source of truth for user credits. All Back Office operations either read from or modify the wallet.
+
+Creating an ERD for the wallet-based subscription system:
+
+[4 tools called]
+
+ERD for the wallet-based subscription system:
+
+## Entity Relationship Diagram (ERD)
 
 ```mermaid
-flowchart TD
-    Start([Candidate wants to upgrade]) --> CheckCurrent[Check current plan]
-    CheckCurrent --> GetUpgradeOptions[Get available upgrade plans]
-    GetUpgradeOptions --> DisplayUpgrades[Display upgrade options]
-    DisplayUpgrades --> SelectUpgrade[Select new plan]
-    SelectUpgrade --> CalculateProration[Calculate prorated amount]
-    CalculateProration --> ShowPricing[Show prorated pricing:<br/>- Remaining days credit<br/>- New plan cost<br/>- Amount to pay]
-    ShowPricing --> ConfirmUpgrade{Confirm<br/>upgrade?}
+erDiagram
+    %% Core User Entity (Existing)
+    User ||--o| UserWallet : "has one"
+    User ||--o{ PaymentMethod : "has many"
+    User ||--o{ UsageLedger : "performs"
+    User ||--o{ PaymentTransaction : "makes"
+    User ||--o{ Refund : "requests"
+    User ||--o| CandidateProfile : "has one"
+    User ||--o{ OrganizationMembership : "belongs to"
 
-    ConfirmUpgrade -->|No| End1([End])
-    ConfirmUpgrade -->|Yes| ProcessPayment[Process payment for difference]
-    ProcessPayment --> PaymentSuccess{Payment<br/>successful?}
+    %% Wallet System
+    UserWallet ||--o{ WalletTransaction : "has many"
+    UserWallet ||--o{ PaymentTransaction : "receives"
+    UserWallet {
+        uuid id PK
+        uuid userId FK "UNIQUE"
+        decimal creditBalance "default 0"
+        varchar currency "default USD"
+        varchar stripeCustomerId "nullable"
+        varchar paymentMethodId "nullable"
+        boolean autoTopUpEnabled "default false"
+        decimal autoTopUpThreshold "nullable"
+        decimal autoTopUpAmount "nullable"
+        timestamp createdAt
+        timestamp updatedAt
+    }
 
-    PaymentSuccess -->|No| ShowError[Show payment error]
-    ShowError --> End2([End])
+    %% Billable Actions (Pricing)
+    BillableAction ||--o{ UsageLedger : "used in"
+    BillableAction {
+        uuid id PK
+        varchar actionCode "UNIQUE"
+        varchar actionName
+        text description "nullable"
+        enum category "recruiter|candidate|both"
+        decimal cost
+        varchar currency "default USD"
+        boolean isActive "default true"
+        jsonb metadata "nullable"
+        timestamp createdAt
+        timestamp updatedAt
+    }
 
-    PaymentSuccess -->|Yes| UpdateSubscription[Update subscription plan]
-    UpdateSubscription --> AdjustDates[Adjust end date if needed]
-    AdjustDates --> GrantNewFeatures[Grant new feature access]
-    GrantNewFeatures --> RevokeOldFeatures[Revoke old plan features if needed]
-    RevokeOldFeatures --> CreateInvoice[Create invoice for upgrade]
-    CreateInvoice --> SendNotification[Send upgrade confirmation]
-    SendNotification --> End3([End - Upgraded])
+    %% Usage Ledger (Money OUT)
+    UsageLedger }o--|| User : "charged to"
+    UsageLedger }o--|| BillableAction : "for action"
+    UsageLedger {
+        uuid id PK
+        uuid userId FK
+        uuid actionId FK
+        decimal amountDeducted
+        varchar currency
+        decimal balanceBefore
+        decimal balanceAfter
+        uuid userProfileId "nullable"
+        uuid organizationId "nullable"
+        uuid relatedEntityId "nullable"
+        varchar relatedEntityType "nullable"
+        jsonb metadata "nullable"
+        timestamp timestamp
+        timestamp createdAt
+        timestamp updatedAt
+    }
+
+    %% Wallet Transactions (Internal Ledger)
+    WalletTransaction }o--|| UserWallet : "belongs to"
+    WalletTransaction }o--o| PaymentTransaction : "from payment"
+    WalletTransaction }o--o| UsageLedger : "from usage"
+    WalletTransaction }o--o| Refund : "from refund"
+    WalletTransaction {
+        uuid id PK
+        uuid walletId FK
+        uuid userId FK
+        enum type "credit|debit|refund|adjustment"
+        decimal amount
+        varchar currency
+        decimal balanceBefore
+        decimal balanceAfter
+        enum status "pending|completed|failed|cancelled"
+        varchar description "nullable"
+        uuid relatedPaymentTransactionId "nullable"
+        uuid relatedUsageLedgerId "nullable"
+        uuid relatedRefundId "nullable"
+        jsonb metadata "nullable"
+        timestamp createdAt
+        timestamp updatedAt
+    }
+
+    %% Payment Transactions (Money IN)
+    PaymentTransaction }o--|| UserWallet : "credits"
+    PaymentTransaction }o--|| User : "paid by"
+    PaymentTransaction }o--o| PaymentMethod : "via method"
+    PaymentTransaction ||--o{ Refund : "can be refunded"
+    PaymentTransaction {
+        uuid id PK
+        uuid walletId FK
+        uuid userId FK
+        varchar provider "stripe|paypal|momo|vnpay"
+        varchar providerPaymentId
+        varchar providerTransactionId "nullable"
+        enum paymentMethod "credit_card|debit_card|paypal|momo|etc"
+        uuid paymentMethodId "nullable"
+        decimal amount
+        varchar currency
+        enum status "pending|processing|completed|failed|cancelled|refunded"
+        enum type "top_up|refund|adjustment"
+        text description "nullable"
+        jsonb providerResponse "nullable"
+        jsonb metadata "nullable"
+        timestamp completedAt "nullable"
+        timestamp failedAt "nullable"
+        text failureReason "nullable"
+        timestamp createdAt
+        timestamp updatedAt
+    }
+
+    %% Payment Methods
+    PaymentMethod }o--|| User : "belongs to"
+    PaymentMethod {
+        uuid id PK
+        uuid userId FK
+        enum type "credit_card|debit_card|digital_wallet|e_wallet|bank_account"
+        varchar provider "stripe|paypal|momo|vnpay"
+        varchar providerCode
+        varchar displayName "nullable"
+        jsonb metadata "nullable"
+        boolean isActive "default true"
+        boolean isDefault "default false"
+        timestamp lastUsedAt "nullable"
+        timestamp createdAt
+        timestamp updatedAt
+    }
+
+    %% Refunds
+    Refund }o--|| User : "requested by"
+    Refund }o--|| PaymentTransaction : "refunds"
+    Refund }o--o| UsageLedger : "can refund usage"
+    Refund {
+        uuid id PK
+        uuid userId FK
+        uuid paymentTransactionId FK
+        decimal amount
+        varchar currency
+        enum status "pending|approved|rejected|processed|failed|reversed"
+        text reason "nullable"
+        text adminNotes "nullable"
+        uuid processedBy "nullable"
+        timestamp processedAt "nullable"
+        varchar providerRefundId "nullable"
+        uuid relatedUsageLedgerId "nullable"
+        jsonb metadata "nullable"
+        timestamp createdAt
+        timestamp updatedAt
+    }
+
+    %% Existing Entities (Referenced)
+    CandidateProfile {
+        uuid id PK
+        uuid userId FK "UNIQUE"
+        text email "nullable"
+        text phone "nullable"
+        text address "nullable"
+        varchar city "nullable"
+        varchar country "nullable"
+        jsonb socialLinks "nullable"
+        enum completionStatus
+        integer completionPercentage
+        text_array skills
+        text_array languages
+        timestamp createdAt
+        timestamp updatedAt
+    }
+
+    Organization {
+        uuid id PK
+        varchar name
+        varchar slug "UNIQUE"
+        text description "nullable"
+        varchar website "nullable"
+        varchar logo "nullable"
+        boolean isVerified "default false"
+        timestamp createdAt
+        timestamp updatedAt
+    }
+
+    OrganizationMembership {
+        uuid id PK
+        uuid userId FK
+        uuid organizationId FK
+        enum role "owner|admin|member"
+        enum status "active|inactive|suspended"
+        timestamp createdAt
+        timestamp updatedAt
+    }
 ```
 
-#### UC-C4: Candidate Cancels Subscription
+## Detailed ERD with Relationships
+
+### Relationship Summary
+
+| Relationship                               | Type        | Description                                  |
+| ------------------------------------------ | ----------- | -------------------------------------------- |
+| **User → UserWallet**                      | One-to-One  | Each user has exactly one wallet             |
+| **User → PaymentMethod**                   | One-to-Many | User can have multiple saved payment methods |
+| **User → UsageLedger**                     | One-to-Many | User performs many billable actions          |
+| **User → PaymentTransaction**              | One-to-Many | User makes multiple payments                 |
+| **User → Refund**                          | One-to-Many | User can request multiple refunds            |
+| **UserWallet → WalletTransaction**         | One-to-Many | Wallet has many transaction records          |
+| **UserWallet → PaymentTransaction**        | One-to-Many | Wallet receives multiple payments            |
+| **BillableAction → UsageLedger**           | One-to-Many | Action can be used many times                |
+| **PaymentTransaction → Refund**            | One-to-Many | Payment can have multiple refunds            |
+| **PaymentTransaction → WalletTransaction** | One-to-One  | Payment creates one wallet transaction       |
+| **UsageLedger → WalletTransaction**        | One-to-One  | Usage creates one wallet transaction         |
+| **Refund → WalletTransaction**             | One-to-One  | Refund creates one wallet transaction        |
+
+## Visual Flow Diagram
 
 ```mermaid
-flowchart TD
-    Start([Candidate wants to cancel]) --> CheckSubscription{Has active<br/>subscription?}
-    CheckSubscription -->|No| NoSubscription[Show: No active subscription]
-    NoSubscription --> End1([End])
+flowchart TB
+    subgraph "User & Profiles"
+        U[User]
+        CP[CandidateProfile]
+        OM[OrganizationMembership]
+    end
 
-    CheckSubscription -->|Yes| ShowCancelOptions[Show cancellation options:<br/>- Cancel immediately<br/>- Cancel at period end]
-    ShowCancelOptions --> SelectOption[Select cancellation option]
-    SelectOption --> EnterReason[Enter cancellation reason<br/>optional]
-    EnterReason --> ConfirmCancel{Confirm<br/>cancellation?}
+    subgraph "Wallet System"
+        UW[UserWallet<br/>creditBalance]
+    end
 
-    ConfirmCancel -->|No| End2([End])
-    ConfirmCancel -->|Yes| CheckOption{Cancellation<br/>type?}
+    subgraph "Money IN"
+        PT[PaymentTransaction<br/>TOP_UP]
+        PM[PaymentMethod]
+    end
 
-    CheckOption -->|Immediate| CancelNow[Set status to CANCELLED]
-    CancelNow --> RevokeAccess[Revoke feature access immediately]
-    RevokeAccess --> CalculateRefund[Calculate prorated refund]
-    CalculateRefund --> ProcessRefund[Process refund if applicable]
-    ProcessRefund --> UpdateAutoRenew[Disable auto-renew]
-    UpdateAutoRenew --> SendCancellation[Send cancellation email]
-    SendCancellation --> End3([End - Cancelled])
+    subgraph "Money OUT"
+        UL[UsageLedger<br/>Action Usage]
+        BA[BillableAction<br/>Pricing]
+    end
 
-    CheckOption -->|End of Period| SetCancellation[Set cancellation flag]
-    SetCancellation --> KeepAccess[Keep access until end date]
-    KeepAccess --> UpdateAutoRenew2[Disable auto-renew]
-    UpdateAutoRenew2 --> ScheduleRevoke[Schedule access revocation]
-    ScheduleRevoke --> SendNotice[Send cancellation notice]
-    SendNotice --> End4([End - Scheduled Cancellation])
+    subgraph "Internal Ledger"
+        WT[WalletTransaction<br/>CREDIT/DEBIT]
+    end
+
+    subgraph "Refunds"
+        R[Refund]
+    end
+
+    U -->|1:1| UW
+    U -->|1:N| PM
+    U -->|1:N| PT
+    U -->|1:N| UL
+    U -->|1:N| R
+    U -->|1:1| CP
+    U -->|1:N| OM
+
+    PM -->|used for| PT
+    PT -->|credits| UW
+    PT -->|creates| WT
+    PT -->|can be| R
+
+    BA -->|defines cost| UL
+    UL -->|debits| UW
+    UL -->|creates| WT
+
+    R -->|refunds| PT
+    R -->|creates| WT
+    R -->|can credit| UW
+
+    UW -->|tracks| WT
 ```
 
-#### UC-C5: Candidate Views Subscription Details
+## Key Design Points
 
-```mermaid
-flowchart TD
-    Start([Candidate views subscription]) --> RequestDetails[Request subscription details]
-    RequestDetails --> FetchSubscription[Fetch subscription from DB]
-    FetchSubscription --> CheckExists{Subscription<br/>exists?}
+1. User-centric: All billing flows through the User → UserWallet relationship.
+2. Audit trail: WalletTransaction records all balance changes.
+3. Flexible billing: BillableAction defines pricing; UsageLedger records usage.
+4. Multi-provider payments: PaymentTransaction supports multiple gateways.
+5. Refund support: Refund can reverse payments and usage.
+6. Profile tracking: UsageLedger can link to CandidateProfile or Organization.
 
-    CheckExists -->|No| ShowFreeTier[Show free tier status]
-    ShowFreeTier --> End1([End])
+## Database Indexes Recommended
 
-    CheckExists -->|Yes| LoadDetails[Load subscription details:<br/>- Plan name & features<br/>- Start/end dates<br/>- Status<br/>- Auto-renew status]
-    LoadDetails --> FetchUsage[Fetch usage statistics]
-    FetchUsage --> FetchInvoices[Fetch invoice history]
-    FetchInvoices --> FetchPayments[Fetch payment history]
-    FetchPayments --> CompileData[Compile all data]
-    CompileData --> DisplayDetails[Display subscription dashboard:<br/>- Current plan info<br/>- Usage vs limits<br/>- Billing history<br/>- Next billing date]
-    DisplayDetails --> End2([End])
+```sql
+-- Performance indexes
+CREATE INDEX idx_user_wallet_user_id ON user_wallets(user_id);
+CREATE INDEX idx_usage_ledger_user_id ON usage_ledger(user_id);
+CREATE INDEX idx_usage_ledger_action_id ON usage_ledger(action_id);
+CREATE INDEX idx_usage_ledger_timestamp ON usage_ledger(timestamp);
+CREATE INDEX idx_wallet_transaction_wallet_id ON wallet_transactions(wallet_id);
+CREATE INDEX idx_wallet_transaction_user_id ON wallet_transactions(user_id);
+CREATE INDEX idx_payment_transaction_user_id ON payment_transactions(user_id);
+CREATE INDEX idx_payment_transaction_wallet_id ON payment_transactions(wallet_id);
+CREATE INDEX idx_payment_transaction_status ON payment_transactions(status);
+CREATE INDEX idx_refund_user_id ON refunds(user_id);
+CREATE INDEX idx_refund_status ON refunds(status);
+CREATE INDEX idx_billable_action_code ON billable_actions(action_code);
+CREATE INDEX idx_billable_action_active ON billable_actions(is_active);
 ```
 
-#### UC-C6: Candidate Applies for Job (with Subscription Check)
-
-```mermaid
-flowchart TD
-    Start([Candidate applies for job]) --> CheckAuth{Authenticated?}
-    CheckAuth -->|No| Login[Redirect to login]
-    Login --> End1([End])
-
-    CheckAuth -->|Yes| SelectJob[Select job to apply]
-    SelectJob --> CheckFeature[Check subscription feature:<br/>job_applications]
-    CheckFeature --> GetSubscription[Get active subscription]
-    GetSubscription --> CheckLimit{Has remaining<br/>applications?}
-
-    CheckLimit -->|No| ShowLimitReached[Show limit reached message:<br/>"You've used all applications this month.<br/>Upgrade to continue applying"]
-    ShowLimitReached --> ShowUpgrade[Show upgrade options]
-    ShowUpgrade --> End2([End])
-
-    CheckLimit -->|Yes| ProceedApplication[Proceed with application]
-    ProceedApplication --> CreateApplication[Create job application]
-    CreateApplication --> IncrementUsage[Increment usage counter]
-    IncrementUsage --> ShowRemaining[Show remaining applications]
-    ShowRemaining --> Success[Application submitted successfully]
-    Success --> End3([End])
-```
-
-#### UC-C7: Candidate Uses CV Enhancement (with Subscription Check)
-
-```mermaid
-flowchart TD
-    Start([Candidate enhances CV]) --> SelectCV[Select CV to enhance]
-    SelectCV --> CheckFeature[Check subscription feature:<br/>cv_enhancements]
-    CheckFeature --> GetSubscription[Get active subscription]
-    GetSubscription --> CheckLimit{Has remaining<br/>enhancements?}
-
-    CheckLimit -->|No| ShowLimitReached[Show limit reached:<br/>"CV enhancement limit reached.<br/>Upgrade for more"]
-    ShowLimitReached --> ShowUpgrade[Show upgrade options]
-    ShowUpgrade --> End1([End])
-
-    CheckLimit -->|Yes| UploadCV[Upload CV file]
-    UploadCV --> ProcessEnhancement[Process AI enhancement]
-    ProcessEnhancement --> GenerateSuggestions[Generate improvement suggestions]
-    GenerateSuggestions --> IncrementUsage[Increment usage counter]
-    IncrementUsage --> ShowResults[Show enhanced CV with suggestions]
-    ShowResults --> ShowRemaining[Show remaining enhancements]
-    ShowRemaining --> End2([End])
-```
-
-#### UC-C8: Candidate Uses Mock AI Interview (with Subscription Check)
-
-```mermaid
-flowchart TD
-    Start([Candidate starts mock interview]) --> SelectType[Select interview type]
-    SelectType --> CheckFeature[Check subscription feature:<br/>mock_interviews]
-    CheckFeature --> GetSubscription[Get active subscription]
-    GetSubscription --> CheckLimit{Has remaining<br/>sessions?}
-
-    CheckLimit -->|No| ShowLimitReached[Show limit reached:<br/>"Interview limit reached.<br/>Upgrade for unlimited sessions"]
-    ShowLimitReached --> ShowUpgrade[Show upgrade options]
-    ShowUpgrade --> End1([End])
-
-    CheckLimit -->|Yes| CheckAdvanced{Premium plan?}
-    CheckAdvanced -->|No| BasicInterview[Start basic interview]
-    CheckAdvanced -->|Yes| AdvancedInterview[Start advanced interview<br/>with detailed feedback]
-
-    BasicInterview --> ConductInterview[Conduct AI interview]
-    AdvancedInterview --> ConductInterview
-    ConductInterview --> GenerateFeedback[Generate feedback]
-    GenerateFeedback --> CheckFeedbackLevel{Advanced<br/>feedback?}
-
-    CheckFeedbackLevel -->|Yes| DetailedFeedback[Provide detailed analysis:<br/>- Per-question scores<br/>- Improvement areas<br/>- Personalized tips]
-    CheckFeedbackLevel -->|No| BasicFeedback[Provide basic feedback]
-
-    DetailedFeedback --> IncrementUsage
-    BasicFeedback --> IncrementUsage
-    IncrementUsage[Increment usage counter]
-    IncrementUsage --> ShowResults[Show interview results]
-    ShowResults --> ShowRemaining[Show remaining sessions]
-    ShowRemaining --> End2([End])
-```
-
-#### UC-C9: Candidate Views Usage Statistics
-
-```mermaid
-flowchart TD
-    Start([Candidate views usage]) --> RequestUsage[Request usage statistics]
-    RequestUsage --> GetSubscription[Get active subscription]
-    GetSubscription --> CheckExists{Subscription<br/>exists?}
-
-    CheckExists -->|No| ShowFreeLimits[Show free tier limits]
-    ShowFreeLimits --> End1([End])
-
-    CheckExists -->|Yes| FetchUsage[Fetch all feature usage]
-    FetchUsage --> CalculateStats[Calculate statistics:<br/>- Used vs limits per feature<br/>- Percentage used<br/>- Days remaining in period<br/>- Reset date]
-    CalculateStats --> FormatData[Format usage data]
-    FormatData --> DisplayUsage[Display usage dashboard:<br/>- Job applications: X/Y<br/>- CV enhancements: X/Y<br/>- Mock interviews: X/Y<br/>- Progress bars]
-    DisplayUsage --> ShowWarnings{Any limits<br/>approaching?}
-
-    ShowWarnings -->|Yes| ShowAlerts[Show warning alerts]
-    ShowAlerts --> ShowUpgrade[Suggest upgrade if near limit]
-    ShowUpgrade --> End2([End])
-
-    ShowWarnings -->|No| End2
-```
-
----
-
-### RECRUITER/EMPLOYER USE CASES
-
-#### UC-R1: Recruiter Views Subscription Plans
-
-```mermaid
-flowchart TD
-    Start([Recruiter views plans]) --> CheckOrg{Has organization?}
-    CheckOrg -->|No| CreateOrg[Prompt to create organization]
-    CreateOrg --> End1([End])
-
-    CheckOrg -->|Yes| RequestPlans[Request subscription plans]
-    RequestPlans --> GetPlans[System fetches active plans]
-    GetPlans --> FilterPlans[Filter plans for employers]
-    FilterPlans --> CheckCurrent[Check organization subscription]
-    CheckCurrent --> DisplayPlans[Display plans with:<br/>- Name & price<br/>- Feature comparison<br/>- Team member limits<br/>- Current plan highlighted]
-    DisplayPlans --> End2([End])
-```
-
-#### UC-R2: Recruiter Subscribes Organization to Plan
-
-```mermaid
-flowchart TD
-    Start([Recruiter subscribes organization]) --> CheckOrg{Has organization<br/>permission?}
-    CheckOrg -->|No| NoPermission[Show: No organization access]
-    NoPermission --> End1([End])
-
-    CheckOrg -->|Yes| SelectPlan[Select subscription plan]
-    SelectPlan --> CheckExisting{Has active<br/>subscription?}
-
-    CheckExisting -->|Yes| ShowWarning[Show warning:<br/>Current subscription will be replaced]
-    ShowWarning --> ConfirmReplace{Confirm<br/>replacement?}
-    ConfirmReplace -->|No| End2([End])
-    ConfirmReplace -->|Yes| CalculateProration[Calculate prorated refund/charge]
-
-    CheckExisting -->|No| SelectBilling[Select billing period:<br/>Monthly/Yearly]
-
-    CalculateProration --> SelectBilling
-    SelectBilling --> EnterPayment[Enter payment details]
-    EnterPayment --> ValidatePayment{Payment valid?}
-
-    ValidatePayment -->|No| ShowError[Show payment error]
-    ShowError --> EnterPayment
-
-    ValidatePayment -->|Yes| ProcessPayment[Process payment via gateway]
-    ProcessPayment --> PaymentSuccess{Payment<br/>successful?}
-
-    PaymentSuccess -->|No| ShowFailure[Show payment failure]
-    ShowFailure --> End3([End])
-
-    PaymentSuccess -->|Yes| CreateSubscription[Create subscription for organization]
-    CreateSubscription --> SetDates[Set start/end dates]
-    SetDates --> GrantAccess[Grant feature access to organization]
-    GrantAccess --> CreateInvoice[Create invoice]
-    CreateInvoice --> SendConfirmation[Send confirmation email]
-    SendConfirmation --> NotifyTeam[Notify organization members]
-    NotifyTeam --> End4([End - Subscription Active])
-```
-
-#### UC-R3: Recruiter Posts Job (with Subscription Check)
-
-```mermaid
-flowchart TD
-    Start([Recruiter posts job]) --> CheckOrg{Has organization?}
-    CheckOrg -->|No| CreateOrg[Prompt to create organization]
-    CreateOrg --> End1([End])
-
-    CheckOrg -->|Yes| FillJobForm[Fill job posting form]
-    FillJobForm --> CheckFeature[Check subscription feature:<br/>job_postings]
-    CheckFeature --> GetSubscription[Get organization subscription]
-    GetSubscription --> CheckLimit{Has remaining<br/>job slots?}
-
-    CheckLimit -->|No| ShowLimitReached[Show limit reached:<br/>"Job posting limit reached.<br/>Upgrade to post more jobs"]
-    ShowLimitReached --> ShowUpgrade[Show upgrade options]
-    ShowUpgrade --> End2([End])
-
-    CheckLimit -->|Yes| ValidateJob{Job data<br/>valid?}
-    ValidateJob -->|No| ShowErrors[Show validation errors]
-    ShowErrors --> FillJobForm
-
-    ValidateJob -->|Yes| CreateJob[Create job posting]
-    CreateJob --> IncrementUsage[Increment usage counter]
-    IncrementUsage --> ShowRemaining[Show remaining job slots]
-    ShowRemaining --> Success[Job posted successfully]
-    Success --> End3([End])
-```
-
-#### UC-R4: Recruiter Searches Candidates (with Subscription Check)
-
-```mermaid
-flowchart TD
-    Start([Recruiter searches candidates]) --> EnterSearch[Enter search criteria]
-    EnterSearch --> CheckFeature[Check subscription feature:<br/>candidate_searches]
-    CheckFeature --> GetSubscription[Get organization subscription]
-    GetSubscription --> CheckLimit{Has remaining<br/>searches?}
-
-    CheckLimit -->|No| ShowLimitReached[Show limit reached:<br/>"Search limit reached this month.<br/>Upgrade for more searches"]
-    ShowLimitReached --> ShowUpgrade[Show upgrade options]
-    ShowUpgrade --> End1([End])
-
-    CheckLimit -->|Yes| CheckAdvanced{Has advanced<br/>filters?}
-    CheckAdvanced -->|No| BasicSearch[Perform basic search]
-    CheckAdvanced -->|Yes| CheckAIFeature{Has AI<br/>matching?}
-
-    CheckAIFeature -->|Yes| AISearch[Perform AI-powered search<br/>with semantic matching]
-    CheckAIFeature -->|No| AdvancedSearch[Perform advanced filtered search]
-
-    BasicSearch --> ExecuteSearch[Execute candidate search]
-    AdvancedSearch --> ExecuteSearch
-    AISearch --> ExecuteSearch
-
-    ExecuteSearch --> GetResults[Get search results]
-    GetResults --> IncrementUsage[Increment usage counter]
-    IncrementUsage --> ShowResults[Display candidate results]
-    ShowResults --> ShowRemaining[Show remaining searches]
-    ShowRemaining --> End2([End])
-```
-
-#### UC-R5: Recruiter Accesses Hiring Analytics (with Subscription Check)
-
-```mermaid
-flowchart TD
-    Start([Recruiter views analytics]) --> CheckFeature[Check subscription feature:<br/>hiring_analytics]
-    CheckFeature --> GetSubscription[Get organization subscription]
-    CheckSubscription --> CheckEnabled{Analytics<br/>enabled?}
-
-    CheckEnabled -->|No| ShowUpgrade[Show upgrade message:<br/>"Upgrade to access hiring analytics"]
-    ShowUpgrade --> End1([End])
-
-    CheckEnabled -->|Yes| RequestAnalytics[Request analytics data]
-    RequestAnalytics --> CheckHistoryDays{Check history<br/>days limit}
-    CheckHistoryDays --> GetData[Get analytics data within limit]
-    GetData --> CheckCustomReports{Custom reports<br/>enabled?}
-
-    CheckCustomReports -->|Yes| AllowCustom[Allow custom report creation]
-    CheckCustomReports -->|No| BasicReports[Show basic reports only]
-
-    AllowCustom --> GenerateAnalytics[Generate analytics dashboard]
-    BasicReports --> GenerateAnalytics
-    GenerateAnalytics --> DisplayAnalytics[Display analytics:<br/>- Conversion rates<br/>- Time to hire<br/>- Source effectiveness<br/>- Pipeline metrics]
-    DisplayAnalytics --> End2([End])
-```
-
-#### UC-R6: Recruiter Uses AI Candidate Matching (with Subscription Check)
-
-```mermaid
-flowchart TD
-    Start([Recruiter uses AI matching]) --> SelectJob[Select job posting]
-    SelectJob --> CheckFeature[Check subscription feature:<br/>ai_candidate_matching]
-    CheckFeature --> GetSubscription[Get organization subscription]
-    GetSubscription --> CheckAIFeature{AI matching<br/>enabled?}
-
-    CheckAIFeature -->|No| ShowUpgrade[Show upgrade message:<br/>"Upgrade to access AI candidate matching"]
-    ShowUpgrade --> End1([End])
-
-    CheckAIFeature -->|Yes| RequestMatching[Request AI matching]
-    RequestMatching --> AnalyzeJob[Analyze job requirements]
-    AnalyzeJob --> SearchCandidates[Search candidate database]
-    SearchCandidates --> AIAnalysis[AI analyzes candidate profiles]
-    AIAnalysis --> CalculateScores[Calculate match scores]
-    CalculateScores --> GenerateExplanations[Generate match explanations]
-    GenerateExplanations --> DisplayMatches[Display matched candidates:<br/>- Match score<br/>- Explanation why they fit<br/>- Skills alignment<br/>- Experience match]
-    DisplayMatches --> End2([End])
-```
-
-#### UC-R7: Recruiter Adds Team Member (with Subscription Check)
-
-```mermaid
-flowchart TD
-    Start([Recruiter adds team member]) --> CheckPermission{Has admin<br/>permission?}
-    CheckPermission -->|No| NoPermission[Show: Admin permission required]
-    NoPermission --> End1([End])
-
-    CheckPermission -->|Yes| InviteMember[Invite team member]
-    InviteMember --> CheckFeature[Check subscription feature:<br/>team_members]
-    CheckFeature --> GetSubscription[Get organization subscription]
-    GetSubscription --> GetCurrentCount[Get current team member count]
-    GetCurrentCount --> CheckLimit{Under team<br/>member limit?}
-
-    CheckLimit -->|No| ShowLimitReached[Show limit reached:<br/>"Team member limit reached.<br/>Upgrade to add more members"]
-    ShowLimitReached --> ShowUpgrade[Show upgrade options]
-    ShowUpgrade --> End2([End])
-
-    CheckLimit -->|Yes| SendInvite[Send invitation email]
-    SendInvite --> WaitAcceptance{User accepts<br/>invitation?}
-
-    WaitAcceptance -->|No| InviteExpired[Invitation expires]
-    InviteExpired --> End3([End])
-
-    WaitAcceptance -->|Yes| AddMember[Add member to organization]
-    AddMember --> GrantAccess[Grant access based on role]
-    GrantAccess --> UpdateCount[Update team member count]
-    UpdateCount --> NotifyTeam[Notify organization members]
-    NotifyTeam --> End4([End])
-```
-
-#### UC-R8: Recruiter Upgrades Subscription
-
-```mermaid
-flowchart TD
-    Start([Recruiter upgrades plan]) --> CheckOrg{Has organization<br/>permission?}
-    CheckOrg -->|No| NoPermission[Show: Organization admin required]
-    NoPermission --> End1([End])
-
-    CheckOrg -->|Yes| CheckCurrent[Check current plan]
-    CheckCurrent --> GetUpgradeOptions[Get available upgrade plans]
-    GetUpgradeOptions --> DisplayUpgrades[Display upgrade options]
-    DisplayUpgrades --> SelectUpgrade[Select new plan]
-    SelectUpgrade --> CalculateProration[Calculate prorated amount]
-    CalculateProration --> ShowPricing[Show prorated pricing:<br/>- Remaining days credit<br/>- New plan cost<br/>- Amount to pay]
-    ShowPricing --> ConfirmUpgrade{Confirm<br/>upgrade?}
-
-    ConfirmUpgrade -->|No| End2([End])
-    ConfirmUpgrade -->|Yes| ProcessPayment[Process payment]
-    ProcessPayment --> PaymentSuccess{Payment<br/>successful?}
-
-    PaymentSuccess -->|No| ShowError[Show payment error]
-    ShowError --> End3([End])
-
-    PaymentSuccess -->|Yes| UpdateSubscription[Update organization subscription]
-    UpdateSubscription --> AdjustDates[Adjust end date if needed]
-    AdjustDates --> GrantNewFeatures[Grant new feature access]
-    GrantNewFeatures --> RevokeOldFeatures[Revoke old plan features if needed]
-    RevokeOldFeatures --> CreateInvoice[Create invoice]
-    CreateInvoice --> NotifyTeam[Notify all team members]
-    NotifyTeam --> End4([End - Upgraded])
-```
-
-#### UC-R9: Recruiter Views Subscription Usage
-
-```mermaid
-flowchart TD
-    Start([Recruiter views usage]) --> CheckOrg{Has organization<br/>permission?}
-    CheckOrg -->|No| NoPermission[Show: Organization access required]
-    NoPermission --> End1([End])
-
-    CheckOrg -->|Yes| RequestUsage[Request usage statistics]
-    RequestUsage --> GetSubscription[Get organization subscription]
-    GetSubscription --> CheckExists{Subscription<br/>exists?}
-
-    CheckExists -->|No| ShowFreeLimits[Show free tier limits]
-    ShowFreeLimits --> End2([End])
-
-    CheckExists -->|Yes| FetchUsage[Fetch all feature usage]
-    FetchUsage --> CalculateStats[Calculate statistics:<br/>- Job postings: X/Y<br/>- Candidate searches: X/Y<br/>- Team members: X/Y<br/>- AI features used]
-    CalculateStats --> FormatData[Format usage data]
-    FormatData --> DisplayUsage[Display usage dashboard:<br/>- Feature usage bars<br/>- Remaining limits<br/>- Team member count<br/>- Reset dates]
-    DisplayUsage --> ShowWarnings{Any limits<br/>approaching?}
-
-    ShowWarnings -->|Yes| ShowAlerts[Show warning alerts]
-    ShowAlerts --> ShowUpgrade[Suggest upgrade]
-    ShowUpgrade --> End3([End])
-
-    ShowWarnings -->|No| End3
-```
-
-#### UC-R10: Recruiter Cancels Organization Subscription
-
-```mermaid
-flowchart TD
-    Start([Recruiter cancels subscription]) --> CheckOrg{Has admin<br/>permission?}
-    CheckOrg -->|No| NoPermission[Show: Admin permission required]
-    NoPermission --> End1([End])
-
-    CheckOrg -->|Yes| CheckSubscription{Has active<br/>subscription?}
-    CheckSubscription -->|No| NoSubscription[Show: No active subscription]
-    NoSubscription --> End2([End])
-
-    CheckSubscription -->|Yes| ShowCancelOptions[Show cancellation options:<br/>- Cancel immediately<br/>- Cancel at period end]
-    ShowCancelOptions --> SelectOption[Select cancellation option]
-    SelectOption --> EnterReason[Enter cancellation reason]
-    EnterReason --> ConfirmCancel{Confirm<br/>cancellation?}
-
-    ConfirmCancel -->|No| End3([End])
-    ConfirmCancel -->|Yes| CheckOption{Cancellation<br/>type?}
-
-    CheckOption -->|Immediate| CancelNow[Set status to CANCELLED]
-    CancelNow --> RevokeAccess[Revoke all feature access]
-    RevokeAccess --> NotifyTeam[Notify all team members]
-    NotifyTeam --> CalculateRefund[Calculate prorated refund]
-    CalculateRefund --> ProcessRefund[Process refund if applicable]
-    ProcessRefund --> UpdateAutoRenew[Disable auto-renew]
-    UpdateAutoRenew --> SendCancellation[Send cancellation email]
-    SendCancellation --> End4([End - Cancelled])
-
-    CheckOption -->|End of Period| SetCancellation[Set cancellation flag]
-    SetCancellation --> KeepAccess[Keep access until end date]
-    KeepAccess --> UpdateAutoRenew2[Disable auto-renew]
-    UpdateAutoRenew2 --> ScheduleRevoke[Schedule access revocation]
-    ScheduleRevoke --> NotifyTeam2[Notify team of scheduled cancellation]
-    NotifyTeam2 --> End5([End - Scheduled Cancellation])
-```
-
----
-
-## Summary
-
-These diagrams cover:
-
-**Candidate Use Cases (9):**
-
-1. View plans
-2. Subscribe
-3. Upgrade
-4. Cancel
-5. View details
-6. Apply for job (with check)
-7. Use CV enhancement (with check)
-8. Use mock AI interview (with check)
-9. View usage statistics
-
-**Recruiter/Employer Use Cases (10):**
-
-1. View plans
-2. Subscribe organization
-3. Post job (with check)
-4. Search candidates (with check)
-5. Access hiring analytics (with check)
-6. Use AI candidate matching (with check)
-7. Add team member (with check)
-8. Upgrade subscription
-9. View usage statistics
-10. Cancel subscription
-
-Each diagram shows:
-
-- Decision points
-- Feature access checks
-- Usage tracking
-- Error handling
-- User notifications
-- Payment processing (where applicable)
-
-Add these to your `subscription.md` file. Should I create sequence diagrams for any specific use case?
+This ERD shows the wallet-based subscription system structure and relationships.

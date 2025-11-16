@@ -546,8 +546,15 @@ export class ApplicationService {
         appliedBefore: f.appliedBefore,
       });
     if (f.hasInterviews !== undefined) {
-      if (f.hasInterviews) qb.andWhere('application.totalInterviews > 0');
-      else qb.andWhere('application.totalInterviews = 0');
+      if (f.hasInterviews) {
+        qb.andWhere(
+          'EXISTS (SELECT 1 FROM interviews i WHERE i.applicationId = application.id)',
+        );
+      } else {
+        qb.andWhere(
+          'NOT EXISTS (SELECT 1 FROM interviews i WHERE i.applicationId = application.id)',
+        );
+      }
     }
     if (f.hasOffers !== undefined) {
       if (f.hasOffers) qb.andWhere('application.currentOfferId IS NOT NULL');

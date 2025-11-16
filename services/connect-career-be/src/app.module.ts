@@ -34,8 +34,11 @@ import winston from 'winston';
     WinstonModule.forRootAsync({
       imports: [ConfigModule],
       useFactory: (configService: ConfigService) => {
-        const isDevelopment = configService.get<string>('NODE_ENV') === 'development';
-        const logLevel = configService.get<string>('LOG_LEVEL') || (isDevelopment ? 'debug' : 'info');
+        const isDevelopment =
+          configService.get<string>('NODE_ENV') === 'development';
+        const logLevel =
+          configService.get<string>('LOG_LEVEL') ||
+          (isDevelopment ? 'debug' : 'info');
 
         return {
           level: logLevel,
@@ -54,7 +57,9 @@ import winston from 'winston';
                 winston.format.printf(
                   ({ timestamp, level, message, context, trace, ...meta }) => {
                     const contextStr = context ? `[${String(context)}]` : '';
-                    const metaStr = Object.keys(meta).length ? JSON.stringify(meta) : '';
+                    const metaStr = Object.keys(meta).length
+                      ? JSON.stringify(meta)
+                      : '';
                     return `${timestamp} ${level} ${contextStr} ${message} ${metaStr}`;
                   },
                 ),
@@ -138,5 +143,4 @@ export class AppModule {
   configure(consumer: MiddlewareConsumer) {
     consumer.apply(MorganMiddleware).forRoutes('*');
   }
-
 }

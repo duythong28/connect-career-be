@@ -130,7 +130,9 @@ export class IdentityController {
   @ApiBearerAuth()
   @ApiOperation({ summary: 'Logout from all devices' })
   @ApiResponse({ status: 200, description: 'Logged out from all devices' })
-  async logoutAll(@currentUserDecorator.CurrentUser() user: any): Promise<{ message: string }> {
+  async logoutAll(
+    @currentUserDecorator.CurrentUser() user: any,
+  ): Promise<{ message: string }> {
     await this.authService.logoutAllDevices(user.sub);
     return { message: 'Logged out from all devices' };
   }
@@ -143,7 +145,10 @@ export class IdentityController {
     description: 'User profile retrieved',
     type: UserProfileDto,
   })
-  async getProfile(@currentUserDecorator.CurrentUser() user: currentUserDecorator.CurrentUserPayload): Promise<UserProfileDto> {
+  async getProfile(
+    @currentUserDecorator.CurrentUser()
+    user: currentUserDecorator.CurrentUserPayload,
+  ): Promise<UserProfileDto> {
     const fullUser = await this.userRepository.findById(user.sub);
     if (!fullUser) {
       throw new NotFoundException('User not found');
@@ -300,7 +305,9 @@ export class IdentityController {
   @ApiBearerAuth()
   @ApiOperation({ summary: 'Disable MFA for user account' })
   @ApiResponse({ status: 200, description: 'MFA disabled successfully' })
-  async disableMfa(@currentUserDecorator.CurrentUser() user: any): Promise<{ message: string }> {
+  async disableMfa(
+    @currentUserDecorator.CurrentUser() user: any,
+  ): Promise<{ message: string }> {
     const fullUser = await this.userRepository.findById(user.sub);
     if (!fullUser) {
       throw new NotFoundException('User not found');

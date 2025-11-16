@@ -88,11 +88,11 @@ export class WalletService {
       };
     }
     const wallet = await this.getOrCreateWallet(userId);
-    
+
     // Convert to numbers to prevent string concatenation
     const currentBalance = parseFloat(String(wallet.creditBalance)) || 0;
     const actionCost = parseFloat(String(action.cost)) || 0;
-    
+
     if (currentBalance < actionCost) {
       return {
         success: false,
@@ -104,7 +104,7 @@ export class WalletService {
     const balanceBefore = currentBalance;
     wallet.creditBalance = balanceBefore - actionCost;
     const balanceAfter = wallet.creditBalance;
-    
+
     await this.walletRepository.save(wallet);
 
     const usage = this.usageLedgerRepository.create({

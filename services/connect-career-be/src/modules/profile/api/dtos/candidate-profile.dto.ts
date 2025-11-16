@@ -217,6 +217,11 @@ export class UpdateCertificationDto {
   @ApiPropertyOptional()
   @IsOptional()
   @IsString()
+  description?: string;
+
+  @ApiPropertyOptional()
+  @IsOptional()
+  @IsString()
   credentialId?: string;
 
   @ApiPropertyOptional()
@@ -236,6 +241,7 @@ export class UpdateAwardDto {
   title: string;
 
   @ApiProperty()
+  @IsOptional()
   @IsString()
   issuer: string;
 

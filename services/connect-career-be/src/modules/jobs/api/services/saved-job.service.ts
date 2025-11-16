@@ -52,13 +52,30 @@ export class SavedJobService {
       folderName,
     });
 
-    return this.savedJobRepository.save(savedJob);
+    const saved = await this.savedJobRepository.save(savedJob);
+
+    // Update savedByUserIds array in Job entity
+    if (!job.savedByUserIds) {
+      job.savedByUserIds = [];
+    }
+    if (!job.savedByUserIds.includes(userId)) {
+      job.savedByUserIds.push(userId);
+      await this.jobRepository.save(job);
+    }
+
+    return saved;
   }
 
   async unsaveJob(userId: string, jobId: string): Promise<void> {
     const result = await this.savedJobRepository.delete({ userId, jobId });
     if (result.affected === 0) {
       throw new NotFoundException('Saved job not found');
+    }
+
+    const job = await this.jobRepository.findOne({ where: { id: jobId } });
+    if (job && job.savedByUserIds) {
+      job.savedByUserIds = job.savedByUserIds.filter((id) => id !== userId);
+      await this.jobRepository.save(job);
     }
   }
 
@@ -92,6 +109,8 @@ export class SavedJobService {
       .createQueryBuilder('savedJob')
       .leftJoinAndSelect('savedJob.job', 'job')
       .leftJoinAndSelect('job.organization', 'organization')
+      .leftJoinAndSelect('organization.logoFile', 'logoFile')
+      .leftJoinAndSelect('organization.industry', 'industry')
       .where('savedJob.userId = :userId', { userId });
 
     if (folderName) {

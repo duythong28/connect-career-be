@@ -22,6 +22,7 @@ export enum JobType {
   OTHER = 'other',
 }
 export enum JobStatus {
+  DRAFT = 'draft',
   ACTIVE = 'active',
   PAUSED = 'paused',
   CLOSED = 'closed',
@@ -130,7 +131,7 @@ export class Job {
   @Column({
     type: 'enum',
     enum: JobStatus,
-    default: JobStatus.ACTIVE,
+    default: JobStatus.DRAFT,
   })
   @Index()
   status: JobStatus;
@@ -193,6 +194,9 @@ export class Job {
       url?: string;
     };
   };
+
+  @Column('simple-array', { nullable: true })
+  savedByUserIds?: string[];
 
   @ManyToOne(() => HiringPipeline, (pipeline) => pipeline.jobs, {
     nullable: true,

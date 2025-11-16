@@ -4,12 +4,14 @@ import {
   JoinTable,
   ManyToMany,
   OneToMany,
+  OneToOne,
   PrimaryGeneratedColumn,
 } from 'typeorm';
 import { Role } from './role.entity';
 import { UserSession } from './user-session.entity';
 import { MfaDevice } from './mfa-device.entity';
 import { OAuthAccount, AuthProvider } from './oauth-account.entity';
+import { CandidateProfile } from 'src/modules/profile/domain/entities/candidate-profile.entity';
 
 export enum UserStatus {
   ACTIVE = 'active',
@@ -133,6 +135,12 @@ export class User {
 
   @OneToMany(() => OAuthAccount, (account) => account.user)
   oauthAccounts: OAuthAccount[];
+
+  @OneToOne(() => CandidateProfile, (profile) => profile.user, {
+    nullable: true,
+    cascade: false,
+  })
+  candidateProfile?: CandidateProfile;
 
   // Computed properties
   get isActive(): boolean {

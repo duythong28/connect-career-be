@@ -76,6 +76,7 @@ export class CandidateProfileController {
   ) {
     return this.candidateProfileService.updateCandidateProfile(user.sub, dto);
   }
+
   @Get(':id')
   async getCandidateProfileById(@Param('id', ParseUUIDPipe) id: string) {
     return this.candidateProfileService.getCandidateProfileById(id);

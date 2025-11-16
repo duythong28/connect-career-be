@@ -177,6 +177,9 @@ export class ApplicationService {
     const cv = await this.cvRepository.findOne({
       where: { id: createDto.cvId },
     });
+    if (candidateProfile) {
+      application.candidateProfileId = candidateProfile.id;
+    }
     application.calculateMatcingScore(
       job,
       cv ?? undefined,
@@ -185,12 +188,18 @@ export class ApplicationService {
     application.updateCalculatedFields();
     return this.applicationRepository.save(application);
   }
+
   async getApplicationById(id: string): Promise<Application> {
     const qb = this.applicationRepository
       .createQueryBuilder('application')
       .leftJoinAndSelect('application.job', 'job')
       .leftJoinAndSelect('application.candidate', 'candidate')
       .leftJoinAndSelect('application.candidateProfile', 'candidateProfile')
+      .leftJoinAndSelect(
+        'candidate_profiles',
+        'candidateProfileFallback',
+        'candidateProfileFallback.userId = candidate.id AND application.candidateProfileId IS NULL',
+      )
       .leftJoinAndSelect('application.cv', 'cv')
       .leftJoinAndSelect('application.reviewer', 'reviewer')
       .leftJoinAndSelect('application.interviews', 'interviews')
@@ -200,6 +209,18 @@ export class ApplicationService {
 
     const application = await qb.getOne();
     if (!application) throw new NotFoundException('Application not found');
+
+    // Use fallback candidate profile if main one is null
+    if (!application.candidateProfile) {
+      // Manually load the candidate profile by userId
+      const fallbackProfile = await this.candidateProfileRepository.findOne({
+        where: { userId: application.candidateId },
+      });
+      if (fallbackProfile) {
+        application.candidateProfile = fallbackProfile;
+      }
+    }
+
     return application;
   }
 

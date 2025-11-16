@@ -13,7 +13,10 @@ import {
   ReportPriority,
   ReportStatus,
 } from '../../domain/entities/report.entity';
-import { User, UserStatus } from 'src/modules/identity/domain/entities/user.entity';
+import {
+  User,
+  UserStatus,
+} from 'src/modules/identity/domain/entities/user.entity';
 import {
   CreateReportDto,
   UpdateReportDto,
@@ -25,10 +28,10 @@ import * as distributedCacheInterface from 'src/shared/infrastructure/cache/inte
 
 @Injectable()
 export class ReportService {
-    private readonly ADMIN_CACHE_KEY = 'reports:admin:users';
-    private readonly ROUND_ROBIN_INDEX_KEY = 'reports:round-robin:index';
-    private readonly ADMIN_CACHE_TTL = 5 * 60;
-    constructor(
+  private readonly ADMIN_CACHE_KEY = 'reports:admin:users';
+  private readonly ROUND_ROBIN_INDEX_KEY = 'reports:round-robin:index';
+  private readonly ADMIN_CACHE_TTL = 5 * 60;
+  constructor(
     @InjectRepository(Report)
     private readonly reportRepository: Repository<Report>,
     @InjectRepository(User)
@@ -80,16 +83,15 @@ export class ReportService {
     return adminUsers;
   }
 
-  private async getNextAdmin(): Promise<User | null> { 
+  private async getNextAdmin(): Promise<User | null> {
     const adminUsers = await this.getAdminUsers();
     if (adminUsers.length === 0) {
       return null; // No admins available
     }
 
     // Get current index from Redis, default to -1 if not exists
-    const currentIndex = (await this.cache.get<number>(
-      this.ROUND_ROBIN_INDEX_KEY,
-    )) ?? -1;
+    const currentIndex =
+      (await this.cache.get<number>(this.ROUND_ROBIN_INDEX_KEY)) ?? -1;
 
     const nextIndex = (currentIndex + 1) % adminUsers.length;
 
@@ -148,7 +150,6 @@ export class ReportService {
       status: initialStatus,
     });
 
-
     return await this.reportRepository.save(newReport);
   }
 
@@ -174,7 +175,9 @@ export class ReportService {
       .orderBy('report.createdAt', 'DESC');
 
     if (query.status) {
-      queryBuilder.andWhere('report.status = :status', { status: query.status });
+      queryBuilder.andWhere('report.status = :status', {
+        status: query.status,
+      });
     }
 
     if (query.entityType) {
@@ -234,9 +237,7 @@ export class ReportService {
     return report;
   }
 
-  async getAllReports(
-    query: ReportListQueryDto,
-  ): Promise<{
+  async getAllReports(query: ReportListQueryDto): Promise<{
     data: Report[];
     total: number;
     page: number;
@@ -266,7 +267,9 @@ export class ReportService {
     }
 
     if (query.status) {
-      queryBuilder.andWhere('report.status = :status', { status: query.status });
+      queryBuilder.andWhere('report.status = :status', {
+        status: query.status,
+      });
     }
 
     if (query.priority) {
@@ -307,7 +310,6 @@ export class ReportService {
       totalPages: Math.ceil(total / limit),
     };
   }
-
 
   async updateReport(
     reportId: string,
@@ -370,10 +372,7 @@ export class ReportService {
     return await this.reportRepository.save(report);
   }
 
-  getReasonsForEntityType(
-    entityType: ReportableEntityType,
-  ): string[] {
+  getReasonsForEntityType(entityType: ReportableEntityType): string[] {
     return getReasonsForEntityType(entityType);
   }
-
 }

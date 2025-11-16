@@ -54,7 +54,7 @@ import { CacheModule } from './shared/infrastructure/cache/cache.module';
     UserModule,
     MockAIInterviewModule,
     BackofficeModule,
-    ReportModule
+    ReportModule,
   ],
   providers: [
     {

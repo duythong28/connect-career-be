@@ -22,10 +22,7 @@ import { RolesGuard } from 'src/modules/identity/api/guards/roles.guard';
 import { Roles } from 'src/modules/identity/api/decorators/roles.decorator';
 import * as currentUserDecorator from 'src/modules/identity/api/decorators/current-user.decorator';
 import { ReportService } from '../services/report.service';
-import {
-  UpdateReportDto,
-  ReportListQueryDto,
-} from '../dtos/report.dto';
+import { UpdateReportDto, ReportListQueryDto } from '../dtos/report.dto';
 import { Report } from '../../domain/entities/report.entity';
 
 @ApiTags('Reports - Backoffice Admin')
@@ -34,7 +31,7 @@ import { Report } from '../../domain/entities/report.entity';
 @ApiBearerAuth()
 @Roles('super_admin', 'admin')
 export class BackofficeReportController {
-  constructor(private readonly reportService: ReportService) { }
+  constructor(private readonly reportService: ReportService) {}
 
   @Get('all')
   @ApiOperation({ summary: 'Get all reports (Admin only)' })
@@ -71,7 +68,8 @@ export class BackofficeReportController {
   async updateReport(
     @Param('id') id: string,
     @Body() updateDto: UpdateReportDto,
-    @currentUserDecorator.CurrentUser() user: currentUserDecorator.CurrentUserPayload,
+    @currentUserDecorator.CurrentUser()
+    user: currentUserDecorator.CurrentUserPayload,
   ): Promise<Report> {
     return this.reportService.updateReport(id, updateDto, user.sub);
   }

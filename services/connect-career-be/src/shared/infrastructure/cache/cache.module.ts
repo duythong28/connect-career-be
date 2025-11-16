@@ -12,7 +12,7 @@ import { RedisCacheService } from './redis/redis-cache.service';
       useFactory: (configService: ConfigService) => {
         const port = parseInt(configService.get('REDIS_PORT') || '6379', 10);
         const db = parseInt(configService.get('REDIS_DB') || '0', 10);
-        
+
         return new Redis({
           host: configService.get('REDIS_HOST') || 'localhost',
           port: isNaN(port) ? 6379 : port,
@@ -25,7 +25,8 @@ import { RedisCacheService } from './redis/redis-cache.service';
     {
       provide: 'IDistributedCache',
       useFactory: (redis: Redis, configService: ConfigService) => {
-        const keyPrefix = configService.get<string>('REDIS_KEY_PREFIX') || 'connect-career:';
+        const keyPrefix =
+          configService.get<string>('REDIS_KEY_PREFIX') || 'connect-career:';
         return new RedisCacheService(redis, keyPrefix);
       },
       inject: [Redis, ConfigService],

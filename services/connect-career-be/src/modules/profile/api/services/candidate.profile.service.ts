@@ -34,6 +34,8 @@ import {
   Interview,
   InterviewStatus,
 } from 'src/modules/applications/domain/entities/interview.entity';
+import { Application } from 'src/modules/applications/domain/entities/application.entity';
+import { RecruiterFeedback } from '../../domain/entities/recruiter-feedbacks.entity';
 
 @Injectable()
 export class CandidateProfileService {
@@ -42,6 +44,8 @@ export class CandidateProfileService {
     private readonly candidateProfileRepository: Repository<CandidateProfile>,
     @InjectRepository(WorkExperience)
     private readonly workExperienceRepository: Repository<WorkExperience>,
+    @InjectRepository(Application)
+    private readonly applicationRepository: Repository<Application>,
     @InjectRepository(Education)
     private readonly educationRepository: Repository<Education>,
     @InjectRepository(Project)
@@ -56,10 +60,12 @@ export class CandidateProfileService {
     private readonly interviewRepository: Repository<Interview>,
     @InjectRepository(Offer)
     private readonly offerRepository: Repository<Offer>,
+    @InjectRepository(RecruiterFeedback)
+    private readonly recruiterFeedbackRepository: Repository<RecruiterFeedback>,
     private readonly dataSource: DataSource,
   ) {}
 
-  async getCandidateProfileById(id: string): Promise<CandidateProfile> {
+  async getCandidateProfileById(id: string): Promise<any> {
     const candidateProfile = await this.candidateProfileRepository
       .createQueryBuilder('candidateProfile')
       .leftJoinAndSelect('candidateProfile.user', 'user')
@@ -75,25 +81,8 @@ export class CandidateProfileService {
     if (!candidateProfile) {
       throw new NotFoundException('Candidate profile not found');
     }
-    return candidateProfile;
-  }
-
-  async getCandidateProfileByUserId(userId: string): Promise<any> {
-    const candidateProfile = await this.candidateProfileRepository
-      .createQueryBuilder('candidateProfile')
-      .leftJoinAndSelect('candidateProfile.user', 'user')
-      .leftJoinAndSelect('candidateProfile.workExperiences', 'workExperiences')
-      .leftJoinAndSelect('workExperiences.organization', 'organization')
-      .leftJoinAndSelect('candidateProfile.educations', 'educations')
-      .leftJoinAndSelect('candidateProfile.projects', 'projects')
-      .leftJoinAndSelect('candidateProfile.certifications', 'certifications')
-      .leftJoinAndSelect('candidateProfile.awards', 'awards')
-      .leftJoinAndSelect('candidateProfile.publications', 'publications')
-      .where('candidateProfile.userId = :userId', { userId })
-      .getOne();
-    if (!candidateProfile) {
-      throw new NotFoundException('Candidate profile not found');
-    }
+    const userId = candidateProfile.userId;
+    // Get interview feedbacks (when user is candidate)
     const interviews = await this.interviewRepository
       .createQueryBuilder('interview')
       .leftJoinAndSelect('interview.application', 'application')
@@ -102,7 +91,28 @@ export class CandidateProfileService {
       .leftJoinAndSelect('interview.interviewer', 'interviewer')
       .where('application.candidateId = :userId', { userId })
       .andWhere('interview.feedback IS NOT NULL')
-      .orderBy('interview.scheduledDate', 'DESC')
+      .orderBy('interview.completedAt', 'DESC')
+      .addOrderBy('interview.createdAt', 'DESC')
+      .getMany();
+
+    // Get application feedbacks (when user is candidate)
+    const applications = await this.applicationRepository
+      .createQueryBuilder('application')
+      .leftJoinAndSelect('application.job', 'job')
+      .leftJoinAndSelect('job.organization', 'organization')
+      .where('application.candidateId = :userId', { userId })
+      .andWhere('application.feedback IS NOT NULL')
+      .orderBy('application.appliedDate', 'DESC')
+      .getMany();
+
+    // Get recruiter feedbacks (when user is recruiter)
+    const recruiterFeedbacks = await this.recruiterFeedbackRepository
+      .createQueryBuilder('feedback')
+      .leftJoinAndSelect('feedback.candidate', 'candidate')
+      .leftJoinAndSelect('feedback.application', 'application')
+      .leftJoinAndSelect('feedback.interview', 'interview')
+      .where('feedback.recruiterUserId = :userId', { userId })
+      .orderBy('feedback.createdAt', 'DESC')
       .getMany();
 
     return {
@@ -134,17 +144,253 @@ export class CandidateProfileService {
             }
           : null,
         interviewerName: interview.interviewerName,
-        feedback: interview.feedback, // This contains comments, strengths, weaknesses, rating, etc.
+        feedback: interview.feedback,
         notes: interview.notes,
         completedAt: interview.completedAt,
         createdAt: interview.createdAt,
       })),
+      userFeedbacks: {
+        receivedAsCandidate: {
+          interviewFeedbacks: interviews.map((interview) => ({
+            id: interview.id,
+            interviewId: interview.id,
+            applicationId: interview.applicationId,
+            job: interview.application?.job
+              ? {
+                  id: interview.application.job.id,
+                  title: interview.application.job.title,
+                  organization: interview.application.job.organization
+                    ? {
+                        id: interview.application.job.organization.id,
+                        name: interview.application.job.organization.name,
+                      }
+                    : undefined,
+                }
+              : undefined,
+            interviewer: interview.interviewer
+              ? {
+                  id: interview.interviewer.id,
+                  fullName: interview.interviewer.fullName,
+                  email: interview.interviewer.email,
+                }
+              : undefined,
+            feedback: interview.feedback,
+            scheduledDate: interview.scheduledDate,
+            completedAt: interview.completedAt,
+            createdAt: interview.createdAt,
+          })),
+          applicationFeedbacks: applications.map((application) => ({
+            id: application.id,
+            applicationId: application.id,
+            job: application.job
+              ? {
+                  id: application.job.id,
+                  title: application.job.title,
+                  organization: application.job.organization
+                    ? {
+                        id: application.job.organization.id,
+                        name: application.job.organization.name,
+                      }
+                    : undefined,
+                }
+              : undefined,
+            feedback: application.feedback,
+            appliedDate: application.appliedDate,
+            status: application.status,
+          })),
+        },
+        givenAsRecruiter: {
+          recruiterFeedbacks: recruiterFeedbacks.map((feedback) => ({
+            id: feedback.id,
+            candidateId: feedback.candidateId,
+            candidate: feedback.candidate
+              ? {
+                  id: feedback.candidate.id,
+                  fullName: feedback.candidate.fullName,
+                  email: feedback.candidate.email,
+                }
+              : undefined,
+            applicationId: feedback.applicationId,
+            interviewId: feedback.interviewId,
+            feedbackType: feedback.feedbackType,
+            rating: feedback.rating,
+            feedback: feedback.feedback,
+            isPositive: feedback.isPositive,
+            createdAt: feedback.createdAt,
+          })),
+        },
+        totals: {
+          receivedAsCandidate: interviews.length + applications.length,
+          givenAsRecruiter: recruiterFeedbacks.length,
+        },
+      },
+    };
+  }
+
+  async getCandidateProfileByUserId(userId: string): Promise<any> {
+    const candidateProfile = await this.candidateProfileRepository
+      .createQueryBuilder('candidateProfile')
+      .leftJoinAndSelect('candidateProfile.user', 'user')
+      .leftJoinAndSelect('candidateProfile.workExperiences', 'workExperiences')
+      .leftJoinAndSelect('workExperiences.organization', 'organization')
+      .leftJoinAndSelect('candidateProfile.educations', 'educations')
+      .leftJoinAndSelect('candidateProfile.projects', 'projects')
+      .leftJoinAndSelect('candidateProfile.certifications', 'certifications')
+      .leftJoinAndSelect('candidateProfile.awards', 'awards')
+      .leftJoinAndSelect('candidateProfile.publications', 'publications')
+      .where('candidateProfile.userId = :userId', { userId })
+      .getOne();
+    if (!candidateProfile) {
+      throw new NotFoundException('Candidate profile not found');
+    }
+    // Get interview feedbacks (when user is candidate)
+    const interviews = await this.interviewRepository
+      .createQueryBuilder('interview')
+      .leftJoinAndSelect('interview.application', 'application')
+      .leftJoinAndSelect('application.job', 'job')
+      .leftJoinAndSelect('job.organization', 'organization')
+      .leftJoinAndSelect('interview.interviewer', 'interviewer')
+      .where('application.candidateId = :userId', { userId })
+      .andWhere('interview.feedback IS NOT NULL')
+      .orderBy('interview.completedAt', 'DESC')
+      .addOrderBy('interview.createdAt', 'DESC')
+      .getMany();
+
+    // Get application feedbacks (when user is candidate)
+    const applications = await this.applicationRepository
+      .createQueryBuilder('application')
+      .leftJoinAndSelect('application.job', 'job')
+      .leftJoinAndSelect('job.organization', 'organization')
+      .where('application.candidateId = :userId', { userId })
+      .andWhere('application.feedback IS NOT NULL')
+      .orderBy('application.appliedDate', 'DESC')
+      .getMany();
+
+    // Get recruiter feedbacks (when user is recruiter)
+    const recruiterFeedbacks = await this.recruiterFeedbackRepository
+      .createQueryBuilder('feedback')
+      .leftJoinAndSelect('feedback.candidate', 'candidate')
+      .leftJoinAndSelect('feedback.application', 'application')
+      .leftJoinAndSelect('feedback.interview', 'interview')
+      .where('feedback.recruiterUserId = :userId', { userId })
+      .orderBy('feedback.createdAt', 'DESC')
+      .getMany();
+
+    return {
+      ...candidateProfile,
+      interviewFeedbacks: interviews.map((interview) => ({
+        id: interview.id,
+        applicationId: interview.applicationId,
+        job: interview.application?.job
+          ? {
+              id: interview.application.job.id,
+              title: interview.application.job.title,
+              organization: interview.application.job.organization
+                ? {
+                    id: interview.application.job.organization.id,
+                    name: interview.application.job.organization.name,
+                  }
+                : null,
+            }
+          : null,
+        type: interview.type,
+        status: interview.status,
+        scheduledDate: interview.scheduledDate,
+        date: interview.date,
+        interviewer: interview.interviewer
+          ? {
+              id: interview.interviewer.id,
+              fullName: interview.interviewer.fullName,
+              email: interview.interviewer.email,
+            }
+          : null,
+        interviewerName: interview.interviewerName,
+        feedback: interview.feedback,
+        notes: interview.notes,
+        completedAt: interview.completedAt,
+        createdAt: interview.createdAt,
+      })),
+      userFeedbacks: {
+        receivedAsCandidate: {
+          interviewFeedbacks: interviews.map((interview) => ({
+            id: interview.id,
+            interviewId: interview.id,
+            applicationId: interview.applicationId,
+            job: interview.application?.job
+              ? {
+                  id: interview.application.job.id,
+                  title: interview.application.job.title,
+                  organization: interview.application.job.organization
+                    ? {
+                        id: interview.application.job.organization.id,
+                        name: interview.application.job.organization.name,
+                      }
+                    : undefined,
+                }
+              : undefined,
+            interviewer: interview.interviewer
+              ? {
+                  id: interview.interviewer.id,
+                  fullName: interview.interviewer.fullName,
+                  email: interview.interviewer.email,
+                }
+              : undefined,
+            feedback: interview.feedback,
+            scheduledDate: interview.scheduledDate,
+            completedAt: interview.completedAt,
+            createdAt: interview.createdAt,
+          })),
+          applicationFeedbacks: applications.map((application) => ({
+            id: application.id,
+            applicationId: application.id,
+            job: application.job
+              ? {
+                  id: application.job.id,
+                  title: application.job.title,
+                  organization: application.job.organization
+                    ? {
+                        id: application.job.organization.id,
+                        name: application.job.organization.name,
+                      }
+                    : undefined,
+                }
+              : undefined,
+            feedback: application.feedback,
+            appliedDate: application.appliedDate,
+            status: application.status,
+          })),
+        },
+        givenAsRecruiter: {
+          recruiterFeedbacks: recruiterFeedbacks.map((feedback) => ({
+            id: feedback.id,
+            candidateId: feedback.candidateId,
+            candidate: feedback.candidate
+              ? {
+                  id: feedback.candidate.id,
+                  fullName: feedback.candidate.fullName,
+                  email: feedback.candidate.email,
+                }
+              : undefined,
+            applicationId: feedback.applicationId,
+            interviewId: feedback.interviewId,
+            feedbackType: feedback.feedbackType,
+            rating: feedback.rating,
+            feedback: feedback.feedback,
+            isPositive: feedback.isPositive,
+            createdAt: feedback.createdAt,
+          })),
+        },
+        totals: {
+          receivedAsCandidate: interviews.length + applications.length,
+          givenAsRecruiter: recruiterFeedbacks.length,
+        },
+      },
     };
   }
 
   async createCandidateProfile(
     dto: CreateCandidateProfileDto,
-  ): Promise<CandidateProfile> {
+  ): Promise<boolean> {
     const queryRunner = this.dataSource.createQueryRunner();
     await queryRunner.connect();
     await queryRunner.startTransaction();
@@ -287,7 +533,7 @@ export class CandidateProfileService {
       await queryRunner.commitTransaction();
 
       // Return full profile
-      return this.getCandidateProfileById(savedProfile.id);
+      return true;
     } catch (error) {
       await queryRunner.rollbackTransaction();
       throw error;

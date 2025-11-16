@@ -673,6 +673,7 @@ export class CandidateProfileService {
             candidateProfile: profile,
             candidateProfileId: profile.id,
             name: certDto.name,
+            description: certDto.description,
             issuingOrganization: certDto.issuingOrganization,
             issueDate: certDto.issueDate
               ? new Date(certDto.issueDate)

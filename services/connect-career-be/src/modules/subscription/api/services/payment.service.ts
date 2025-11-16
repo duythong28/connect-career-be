@@ -111,7 +111,8 @@ export class PaymentService {
         this.configService.get<string>('FRONTEND_URL') ||
         'http://localhost:3000';
       const apiUrl =
-        this.configService.get<string>('API_URL') || 'https://strong-faithful-lemur.ngrok-free.app/api';
+        this.configService.get<string>('API_URL') ||
+        'https://strong-faithful-lemur.ngrok-free.app/api';
 
       const metadata: PaymentMetadata & { request?: Request } = {
         userId,
@@ -124,12 +125,8 @@ export class PaymentService {
         userEmail: user?.email || '',
       };
 
-      const intentResult: PaymentIntentResult = await paymentProvider.createPaymentIntent(
-          amount,
-          currency,
-          metadata,
-        );
-
+      const intentResult: PaymentIntentResult =
+        await paymentProvider.createPaymentIntent(amount, currency, metadata);
 
       // Update transaction with provider payment ID
       transaction.providerPaymentId = intentResult.paymentId;

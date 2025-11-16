@@ -34,12 +34,28 @@ import { IdentityModule } from '../identity/identity.module';
       BillableAction,
       PaymentTransaction,
       PaymentMethod,
-      Refund
+      Refund,
     ]),
     IdentityModule,
   ],
-  controllers: [WalletController, MoMoPaymentController, StripePaymentController, ZaloPayPaymentController, WalletBackofficeController, RefundBackofficeController],
-  providers: [WalletService, PaymentService, PaymentProviderFactory, MoMoProvider, ZaloPayProvider, StripeProvider, WalletBackofficeService, RefundBackofficeService],
+  controllers: [
+    WalletController,
+    MoMoPaymentController,
+    StripePaymentController,
+    ZaloPayPaymentController,
+    WalletBackofficeController,
+    RefundBackofficeController,
+  ],
+  providers: [
+    WalletService,
+    PaymentService,
+    PaymentProviderFactory,
+    MoMoProvider,
+    ZaloPayProvider,
+    StripeProvider,
+    WalletBackofficeService,
+    RefundBackofficeService,
+  ],
   exports: [WalletService, PaymentService],
 })
 export class WalletModule {}

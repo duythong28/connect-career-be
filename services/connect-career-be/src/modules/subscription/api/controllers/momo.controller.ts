@@ -9,16 +9,9 @@ import {
   Query,
   Res,
 } from '@nestjs/common';
-import {
-  ApiOperation,
-  ApiQuery,
-  ApiResponse,
-  ApiTags,
-} from '@nestjs/swagger';
+import { ApiOperation, ApiQuery, ApiResponse, ApiTags } from '@nestjs/swagger';
 import { MoMoProvider } from '../../infrastructure/payment-providers/momo.provider';
-import {
-  MoMoWebhookDto,
-} from '../../infrastructure/dtos/momo.dto';
+import { MoMoWebhookDto } from '../../infrastructure/dtos/momo.dto';
 import { MoMoWebhookPayload } from '../../infrastructure/types/momo.type';
 import express from 'express';
 import { PaymentService } from '../services/payment.service';
@@ -38,7 +31,10 @@ export class MoMoPaymentController {
   @HttpCode(HttpStatus.OK)
   @ApiOperation({ summary: 'MoMo IPN webhook endpoint' })
   @ApiResponse({ status: 400, description: 'Invalid webhook signature' })
-  async handleWebhook(@Body() payload: MoMoWebhookDto, @Res() res: express.Response) {
+  async handleWebhook(
+    @Body() payload: MoMoWebhookDto,
+    @Res() res: express.Response,
+  ) {
     try {
       const MoMoWebhookPayload: MoMoWebhookPayload = {
         partnerCode: payload.partnerCode,
@@ -56,7 +52,7 @@ export class MoMoPaymentController {
         signature: payload.signature,
       };
       console.log('MoMoWebhookPayload', MoMoWebhookPayload);
-      
+
       const webhookEvent = await this.momoProvider.handleWebhook(
         MoMoWebhookPayload,
         payload.signature,
@@ -93,7 +89,10 @@ export class MoMoPaymentController {
         resultCode: parseInt(resultCode, 10),
       });
 
-      const status = await this.paymentService.getPaymentStatus('momo', orderId);
+      const status = await this.paymentService.getPaymentStatus(
+        'momo',
+        orderId,
+      );
 
       // Redirect to frontend with payment status
       const frontendUrl = process.env.FRONTEND_URL || 'http://localhost:3000';

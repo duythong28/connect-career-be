@@ -446,6 +446,9 @@ export class JobService {
       userId,
       organizationId: organization.id,
       source: JobSource.INTERNAL,
+      status: JobStatus.DRAFT,
+      postedDate:
+        createJobDto.status === JobStatus.ACTIVE ? new Date() : undefined,
     };
     if (!hiringPipeline) {
       throw new NotFoundException(
@@ -473,11 +476,13 @@ export class JobService {
         'Job not found or you do not have permission to update it',
       );
     }
+    const oldStatus = job.status;
     Object.assign(job, updateJobDto);
 
     if (
       updateJobDto.status === JobStatus.ACTIVE &&
-      job.status !== JobStatus.ACTIVE
+      job.status !== JobStatus.ACTIVE &&
+      !job.postedDate
     ) {
       job.postedDate = new Date();
     }
@@ -510,10 +515,17 @@ export class JobService {
         'Job not found or you do not have permission to update it',
       );
     }
+    const oldStatus = job.status;
     job.status = status;
-    if (status === JobStatus.ACTIVE && job.status !== JobStatus.ACTIVE) {
+
+    if (status === JobStatus.ACTIVE && oldStatus !== JobStatus.ACTIVE) {
       job.postedDate = new Date();
     }
+
+    if (status === JobStatus.CLOSED && oldStatus !== JobStatus.CLOSED) {
+      job.closedDate = new Date();
+    }
+
     return await this.jobRepository.save(job);
   }
 

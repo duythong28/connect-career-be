@@ -4,7 +4,9 @@ import { ConfigService } from '@nestjs/config';
 
 export const createWinstonLogger = (configService: ConfigService) => {
   const isDevelopment = configService.get<string>('NODE_ENV') === 'development';
-  const logLevel = configService.get<string>('LOG_LEVEL') || (isDevelopment ? 'debug' : 'info');
+  const logLevel =
+    configService.get<string>('LOG_LEVEL') ||
+    (isDevelopment ? 'debug' : 'info');
 
   // eslint-disable-next-line @typescript-eslint/no-unsafe-return, @typescript-eslint/no-unsafe-call, @typescript-eslint/no-unsafe-member-access
   return WinstonModule.createLogger({
@@ -23,8 +25,12 @@ export const createWinstonLogger = (configService: ConfigService) => {
           winston.format.colorize(),
           winston.format.printf(
             ({ timestamp, level, message, context, trace, ...meta }) => {
-              const contextStr = context ? `[${String(context) as string}]` : '';
-              const metaStr = Object.keys(meta).length ? JSON.stringify(meta) : '';
+              const contextStr = context
+                ? `[${String(context) as string}]`
+                : '';
+              const metaStr = Object.keys(meta).length
+                ? JSON.stringify(meta)
+                : '';
               return `${timestamp} ${level} ${contextStr} ${message} ${metaStr}`;
             },
           ),

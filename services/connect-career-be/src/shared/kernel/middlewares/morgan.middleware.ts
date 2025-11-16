@@ -44,5 +44,4 @@ export class MorganMiddleware implements NestMiddleware {
   use(req: Request, res: Response, next: NextFunction) {
     this.morganInstance(req, res, next);
   }
-
 }

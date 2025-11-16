@@ -17,10 +17,9 @@ import { RefundStatus } from '../../domain/entities/refund.entity';
 
 @Injectable()
 export class StripeProvider extends BasePaymentProvider {
-  
   private readonly logger = new Logger(StripeProvider.name);
   private stripe: Stripe;
-  
+
   readonly name = 'Stripe';
   readonly providerCode = 'stripe';
   readonly supportedMethods: PaymentMethod[] = [
@@ -29,7 +28,15 @@ export class StripeProvider extends BasePaymentProvider {
     PaymentMethod.APPLE_PAY,
     PaymentMethod.GOOGLE_PAY,
   ];
-  readonly supportedCurrencies: string[] = ['USD', 'EUR', 'GBP', 'VND', 'SGD', 'JPY', 'AUD'];
+  readonly supportedCurrencies: string[] = [
+    'USD',
+    'EUR',
+    'GBP',
+    'VND',
+    'SGD',
+    'JPY',
+    'AUD',
+  ];
   readonly supportedRegions?: string[];
 
   constructor(private readonly configService: ConfigService) {
@@ -103,7 +110,9 @@ export class StripeProvider extends BasePaymentProvider {
     } catch (error) {
       this.logger.error('Failed to create Stripe checkout session', error);
       throw new BadRequestException(
-        error instanceof Error ? error.message : 'Failed to create checkout session',
+        error instanceof Error
+          ? error.message
+          : 'Failed to create checkout session',
       );
     }
   }
@@ -125,13 +134,15 @@ export class StripeProvider extends BasePaymentProvider {
       try {
         // Try to retrieve as checkout session first
         session = await this.stripe.checkout.sessions.retrieve(paymentId);
-        
+
         // If session found, get the payment intent from it
         if (session.payment_intent) {
-          const paymentIntentId = typeof session.payment_intent === 'string' 
-            ? session.payment_intent 
-            : session.payment_intent.id;
-          paymentIntent = await this.stripe.paymentIntents.retrieve(paymentIntentId);
+          const paymentIntentId =
+            typeof session.payment_intent === 'string'
+              ? session.payment_intent
+              : session.payment_intent.id;
+          paymentIntent =
+            await this.stripe.paymentIntents.retrieve(paymentIntentId);
         }
       } catch {
         // If not a session, try searching by metadata (our transaction ID)
@@ -139,28 +150,36 @@ export class StripeProvider extends BasePaymentProvider {
           const sessions = await this.stripe.checkout.sessions.list({
             limit: 1,
           });
-          session = sessions.data.find(
-            s => s.metadata?.paymentTransactionId === paymentId
-          ) || null;
-          
+          session =
+            sessions.data.find(
+              (s) => s.metadata?.paymentTransactionId === paymentId,
+            ) || null;
+
           if (session?.payment_intent) {
-            const paymentIntentId = typeof session.payment_intent === 'string' 
-              ? session.payment_intent 
-              : session.payment_intent.id;
-            paymentIntent = await this.stripe.paymentIntents.retrieve(paymentIntentId);
+            const paymentIntentId =
+              typeof session.payment_intent === 'string'
+                ? session.payment_intent
+                : session.payment_intent.id;
+            paymentIntent =
+              await this.stripe.paymentIntents.retrieve(paymentIntentId);
           }
         } catch {
           // Finally, try as payment intent ID
           try {
-            paymentIntent = await this.stripe.paymentIntents.retrieve(paymentId);
+            paymentIntent =
+              await this.stripe.paymentIntents.retrieve(paymentId);
           } catch {
-            throw new BadRequestException(`Payment not found for ID: ${paymentId}`);
+            throw new BadRequestException(
+              `Payment not found for ID: ${paymentId}`,
+            );
           }
         }
       }
 
       if (!paymentIntent) {
-        throw new BadRequestException(`Payment intent not found for ID: ${paymentId}`);
+        throw new BadRequestException(
+          `Payment intent not found for ID: ${paymentId}`,
+        );
       }
 
       const status = this.mapStripeStatus(paymentIntent.status);
@@ -169,7 +188,10 @@ export class StripeProvider extends BasePaymentProvider {
 
       return {
         success: status === PaymentStatus.COMPLETED,
-        paymentId: session?.metadata?.paymentTransactionId || paymentIntent.metadata?.paymentTransactionId || paymentIntent.id,
+        paymentId:
+          session?.metadata?.paymentTransactionId ||
+          paymentIntent.metadata?.paymentTransactionId ||
+          paymentIntent.id,
         transactionId: chargeId || paymentIntent.id,
         amount: paymentIntent.amount / 100,
         currency: paymentIntent.currency.toUpperCase(),
@@ -199,13 +221,14 @@ export class StripeProvider extends BasePaymentProvider {
     try {
       // First, try to get the checkout session to find payment intent
       let paymentIntentId: string | undefined;
-      
+
       try {
         const session = await this.stripe.checkout.sessions.retrieve(paymentId);
         if (session.payment_intent) {
-          paymentIntentId = typeof session.payment_intent === 'string' 
-            ? session.payment_intent 
-            : session.payment_intent.id;
+          paymentIntentId =
+            typeof session.payment_intent === 'string'
+              ? session.payment_intent
+              : session.payment_intent.id;
         }
       } catch {
         // If not a session, try searching by metadata
@@ -214,13 +237,14 @@ export class StripeProvider extends BasePaymentProvider {
             limit: 100,
           });
           const foundSession = sessions.data.find(
-            s => s.metadata?.paymentTransactionId === paymentId
+            (s) => s.metadata?.paymentTransactionId === paymentId,
           );
-          
+
           if (foundSession?.payment_intent) {
-            paymentIntentId = typeof foundSession.payment_intent === 'string' 
-              ? foundSession.payment_intent 
-              : foundSession.payment_intent.id;
+            paymentIntentId =
+              typeof foundSession.payment_intent === 'string'
+                ? foundSession.payment_intent
+                : foundSession.payment_intent.id;
           }
         } catch {
           // Assume paymentId is a payment intent ID
@@ -229,11 +253,14 @@ export class StripeProvider extends BasePaymentProvider {
       }
 
       if (!paymentIntentId) {
-        throw new BadRequestException('Unable to determine payment intent ID for refund');
+        throw new BadRequestException(
+          'Unable to determine payment intent ID for refund',
+        );
       }
 
       // Get the payment intent to find the charge
-      const paymentIntent = await this.stripe.paymentIntents.retrieve(paymentIntentId);
+      const paymentIntent =
+        await this.stripe.paymentIntents.retrieve(paymentIntentId);
       const charge = paymentIntent.latest_charge;
       const chargeId = typeof charge === 'string' ? charge : charge?.id;
 
@@ -277,7 +304,7 @@ export class StripeProvider extends BasePaymentProvider {
       // Try to retrieve as checkout session first
       try {
         const session = await this.stripe.checkout.sessions.retrieve(paymentId);
-        
+
         if (session.payment_status === 'paid') {
           return PaymentStatus.COMPLETED;
         } else if (session.payment_status === 'unpaid') {
@@ -292,9 +319,9 @@ export class StripeProvider extends BasePaymentProvider {
             limit: 100,
           });
           const foundSession = sessions.data.find(
-            s => s.metadata?.paymentTransactionId === paymentId
+            (s) => s.metadata?.paymentTransactionId === paymentId,
           );
-          
+
           if (foundSession) {
             if (foundSession.payment_status === 'paid') {
               return PaymentStatus.COMPLETED;
@@ -307,7 +334,8 @@ export class StripeProvider extends BasePaymentProvider {
         } catch {
           // Finally, try as payment intent ID
           try {
-            const paymentIntent = await this.stripe.paymentIntents.retrieve(paymentId);
+            const paymentIntent =
+              await this.stripe.paymentIntents.retrieve(paymentId);
             return this.mapStripeStatus(paymentIntent.status);
           } catch {
             this.logger.warn(`Payment not found for ID: ${paymentId}`);
@@ -315,7 +343,7 @@ export class StripeProvider extends BasePaymentProvider {
           }
         }
       }
-      
+
       return PaymentStatus.FAILED;
     } catch (error) {
       this.logger.error('Failed to get Stripe payment status', error);
@@ -323,10 +351,7 @@ export class StripeProvider extends BasePaymentProvider {
     }
   }
 
-  async handleWebhook(
-    payload: any,
-    signature: string,
-  ): Promise<WebhookEvent> {
+  async handleWebhook(payload: any, signature: string): Promise<WebhookEvent> {
     if (!this.verifyWebhookSignature(payload, signature)) {
       throw new BadRequestException('Invalid webhook signature');
     }
@@ -346,42 +371,49 @@ export class StripeProvider extends BasePaymentProvider {
         case 'checkout.session.async_payment_succeeded':
           eventType = 'payment.succeeded';
           const asyncSession = event.data.object as Stripe.Checkout.Session;
-          paymentId = asyncSession.metadata?.paymentTransactionId || asyncSession.id;
+          paymentId =
+            asyncSession.metadata?.paymentTransactionId || asyncSession.id;
           break;
         case 'checkout.session.async_payment_failed':
           eventType = 'payment.failed';
           const failedSession = event.data.object as Stripe.Checkout.Session;
-          paymentId = failedSession.metadata?.paymentTransactionId || failedSession.id;
+          paymentId =
+            failedSession.metadata?.paymentTransactionId || failedSession.id;
           break;
-        
+
         // Payment Intent events (fallback, in case they're still used)
         case 'payment_intent.succeeded':
           eventType = 'payment.succeeded';
           const paymentIntent = event.data.object as Stripe.PaymentIntent;
-          paymentId = paymentIntent.metadata?.paymentTransactionId || paymentIntent.id;
+          paymentId =
+            paymentIntent.metadata?.paymentTransactionId || paymentIntent.id;
           break;
         case 'payment_intent.payment_failed':
           eventType = 'payment.failed';
           const failedIntent = event.data.object as Stripe.PaymentIntent;
-          paymentId = failedIntent.metadata?.paymentTransactionId || failedIntent.id;
+          paymentId =
+            failedIntent.metadata?.paymentTransactionId || failedIntent.id;
           break;
         case 'payment_intent.canceled':
           eventType = 'payment.cancelled';
           const canceledIntent = event.data.object as Stripe.PaymentIntent;
-          paymentId = canceledIntent.metadata?.paymentTransactionId || canceledIntent.id;
+          paymentId =
+            canceledIntent.metadata?.paymentTransactionId || canceledIntent.id;
           break;
-        
+
         // Charge events
         case 'charge.refunded':
           eventType = 'payment.refunded';
           const charge = event.data.object as Stripe.Charge;
           if (charge.payment_intent) {
-            const intentId = typeof charge.payment_intent === 'string' 
-              ? charge.payment_intent 
-              : charge.payment_intent.id;
+            const intentId =
+              typeof charge.payment_intent === 'string'
+                ? charge.payment_intent
+                : charge.payment_intent.id;
             // Try to get payment intent to find transaction ID
             try {
-              const intent = await this.stripe.paymentIntents.retrieve(intentId);
+              const intent =
+                await this.stripe.paymentIntents.retrieve(intentId);
               paymentId = intent.metadata?.paymentTransactionId || intentId;
             } catch {
               paymentId = intentId;
@@ -390,13 +422,15 @@ export class StripeProvider extends BasePaymentProvider {
             paymentId = charge.id;
           }
           break;
-        
+
         default:
           this.logger.warn(`Unhandled webhook event type: ${event.type}`);
           paymentId = (event.data.object as any).id || '';
       }
 
-      this.logger.log(`Webhook event processed: ${eventType} for payment ${paymentId}`);
+      this.logger.log(
+        `Webhook event processed: ${eventType} for payment ${paymentId}`,
+      );
 
       return {
         type: eventType,
@@ -410,7 +444,9 @@ export class StripeProvider extends BasePaymentProvider {
       );
     }
   }
-  async getCheckoutSession(sessionId: string): Promise<Stripe.Checkout.Session> {
+  async getCheckoutSession(
+    sessionId: string,
+  ): Promise<Stripe.Checkout.Session> {
     if (!this.stripe) {
       throw new BadRequestException('Stripe is not configured');
     }
@@ -421,7 +457,9 @@ export class StripeProvider extends BasePaymentProvider {
     } catch (error) {
       this.logger.error('Failed to get Stripe checkout session', error);
       throw new BadRequestException(
-        error instanceof Error ? error.message : 'Failed to get checkout session',
+        error instanceof Error
+          ? error.message
+          : 'Failed to get checkout session',
       );
     }
   }

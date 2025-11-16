@@ -258,7 +258,6 @@ export class ZaloPayProvider extends BasePaymentProvider {
         .createHmac('sha256', config.key2)
         .update(dataStr)
         .digest('hex');
-      
 
       return reqMac === mac;
     } catch (error) {
@@ -281,7 +280,7 @@ export class ZaloPayProvider extends BasePaymentProvider {
       const orderId = items[0]?.itemid || dataJson.app_trans_id;
 
       let eventType: string = 'payment.failed';
-      
+
       // Check if zp_trans_id exists and is valid (not 0 or null)
       if (dataJson.zp_trans_id && dataJson.zp_trans_id > 0) {
         eventType = 'payment.succeeded';

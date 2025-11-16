@@ -171,6 +171,11 @@ export class ApplicationService {
         },
       ];
     }
+    application.addStatusHistory(
+      ApplicationStatus.NEW,
+      createDto.candidateId || 'system',
+      'Initial application created',
+    );
     const candidateProfile = await this.candidateProfileRepository.findOne({
       where: { userId: createDto.candidateId },
     });

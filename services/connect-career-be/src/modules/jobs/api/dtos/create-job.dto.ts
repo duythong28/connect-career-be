@@ -128,7 +128,7 @@ export class CreateJobDto {
   @ApiPropertyOptional({
     description: 'Job status',
     enum: JobStatus,
-    default: JobStatus.ACTIVE,
+    default: JobStatus.DRAFT,
   })
   @IsOptional()
   @IsEnum(JobStatus)

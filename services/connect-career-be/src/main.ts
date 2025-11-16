@@ -2,9 +2,10 @@ import { NestFactory } from '@nestjs/core';
 import { AppModule } from './app.module';
 import { ConfigService } from '@nestjs/config';
 import cookieParser from 'cookie-parser';
-import { ValidationPipe } from '@nestjs/common';
+import { Logger, ValidationPipe } from '@nestjs/common';
 import { NestExpressApplication } from '@nestjs/platform-express'; // Add this
 import { join } from 'path';
+import { WINSTON_MODULE_NEST_PROVIDER } from 'nest-winston';
 // import { HiringPipelineSeeder } from './modules/hiring-pipeline/infrastructure/seeders/hiring-pipeline.seeder';
 // import { ApplicationSeeder } from './modules/applications/infrastructure/seeders/application.seeder';
 // import { DefaultRolesSeeder } from './modules/identity/infrastructure/seeders/default-roles.seeder';
@@ -79,6 +80,7 @@ async function bootstrap() {
     }),
   );
   await app.listen(port || 8080);
-  console.log(`Server running on http://localhost:${port || 8080}/docs`);
+  const logger = app.get<Logger>(WINSTON_MODULE_NEST_PROVIDER);
+  logger.log(`Server running on http://localhost:${port || 8080}/docs`);
 }
 void bootstrap();

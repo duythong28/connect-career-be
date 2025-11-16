@@ -41,6 +41,7 @@ export class UserMapper {
     return {
       id: user.id,
       email: user.email,
+      candidateProfileId: user.candidateProfile?.id,
       username: user.username,
       firstName: user.firstName,
       lastName: user.lastName,

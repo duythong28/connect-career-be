@@ -159,6 +159,9 @@ export class UserProfileDto {
   @ApiProperty({ description: 'User ID' })
   id: string;
 
+  @ApiPropertyOptional({ description: 'Candidate Profile' })
+  candidateProfileId?: string;
+
   @ApiProperty({ description: 'Email address' })
   email: string;
 

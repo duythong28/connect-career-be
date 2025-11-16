@@ -22,7 +22,7 @@ import {
 import { AuthenticationService } from '../core/services/authentication.service';
 import { JwtAuthGuard } from './guards/jwt-auth.guard';
 import { Public } from './decorators/public.decorator';
-import { CurrentUser } from './decorators/current-user.decorator';
+import * as currentUserDecorator from './decorators/current-user.decorator';
 import * as identityRepository from '../domain/repository/identity.repository';
 import {
   LoginDto,
@@ -130,7 +130,7 @@ export class IdentityController {
   @ApiBearerAuth()
   @ApiOperation({ summary: 'Logout from all devices' })
   @ApiResponse({ status: 200, description: 'Logged out from all devices' })
-  async logoutAll(@CurrentUser() user: any): Promise<{ message: string }> {
+  async logoutAll(@currentUserDecorator.CurrentUser() user: any): Promise<{ message: string }> {
     await this.authService.logoutAllDevices(user.sub);
     return { message: 'Logged out from all devices' };
   }
@@ -143,7 +143,7 @@ export class IdentityController {
     description: 'User profile retrieved',
     type: UserProfileDto,
   })
-  async getProfile(@CurrentUser() user: any): Promise<UserProfileDto> {
+  async getProfile(@currentUserDecorator.CurrentUser() user: currentUserDecorator.CurrentUserPayload): Promise<UserProfileDto> {
     const fullUser = await this.userRepository.findById(user.sub);
     if (!fullUser) {
       throw new NotFoundException('User not found');
@@ -158,7 +158,7 @@ export class IdentityController {
   @ApiResponse({ status: 200, description: 'Password changed successfully' })
   @ApiResponse({ status: 400, description: 'Invalid current password' })
   async changePassword(
-    @CurrentUser() user: any,
+    @currentUserDecorator.CurrentUser() user: any,
     @Body() changePasswordDto: ChangePasswordDto,
   ): Promise<{ message: string }> {
     const fullUser = await this.userRepository.findById(user.sub);
@@ -268,7 +268,7 @@ export class IdentityController {
     type: MfaSetupResponseDto,
   })
   async setupMfa(
-    @CurrentUser() user: any,
+    @currentUserDecorator.CurrentUser() user: any,
     @Body() setupMfaDto: SetupMfaDto,
   ): Promise<MfaSetupResponseDto> {
     return this.authService.setupMfa(user.sub, setupMfaDto.deviceType);
@@ -280,7 +280,7 @@ export class IdentityController {
   @ApiResponse({ status: 200, description: 'MFA setup completed successfully' })
   @ApiResponse({ status: 400, description: 'Invalid verification code' })
   async verifyMfaSetup(
-    @CurrentUser() user: any,
+    @currentUserDecorator.CurrentUser() user: any,
     @Body() verifyMfaDto: VerifyMfaSetupDto,
   ): Promise<{ message: string }> {
     const isValid = await this.authService.verifyMfaSetup(
@@ -300,7 +300,7 @@ export class IdentityController {
   @ApiBearerAuth()
   @ApiOperation({ summary: 'Disable MFA for user account' })
   @ApiResponse({ status: 200, description: 'MFA disabled successfully' })
-  async disableMfa(@CurrentUser() user: any): Promise<{ message: string }> {
+  async disableMfa(@currentUserDecorator.CurrentUser() user: any): Promise<{ message: string }> {
     const fullUser = await this.userRepository.findById(user.sub);
     if (!fullUser) {
       throw new NotFoundException('User not found');

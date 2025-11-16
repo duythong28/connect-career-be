@@ -4,7 +4,6 @@ import { MoMoProvider } from './momo.provider';
 import { ZaloPayProvider } from './zalopay.provider';
 import { StripeProvider } from './stripe.provider';
 import { PaymentMethod } from '../../domain/entities/payment-transaction.entity';
-import { PayPalProvider } from './paypal.provider';
 
 export enum BasePaymentProviderCode {
   MOMO = 'momo',
@@ -30,12 +29,10 @@ export class PaymentProviderFactory {
     private readonly momoProvider: MoMoProvider,
     private readonly stripeProvider: StripeProvider,
     private readonly zalopayProvider: ZaloPayProvider,
-    private readonly paypalProvider: PayPalProvider,
   ) {
     this.registerProvider(this.momoProvider);
     this.registerProvider(this.stripeProvider);
     this.registerProvider(this.zalopayProvider);
-    this.registerProvider(this.paypalProvider);
   }
 
   private registerProvider(provider: IPaymentProvider): void {

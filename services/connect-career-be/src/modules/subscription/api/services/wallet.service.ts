@@ -88,23 +88,29 @@ export class WalletService {
       };
     }
     const wallet = await this.getOrCreateWallet(userId);
-    if (!wallet.hasSufficientBalance(action.cost)) {
+    
+    // Convert to numbers to prevent string concatenation
+    const currentBalance = parseFloat(String(wallet.creditBalance)) || 0;
+    const actionCost = parseFloat(String(action.cost)) || 0;
+    
+    if (currentBalance < actionCost) {
       return {
         success: false,
-        newBalance: wallet.creditBalance,
+        newBalance: currentBalance,
         error: 'Insufficient balance',
       };
     }
 
-    const balanceBefore = wallet.creditBalance;
-    wallet.creditBalance -= action.cost;
+    const balanceBefore = currentBalance;
+    wallet.creditBalance = balanceBefore - actionCost;
     const balanceAfter = wallet.creditBalance;
+    
     await this.walletRepository.save(wallet);
 
     const usage = this.usageLedgerRepository.create({
       userId,
       actionId: action.id,
-      amountDeducted: action.cost,
+      amountDeducted: actionCost,
       currency: action.currency,
       balanceBefore,
       balanceAfter,
@@ -121,7 +127,7 @@ export class WalletService {
       walletId: wallet.id,
       userId,
       type: TransactionType.DEBIT,
-      amount: action.cost,
+      amount: actionCost,
       currency: action.currency,
       balanceBefore,
       balanceAfter,
@@ -152,8 +158,12 @@ export class WalletService {
       throw new NotFoundException('Wallet not found');
     }
 
-    const balanceBefore = wallet.creditBalance;
-    wallet.creditBalance += amount;
+    const balanceBefore = parseFloat(String(wallet.creditBalance)) || 0;
+    const creditAmount = parseFloat(String(amount)) || 0;
+    if (isNaN(creditAmount) || creditAmount <= 0) {
+      throw new Error(`Invalid credit amount: ${amount}`);
+    }
+    wallet.creditBalance = balanceBefore + creditAmount;
     const balanceAfter = wallet.creditBalance;
 
     await this.walletRepository.save(wallet);

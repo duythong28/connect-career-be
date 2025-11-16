@@ -58,10 +58,10 @@ export class ZaloPayProvider extends BasePaymentProvider {
   }
 
   private getConfig(): ZaloPayConfig {
-    const app_id = this.configService.get<string>('app_id_zalopay');
-    const key1 = this.configService.get<string>('key1_zalopay');
-    const key2 = this.configService.get<string>('key2_zalopay');
-    const endpoint = this.configService.get<string>('endpoint_zalopay');
+    const app_id = this.configService.get<string>('APP_ID_ZALOPAY');
+    const key1 = this.configService.get<string>('KEY1_ZALOPAY');
+    const key2 = this.configService.get<string>('KEY2_ZALOPAY');
+    const endpoint = this.configService.get<string>('ENDPOINT_ZALOPAY');
 
     if (!app_id || !key1 || !key2 || !endpoint) {
       throw new BadRequestException('ZaloPay configuration is missing');
@@ -80,9 +80,9 @@ export class ZaloPayProvider extends BasePaymentProvider {
     const config = this.getConfig();
     const redirectUrl =
       metadata.returnUrl ||
-      this.configService.get<string>('redirect_url_payment');
+      this.configService.get<string>('REDIRECT_URL_PAYMENT');
     const callbackUrl =
-      metadata.notifyUrl || this.configService.get<string>('ipn_url_zalopay');
+      metadata.notifyUrl || this.configService.get<string>('IPN_URL_ZALOPAY');
 
     if (!redirectUrl || !callbackUrl) {
       throw new BadRequestException('ZaloPay URLs configuration is missing');
@@ -258,6 +258,7 @@ export class ZaloPayProvider extends BasePaymentProvider {
         .createHmac('sha256', config.key2)
         .update(dataStr)
         .digest('hex');
+      
 
       return reqMac === mac;
     } catch (error) {
@@ -280,10 +281,24 @@ export class ZaloPayProvider extends BasePaymentProvider {
       const orderId = items[0]?.itemid || dataJson.app_trans_id;
 
       let eventType: string = 'payment.failed';
-      if (dataJson.return_code === 1) {
+      
+      // Check if zp_trans_id exists and is valid (not 0 or null)
+      if (dataJson.zp_trans_id && dataJson.zp_trans_id > 0) {
+        eventType = 'payment.succeeded';
+      } else if (dataJson.return_code !== undefined) {
+        // Fallback: if return_code exists, use it (for compatibility)
+        if (dataJson.return_code === 1) {
+          eventType = 'payment.succeeded';
+        }
+      } else {
+        // If webhook is received, it typically means payment succeeded
+        // ZaloPay usually only sends webhooks for successful payments
         eventType = 'payment.succeeded';
       }
 
+      this.logger.log(
+        `ZaloPay webhook processed: ${eventType} for order ${orderId}, zp_trans_id: ${dataJson.zp_trans_id}`,
+      );
       return {
         type: eventType,
         data: dataJson,

@@ -49,6 +49,8 @@ export class UserWallet {
   updatedAt: Date;
 
   hasSufficientBalance(amount: number): boolean {
-    return this.creditBalance >= amount;
+    const balance = parseFloat(String(this.creditBalance)) || 0;
+    const requiredAmount = parseFloat(String(amount)) || 0;
+    return balance >= requiredAmount;
   }
 }

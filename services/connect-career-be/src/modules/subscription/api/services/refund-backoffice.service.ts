@@ -7,7 +7,6 @@ import { InjectRepository } from '@nestjs/typeorm';
 import { Refund, RefundStatus } from '../../domain/entities/refund.entity';
 import { In, Repository } from 'typeorm';
 import { UserWallet } from '../../domain/entities/user-wallet.entity';
-import { UsageLedger } from '../../domain/entities/usage-ledger.entity';
 import {
   PaymentTransaction,
   PaymentType,
@@ -17,7 +16,6 @@ import {
   TransactionType,
   WalletTransaction,
 } from '../../domain/entities/wallet-transaction.entity';
-import { WalletService } from './wallet.service';
 import { PaymentService } from './payment.service';
 import {
   CreateRefundDto,
@@ -33,14 +31,11 @@ export class RefundBackofficeService {
     private refundRepository: Repository<Refund>,
     @InjectRepository(PaymentTransaction)
     private paymentTransactionRepository: Repository<PaymentTransaction>,
-    @InjectRepository(UsageLedger)
-    private usageLedgerRepository: Repository<UsageLedger>,
     @InjectRepository(UserWallet)
     private walletRepository: Repository<UserWallet>,
     @InjectRepository(WalletTransaction)
     private walletTransactionRepository: Repository<WalletTransaction>,
     private paymentService: PaymentService,
-    private walletService: WalletService,
   ) {}
   async getRefunds(query: RefundListQueryDto) {
     const queryBuilder = this.refundRepository

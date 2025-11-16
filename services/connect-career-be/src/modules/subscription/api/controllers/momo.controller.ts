@@ -10,28 +10,28 @@ import {
   Res,
 } from '@nestjs/common';
 import {
-  ApiBearerAuth,
   ApiOperation,
   ApiQuery,
   ApiResponse,
   ApiTags,
 } from '@nestjs/swagger';
-import { PaymentService } from '../services/payment.service';
 import { MoMoProvider } from '../../infrastructure/payment-providers/momo.provider';
 import {
   MoMoWebhookDto,
 } from '../../infrastructure/dtos/momo.dto';
 import { MoMoWebhookPayload } from '../../infrastructure/types/momo.type';
 import express from 'express';
+import { PaymentService } from '../services/payment.service';
+import { Public } from 'src/modules/identity/api/decorators';
 
 @ApiTags('Payment - MoMo')
 @Controller('v1/payments/momo')
-@ApiBearerAuth()
+@Public()
 export class MoMoPaymentController {
   private readonly logger = new Logger(MoMoPaymentController.name);
   constructor(
     private readonly momoProvider: MoMoProvider,
-    private readonly momoPaymentService: PaymentService,
+    private readonly paymentService: PaymentService,
   ) {}
 
   @Post('webhook')
@@ -55,18 +55,22 @@ export class MoMoPaymentController {
         extraData: payload.extraData,
         signature: payload.signature,
       };
+      console.log('MoMoWebhookPayload', MoMoWebhookPayload);
+      
       const webhookEvent = await this.momoProvider.handleWebhook(
         MoMoWebhookPayload,
         payload.signature,
       );
+      // Process webhook event through payment service
+      await this.paymentService.processWebhookEvent('momo', webhookEvent);
 
-      res.status(204).json({
+      res.status(200).json({
         resultCode: 0,
         message: 'Success',
       });
     } catch (error) {
       this.logger.error('Failed to handle MoMo webhook', error);
-      res.status(204).json({
+      res.status(200).json({
         resultCode: 10,
         message: error instanceof Error ? error.message : 'Failed',
       });
@@ -84,7 +88,12 @@ export class MoMoPaymentController {
     @Res() res: express.Response,
   ): Promise<void> {
     try {
-      const status = await this.momoProvider.getPaymentStatus(orderId);
+      // Confirm payment through payment service
+      await this.paymentService.confirmPayment('momo', orderId, {
+        resultCode: parseInt(resultCode, 10),
+      });
+
+      const status = await this.paymentService.getPaymentStatus('momo', orderId);
 
       // Redirect to frontend with payment status
       const frontendUrl = process.env.FRONTEND_URL || 'http://localhost:3000';
@@ -98,5 +107,18 @@ export class MoMoPaymentController {
         `${frontendUrl}/wallet/top-up/return?provider=momo&status=failed&error=${encodeURIComponent(error instanceof Error ? error.message : 'Unknown error')}`,
       );
     }
+  }
+
+  @Get('status')
+  @ApiOperation({ summary: 'Query MoMo payment status' })
+  @ApiQuery({ name: 'orderId', required: true, type: String })
+  @ApiResponse({ status: 200, description: 'Payment status retrieved' })
+  async getStatus(@Query('orderId') orderId: string) {
+    const status = await this.paymentService.getPaymentStatus('momo', orderId);
+    return {
+      paymentId: orderId,
+      status,
+      provider: 'momo',
+    };
   }
 }

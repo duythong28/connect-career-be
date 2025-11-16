@@ -22,6 +22,7 @@ import {
 import { ConfigService } from '@nestjs/config';
 import { MoMoProvider } from '../../infrastructure/payment-providers/momo.provider';
 import { PaymentProviderFactory } from '../../infrastructure/payment-providers/payment-provider.factory';
+import { User } from 'src/modules/identity/domain/entities';
 
 export interface PaymentIntentResult {
   paymentId: string;
@@ -48,8 +49,8 @@ export class PaymentService {
   constructor(
     @InjectRepository(PaymentTransaction)
     private paymentTransactionRepository: Repository<PaymentTransaction>,
-    @InjectRepository(UserWallet)
-    private walletRepository: Repository<UserWallet>,
+    @InjectRepository(User)
+    private userRepository: Repository<User>,
     private walletService: WalletService,
     private configService: ConfigService,
     private paymentProviderFactory: PaymentProviderFactory,
@@ -62,6 +63,7 @@ export class PaymentService {
     provider: string,
     paymentMethod: string,
   ): Promise<PaymentIntentResult> {
+    const user = await this.userRepository.findOne({ where: { id: userId } });
     const wallet = await this.walletService.getOrCreateWallet(userId);
 
     // Get payment provider
@@ -119,6 +121,7 @@ export class PaymentService {
         returnUrl: `${frontendUrl}/wallet/top-up/return`,
         cancelUrl: `${frontendUrl}/wallet/top-up/cancel`,
         notifyUrl: `${apiUrl}/v1/payments/${provider.toLowerCase()}/webhook`,
+        userEmail: user?.email || '',
       };
 
       const intentResult: PaymentIntentResult = await paymentProvider.createPaymentIntent(

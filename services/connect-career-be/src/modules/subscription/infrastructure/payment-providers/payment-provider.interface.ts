@@ -12,6 +12,7 @@ export interface PaymentMetadata {
   returnUrl: string;
   cancelUrl: string;
   notifyUrl: string;
+  userEmail: string;
   [key: string]: any;
 }
 

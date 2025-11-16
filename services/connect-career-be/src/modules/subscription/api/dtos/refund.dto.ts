@@ -1,6 +1,7 @@
 // src/modules/subscription/api/dtos/backoffice/refund.dto.ts
 import { ApiProperty, ApiPropertyOptional } from '@nestjs/swagger';
 import {
+  IsEnum,
   IsNumber,
   IsOptional,
   IsString,
@@ -14,6 +15,7 @@ import { RefundStatus } from 'src/modules/subscription/domain/entities/refund.en
 export class RefundListQueryDto extends PaginationDto {
   @ApiPropertyOptional()
   @IsOptional()
+  @IsEnum(RefundStatus)
   status?: RefundStatus;
 
   @ApiPropertyOptional()

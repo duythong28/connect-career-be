@@ -48,7 +48,7 @@ export interface ZaloPayWebhookPayload {
 }
 
 export interface ZaloPayWebhookData {
-  return_code: number;
+  return_code?: number;
   app_id: string;
   app_trans_id: string;
   app_time: number;
@@ -60,6 +60,7 @@ export interface ZaloPayWebhookData {
   server_time: number;
   channel: number;
   merchant_user_id: string;
+  zp_user_id?: string;
   user_fee_amount: number;
   discount_amount: number;
 }

@@ -74,4 +74,13 @@ export class CandidateMockAIInterviewController {
   ) {
     return this.mockAIInterviewService.createMockInterview(body, user.sub);
   }
+
+  @Get(':id')
+  async getSession(@Param('id') id: string) {
+    const session = await this.mockAIInterviewService.getSession(id);
+    return {
+      success: true,
+      data: session,
+    };
+  }
 }

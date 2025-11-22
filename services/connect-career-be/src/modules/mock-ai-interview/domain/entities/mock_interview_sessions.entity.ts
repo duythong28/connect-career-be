@@ -36,7 +36,7 @@ export class AIMockInterview {
     enum: interviewConfigurationVo.InterviewSessionStatus,
     default: interviewConfigurationVo.InterviewSessionStatus.CREATED,
   })
-  status: interviewConfigurationVo.InterviewSessionStatus.CREATED;
+  status: interviewConfigurationVo.InterviewSessionStatus;
 
   @Column({ type: 'jsonb' })
   configuration: interviewConfigurationVo.InterviewConfiguration;

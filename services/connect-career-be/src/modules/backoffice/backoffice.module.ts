@@ -29,7 +29,7 @@ import { UserManagementService } from './api/services/user-management.service';
       Interview,
       Offer,
       CandidateProfile,
-      Role
+      Role,
     ]),
     IdentityModule,
   ],
@@ -41,7 +41,7 @@ import { UserManagementService } from './api/services/user-management.service';
     JobManagementService,
     CandidateManagementService,
     UserDetailsService,
-    UserManagementService
+    UserManagementService,
   ],
   exports: [
     BackofficeStatsService,
@@ -50,7 +50,7 @@ import { UserManagementService } from './api/services/user-management.service';
     JobManagementService,
     CandidateManagementService,
     UserDetailsService,
-    UserManagementService
+    UserManagementService,
   ],
 })
 export class BackofficeModule {}

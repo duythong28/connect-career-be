@@ -45,4 +45,38 @@ export class RetellAIProvider {
     };
   }
   async createInterviewer() {}
+
+  async createWebCall(
+    agentId: string,
+    dynamicVariables: Record<string, any>,
+  ): Promise<{
+    callId: string;
+    accessToken: string;
+  }> {
+    try {
+      const webCall = await this.retellAI.call.createWebCall({
+        agent_id: agentId,
+        retell_llm_dynamic_variables: dynamicVariables || {},
+      });
+      return {
+        callId: webCall.call_id,
+        accessToken: webCall.access_token,
+      };
+    } catch (error) {
+      throw new Error(
+        `Failed to create web call: ${error instanceof Error ? error.message : 'Unknown error'}`,
+      );
+    }
+  }
+
+  async retrieveCallDetails(callId: string): Promise<any> {
+    try {
+      const call = await this.retellAI.call.retrieve(callId);
+      return call;
+    } catch (error) {
+      throw new Error(
+        `Failed to retrieve call details: ${error instanceof Error ? error.message : 'Unknown error'}`,
+      );
+    }
+  }
 }

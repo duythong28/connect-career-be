@@ -107,6 +107,35 @@ export class MockInterviewService {
     }
   }
 
+  async updateSessionResults(
+    sessionId: string,
+    results: InterviewResults,
+  ): Promise<AIMockInterview> {
+    const session = await this.getSession(sessionId);
+    if (!session) {
+      throw new NotFoundException('Interview session not found');
+    }
+    session.results = results;
+    session.status = InterviewSessionStatus.COMPLETED;
+    session.completedAt = new Date();
+    return await this.sessionRepository.save(session);
+  }
+
+  async updateSessionStatus(
+    sessionId: string,
+    status: InterviewSessionStatus,
+  ): Promise<AIMockInterview> {
+    const session = await this.getSession(sessionId);
+    if (!session) {
+      throw new NotFoundException('Interview session not found');
+    }
+    session.status = status;
+    if (status === InterviewSessionStatus.IN_PROGRESS && !session.startedAt) {
+      session.startedAt = new Date();
+    }
+    return await this.sessionRepository.save(session);
+  }
+
   async generateMockInterviewQuestion(
     dto: GenerateMockInterviewQuestionsDto,
     candidateId: string,
@@ -223,6 +252,7 @@ export class MockInterviewService {
     dto: CreateMockInterviewDto,
     candidateId: string,
   ): Promise<{
+    sessionId: string;
     response: string;
     callId: string;
     callUrl: string;
@@ -252,6 +282,7 @@ export class MockInterviewService {
 
       return {
         response: 'Interview created successfully',
+        sessionId: session.id,
         callId,
         callUrl,
         readableSlug,

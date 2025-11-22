@@ -6,6 +6,7 @@ import {
   JoinColumn,
   ManyToOne,
   PrimaryGeneratedColumn,
+  UpdateDateColumn,
 } from 'typeorm';
 import * as interviewConfigurationVo from '../value-objects/interview-configuration.vo';
 import { AIMockInterview } from './mock_interview_sessions.entity';
@@ -23,8 +24,19 @@ export class InterviewResponse {
   @Index()
   sessionId: string;
 
-  @Column('uuid')
+  @Column('uuid', { nullable: true })
   questionId: string;
+
+  @Column({ type: 'varchar', length: 255, nullable: true })
+  @Index()
+  callId?: string;
+
+  @Column({ type: 'varchar', length: 255, nullable: true })
+  @Index()
+  email?: string;
+
+  @Column({ type: 'varchar', length: 255, nullable: true })
+  name?: string;
 
   @Column({ type: 'text', nullable: true })
   textResponse?: string;
@@ -38,6 +50,21 @@ export class InterviewResponse {
   @Column({ type: 'jsonb', nullable: true })
   sentiment?: interviewConfigurationVo.SentimentAnalysis;
 
+  @Column({ type: 'jsonb', nullable: true })
+  analytics?: any;
+
+  @Column({ type: 'boolean', default: false })
+  isEnded: boolean;
+
+  @Column({ type: 'boolean', default: false })
+  isAnalysed: boolean;
+
+  @Column({ type: 'text', nullable: true })
+  transcript?: string;
+
   @CreateDateColumn({ type: 'timestamp' })
   createdAt: Date;
+
+  @UpdateDateColumn({ type: 'timestamp' })
+  updatedAt: Date;
 }

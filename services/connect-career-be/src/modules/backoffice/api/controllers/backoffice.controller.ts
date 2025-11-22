@@ -47,7 +47,11 @@ import {
 import { CurrentUser } from 'src/modules/identity/api/decorators';
 import { UserDetailsService } from '../services/user-details.service';
 import { UserManagementService } from '../services/user-management.service';
-import { UpdateUserDto, UpdateUserStatusDto, UserListQueryDto } from '../dtos/user-management.dto';
+import {
+  UpdateUserDto,
+  UpdateUserStatusDto,
+  UserListQueryDto,
+} from '../dtos/user-management.dto';
 
 @ApiTags('BackOffice Admin')
 @Controller('v1/back-office')
@@ -62,7 +66,7 @@ export class BackofficeController {
     private readonly jobService: JobManagementService,
     private readonly candidateService: CandidateManagementService,
     private readonly userDetailsService: UserDetailsService,
-    private readonly userManagementService: UserManagementService
+    private readonly userManagementService: UserManagementService,
   ) {}
 
   // ========== STATISTICS ==========
@@ -126,7 +130,9 @@ export class BackofficeController {
 
   @Delete('users/:id')
   @HttpCode(HttpStatus.NO_CONTENT)
-  @ApiOperation({ summary: 'Delete user (soft delete - sets status to inactive)' })
+  @ApiOperation({
+    summary: 'Delete user (soft delete - sets status to inactive)',
+  })
   @ApiParam({ name: 'id', description: 'User ID' })
   @ApiResponse({ status: 204, description: 'User deleted successfully' })
   @ApiResponse({ status: 404, description: 'User not found' })

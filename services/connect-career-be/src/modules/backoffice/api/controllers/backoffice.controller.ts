@@ -46,9 +46,11 @@ import {
 } from '../dtos/candidate-management.dto';
 import { CurrentUser } from 'src/modules/identity/api/decorators';
 import { UserDetailsService } from '../services/user-details.service';
+import { UserManagementService } from '../services/user-management.service';
+import { UpdateUserDto, UpdateUserStatusDto, UserListQueryDto } from '../dtos/user-management.dto';
 
 @ApiTags('BackOffice Admin')
-@Controller('v1/backoffice')
+@Controller('v1/back-office')
 @UseGuards(JwtAuthGuard, RolesGuard)
 @ApiBearerAuth()
 @decorators.Roles('super_admin', 'admin')
@@ -60,6 +62,7 @@ export class BackofficeController {
     private readonly jobService: JobManagementService,
     private readonly candidateService: CandidateManagementService,
     private readonly userDetailsService: UserDetailsService,
+    private readonly userManagementService: UserManagementService
   ) {}
 
   // ========== STATISTICS ==========
@@ -71,6 +74,67 @@ export class BackofficeController {
   })
   async getStats(@Query() query: BackofficeStatsQueryDto) {
     return this.statsService.getBackofficeStats(query);
+  }
+
+  // ========== USER MANAGEMENT ==========
+  @Get('users')
+  @ApiOperation({ summary: 'Get all users with filtering' })
+  @ApiResponse({
+    status: 200,
+    description: 'Users retrieved successfully',
+  })
+  async getUsers(@Query() query: UserListQueryDto) {
+    return this.userManagementService.getUsers(query);
+  }
+
+  @Get('users/:id')
+  @ApiOperation({ summary: 'Get user by ID' })
+  @ApiParam({ name: 'id', description: 'User ID' })
+  @ApiResponse({ status: 200, description: 'User retrieved successfully' })
+  @ApiResponse({ status: 404, description: 'User not found' })
+  async getUserById(@Param('id') id: string) {
+    return this.userManagementService.getUserById(id);
+  }
+
+  @Put('users/:id')
+  @HttpCode(HttpStatus.OK)
+  @ApiOperation({ summary: 'Update user' })
+  @ApiParam({ name: 'id', description: 'User ID' })
+  @ApiResponse({ status: 200, description: 'User updated successfully' })
+  @ApiResponse({ status: 404, description: 'User not found' })
+  async updateUser(
+    @Param('id') id: string,
+    @Body() updateDto: UpdateUserDto,
+    @CurrentUser() user: decorators.CurrentUserPayload,
+  ) {
+    return this.userManagementService.updateUser(id, updateDto, user.sub);
+  }
+
+  @Put('users/:id/status')
+  @HttpCode(HttpStatus.OK)
+  @ApiOperation({ summary: 'Update user status' })
+  @ApiParam({ name: 'id', description: 'User ID' })
+  @ApiResponse({ status: 200, description: 'User status updated successfully' })
+  @ApiResponse({ status: 404, description: 'User not found' })
+  async updateUserStatus(
+    @Param('id') id: string,
+    @Body() updateDto: UpdateUserStatusDto,
+    @CurrentUser() user: decorators.CurrentUserPayload,
+  ) {
+    return this.userManagementService.updateUserStatus(id, updateDto, user.sub);
+  }
+
+  @Delete('users/:id')
+  @HttpCode(HttpStatus.NO_CONTENT)
+  @ApiOperation({ summary: 'Delete user (soft delete - sets status to inactive)' })
+  @ApiParam({ name: 'id', description: 'User ID' })
+  @ApiResponse({ status: 204, description: 'User deleted successfully' })
+  @ApiResponse({ status: 404, description: 'User not found' })
+  async deleteUser(
+    @Param('id') id: string,
+    @CurrentUser() user: decorators.CurrentUserPayload,
+  ) {
+    await this.userManagementService.deleteUser(id, user.sub);
   }
 
   // ========== RECRUITER MANAGEMENT ==========
@@ -100,7 +164,7 @@ export class BackofficeController {
   async updateRecruiter(
     @Param('id') id: string,
     @Body() updateDto: UpdateRecruiterDto,
-    @CurrentUser() user: any,
+    @CurrentUser() user: decorators.CurrentUserPayload,
   ) {
     return this.recruiterService.updateRecruiter(id, updateDto, user.sub);
   }

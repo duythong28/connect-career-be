@@ -1,6 +1,6 @@
 import { Module } from '@nestjs/common';
 import { TypeOrmModule } from '@nestjs/typeorm';
-import { User } from '../identity/domain/entities';
+import { Role, User } from '../identity/domain/entities';
 import { Organization } from '../profile/domain/entities/organization.entity';
 import { OrganizationMembership } from '../profile/domain/entities/organization-memberships.entity';
 import { Job } from '../jobs/domain/entities/job.entity';
@@ -16,6 +16,7 @@ import { JobManagementService } from './api/services/job-management.service';
 import { CandidateManagementService } from './api/services/candidate-management.service';
 import { IdentityModule } from '../identity/identity.module';
 import { UserDetailsService } from './api/services/user-details.service';
+import { UserManagementService } from './api/services/user-management.service';
 
 @Module({
   imports: [
@@ -28,6 +29,7 @@ import { UserDetailsService } from './api/services/user-details.service';
       Interview,
       Offer,
       CandidateProfile,
+      Role
     ]),
     IdentityModule,
   ],
@@ -39,6 +41,7 @@ import { UserDetailsService } from './api/services/user-details.service';
     JobManagementService,
     CandidateManagementService,
     UserDetailsService,
+    UserManagementService
   ],
   exports: [
     BackofficeStatsService,
@@ -47,6 +50,7 @@ import { UserDetailsService } from './api/services/user-details.service';
     JobManagementService,
     CandidateManagementService,
     UserDetailsService,
+    UserManagementService
   ],
 })
 export class BackofficeModule {}

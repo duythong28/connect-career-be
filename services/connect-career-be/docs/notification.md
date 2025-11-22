@@ -1,15 +1,3 @@
-Reviewing the current system to understand the architecture and existing notification infrastructure.
-
-[16 tools called]
-
-Reviewing a few more files to understand the complete architecture:
-
-[4 tools called]
-
-Drafting a notification system design document with use cases and a technical solution.
-
-[3 tools called]
-
 ## Notification System Design Document
 
 ### 1. Use Cases by Notification Type

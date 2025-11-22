@@ -30,7 +30,7 @@ export class OrganizationRepository
   async findById(id: string): Promise<Organization | null> {
     return this.repository.findOne({
       where: { id },
-      relations: ['user', 'locations', 'logoFile', 'industry'],
+      relations: ['user', 'locations', 'logoFile', 'industry', 'reviews'],
     });
   }
   async findByUserId(userId: string): Promise<Organization | null> {

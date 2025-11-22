@@ -198,6 +198,7 @@ export class ApplicationService {
     const qb = this.applicationRepository
       .createQueryBuilder('application')
       .leftJoinAndSelect('application.job', 'job')
+      .leftJoinAndSelect('job.user', 'jobUser')
       .leftJoinAndSelect('application.candidate', 'candidate')
       .leftJoinAndSelect('application.candidateProfile', 'candidateProfile')
       .leftJoinAndSelect(
@@ -496,6 +497,7 @@ export class ApplicationService {
     return this.applicationRepository
       .createQueryBuilder('application')
       .leftJoinAndSelect('application.job', 'job')
+      .leftJoinAndSelect('job.user', 'jobUser')
       .leftJoinAndSelect('application.candidate', 'candidate')
       .leftJoinAndSelect('application.candidateProfile', 'candidateProfile')
       .leftJoinAndSelect('application.cv', 'cv')
@@ -578,6 +580,7 @@ export class ApplicationService {
       relations: [
         'candidate',
         'job',
+        'job.user',
         'candidateProfile',
         'cv',
         'interviews',

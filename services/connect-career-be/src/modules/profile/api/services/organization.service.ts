@@ -21,6 +21,7 @@ import {
   InterviewStatus,
 } from 'src/modules/applications/domain/entities/interview.entity';
 import { Job } from 'src/modules/jobs/domain/entities/job.entity';
+import { OrganizationReview } from '../../domain/entities/organization-reviews.entity';
 
 @Injectable()
 export class OrganizationService {

@@ -20,6 +20,7 @@ import { GenerateInsightsDto } from '../dto/generate-insights.dto';
 import { AnalyzeCommunicationDto } from '../dto/anlyze-communication.dto';
 import { MockInterviewService } from '../services/mock-interview.service';
 import { ScoringDimension } from '../../domain/value-objects/interview-configuration.vo';
+import { AnalyticsService } from '../services/analytics.service';
 
 export interface InterviewResults {
   overallScore: number;
@@ -49,7 +50,7 @@ export class MockInterviewCallController {
     private readonly responseService: ResponseService,
     private readonly retellAIProvider: RetellAIProvider,
     private readonly mockInterviewService: MockInterviewService,
-    private readonly configService: ConfigService,
+    private readonly analyticsService: AnalyticsService,
   ) {
     this.openai = new OpenAI({
       apiKey: process.env.GEMINI_API_KEY,
@@ -145,6 +146,76 @@ export class MockInterviewCallController {
           analytics: null,
         },
       };
+    }
+  }
+
+  @Post('response/:callId/analyze')
+  @Public()
+  async analyzeCall(@Param('callId') callId: string) {
+    const response = await this.responseService.getResponseByCallId(callId);
+
+    if (response.isAnalysed) {
+      return {
+        success: true,
+        data: {
+          response,
+          analytics: response.analytics,
+          message: 'Already analyzed',
+        },
+      };
+    }
+
+    try {
+      // Retrieve call details from Retell
+      const callData = await this.retellAIProvider.retrieveCallDetails(callId);
+      
+      if (!callData.transcript) {
+        throw new BadRequestException('No transcript available for analysis');
+      }
+
+      // Calculate duration
+      const duration =
+        callData.end_timestamp && callData.start_timestamp
+          ? Math.floor(
+              (new Date(callData.end_timestamp).getTime() -
+                new Date(callData.start_timestamp).getTime()) /
+                1000,
+            )
+          : undefined;
+
+      // Generate analytics using AnalyticsService
+      const analytics = await this.analyticsService.generateInterviewAnalytics(
+        {
+          transcript: callData.transcript,
+          transcript_object: callData.transcript_object,
+          call_analysis: callData.call_analysis,
+          duration,
+        },
+        response.sessionId,
+      );
+
+      // Save analytics to response
+      await this.responseService.saveResponse(callId, {
+        transcript: callData.transcript,
+        analytics,
+        isAnalysed: true,
+        isEnded: true,
+        duration,
+      });
+
+      // Get updated response with relations
+      const updatedResponse = await this.responseService.getResponseByCallId(callId);
+
+      return {
+        success: true,
+        data: {
+          response: updatedResponse,
+          analytics,
+        },
+      };
+    } catch (error) {
+      this.logger.error(`Error analyzing call ${callId}:`, error);
+      throw new BadRequestException('Failed to analyze call');
     }
   }
 

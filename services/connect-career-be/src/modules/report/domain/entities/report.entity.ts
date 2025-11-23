@@ -20,6 +20,7 @@ export enum ReportableEntityType {
   INTERVIEW = 'interview',
   OFFER = 'offer',
   CV = 'cv',
+  REFUND = 'refund',
   //   PAYMENT = 'payment',
   //   SUBSCRIPTION = 'subscription',
   //   TRANSACTION = 'transaction',
@@ -96,6 +97,18 @@ export enum InterviewReportReason {
   UNPROFESSIONAL_BEHAVIOR = 'unprofessional_behavior',
   DISCRIMINATION = 'discrimination',
   HARASSMENT = 'harassment',
+  OTHER = 'other',
+}
+
+export enum RefundReportReason {
+  FRAUD = 'fraud',
+  MISLEADING_INFO = 'misleading_info',
+  WRONG_AMOUNT = 'wrong_amount',
+  WRONG_CURRENCY = 'wrong_currency',
+  WRONG_PAYMENT_METHOD = 'wrong_payment_method',
+  WRONG_PAYMENT_STATUS = 'wrong_payment_status',
+  WRONG_PAYMENT_DATE = 'wrong_payment_date',
+  WRONG_PAYMENT_TIME = 'wrong_payment_time',
   OTHER = 'other',
 }
 

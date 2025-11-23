@@ -107,6 +107,7 @@ export class AnalyticsService {
             content: feedbackItem.content,
             dimension: feedbackItem.dimension,
             priority: feedbackItem.priority || 'medium',
+            generatedAt: new Date()
           });
         }
       }
@@ -125,7 +126,20 @@ export class AnalyticsService {
 
       await this.mockInterviewService.updateSessionResults(sessionId, results);
 
-      return analytics;
+      return {
+        overallScore: analytics.overallScore || 0,
+        dimensionScores: analytics.dimensionScores || {},
+        strengths: analytics.strengths || [],
+        weaknesses: analytics.weaknesses || [],
+        recommendations: analytics.recommendation || [],
+        learningTags: analytics.learningTags || [],
+        transcript: callData.transcript,
+        duration: callData.duration || 0,
+        communicationAnalysis: analytics.communicationAnalysis || {},
+        // Include all analytics data
+        ...analytics,
+      };     
+    
     } catch (error) {
       this.logger.error('Error generating analytics:', error);
       throw new BadRequestException('Failed to generate analytics');

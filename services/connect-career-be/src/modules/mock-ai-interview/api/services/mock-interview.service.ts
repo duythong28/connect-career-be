@@ -236,7 +236,6 @@ export class MockInterviewService {
       questions.sort((a, b) => a.order - b.order);
 
       this.logger.log('Interview questions generated successfully');
-
       return {
         mockInterviewSession: session,
         questions,
@@ -276,9 +275,20 @@ export class MockInterviewService {
 
       await this.sessionRepository.save(session);
 
-      this.logger.log('Interview created successfully', {
-        sessionId: session.id,
-      });
+      if (dto.questions && dto.questions.length > 0) {
+        const questionEntities = dto.questions.map((q) =>
+          this.questionRepository.create({
+            sessionId: session.id,
+            question: q.question,
+            order: q.order,
+            timeLimit: q.timeLimit,
+            context: q.context,
+            askedAt: q.askedAt ? new Date(q.askedAt) : new Date(),
+          }),
+        );
+        await this.questionRepository.save(questionEntities);
+        this.logger.log(`Saved ${questionEntities.length} questions to database for session ${session.id}`);
+      }
 
       return {
         response: 'Interview created successfully',
@@ -320,29 +330,30 @@ export class MockInterviewService {
     const queryBuilder = this.sessionRepository
       .createQueryBuilder('session')
       .where('session.candidateId = :candidateId', { candidateId });
-
+  
     if (filters.status) {
       queryBuilder.andWhere('session.status = :status', {
         status: filters.status,
       });
     }
-
+  
     if (filters.role) {
       queryBuilder.andWhere('session.role = :role', { role: filters.role });
     }
-
+  
     if (filters.scenario) {
       queryBuilder.andWhere('session.scenario = :scenario', {
         scenario: filters.scenario,
       });
     }
-
+  
     const [sessions, total] = await queryBuilder
-      .orderBy('session.createdAt', 'DESC')
+      .orderBy('session.startedAt', 'DESC')
+      .addOrderBy('session.id', 'DESC')
       .skip((filters.page - 1) * filters.limit)
       .take(filters.limit)
       .getManyAndCount();
-
+  
     return { sessions, total };
   }
 

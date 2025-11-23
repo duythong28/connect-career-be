@@ -1,9 +1,11 @@
 import {
   Column,
+  CreateDateColumn,
   Index,
   OneToMany,
   PrimaryGeneratedColumn,
   Entity as TypeOrmEntity,
+  UpdateDateColumn,
 } from 'typeorm';
 import * as interviewConfigurationVo from '../value-objects/interview-configuration.vo';
 import { InterviewQuestion } from './mock_interview_questions.entity';
@@ -49,6 +51,12 @@ export class AIMockInterview {
 
   @Column({ type: 'timestamp', nullable: true })
   completedAt?: Date;
+
+  @CreateDateColumn({ type: 'timestamp' })
+  createdAt: Date;
+
+  @UpdateDateColumn({ type: 'timestamp' })
+  updatedAt: Date;
 
   @OneToMany(() => InterviewQuestion, (question) => question.session)
   questions: InterviewQuestion[];

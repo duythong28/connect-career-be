@@ -1,4 +1,11 @@
-import { IsOptional, IsEnum, IsString, IsInt, Min, IsDateString } from 'class-validator';
+import {
+  IsOptional,
+  IsEnum,
+  IsString,
+  IsInt,
+  Min,
+  IsDateString,
+} from 'class-validator';
 import { Type } from 'class-transformer';
 import { ApiPropertyOptional } from '@nestjs/swagger';
 import { InterviewSessionStatus } from '../../domain/value-objects/interview-configuration.vo';

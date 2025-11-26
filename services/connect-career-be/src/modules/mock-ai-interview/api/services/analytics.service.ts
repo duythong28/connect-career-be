@@ -107,7 +107,7 @@ export class AnalyticsService {
             content: feedbackItem.content,
             dimension: feedbackItem.dimension,
             priority: feedbackItem.priority || 'medium',
-            generatedAt: new Date()
+            generatedAt: new Date(),
           });
         }
       }
@@ -138,8 +138,7 @@ export class AnalyticsService {
         communicationAnalysis: analytics.communicationAnalysis || {},
         // Include all analytics data
         ...analytics,
-      };     
-    
+      };
     } catch (error) {
       this.logger.error('Error generating analytics:', error);
       throw new BadRequestException('Failed to generate analytics');

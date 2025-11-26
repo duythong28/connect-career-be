@@ -287,7 +287,9 @@ export class MockInterviewService {
           }),
         );
         await this.questionRepository.save(questionEntities);
-        this.logger.log(`Saved ${questionEntities.length} questions to database for session ${session.id}`);
+        this.logger.log(
+          `Saved ${questionEntities.length} questions to database for session ${session.id}`,
+        );
       }
 
       return {
@@ -330,30 +332,30 @@ export class MockInterviewService {
     const queryBuilder = this.sessionRepository
       .createQueryBuilder('session')
       .where('session.candidateId = :candidateId', { candidateId });
-  
+
     if (filters.status) {
       queryBuilder.andWhere('session.status = :status', {
         status: filters.status,
       });
     }
-  
+
     if (filters.role) {
       queryBuilder.andWhere('session.role = :role', { role: filters.role });
     }
-  
+
     if (filters.scenario) {
       queryBuilder.andWhere('session.scenario = :scenario', {
         scenario: filters.scenario,
       });
     }
-  
+
     const [sessions, total] = await queryBuilder
       .orderBy('session.startedAt', 'DESC')
       .addOrderBy('session.id', 'DESC')
       .skip((filters.page - 1) * filters.limit)
       .take(filters.limit)
       .getManyAndCount();
-  
+
     return { sessions, total };
   }
 

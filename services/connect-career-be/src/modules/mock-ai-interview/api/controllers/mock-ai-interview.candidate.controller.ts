@@ -28,18 +28,27 @@ export class CandidateMockAIInterviewController {
     private readonly agentInterviewerService: AgentInterviewerService,
   ) {}
   @Get()
-  @ApiOperation({ summary: 'Get all AI mock interviews for the current candidate' })
- 
+  @ApiOperation({
+    summary: 'Get all AI mock interviews for the current candidate',
+  })
   async getMyInterviews(
     @Query() query: ListMockInterviewQueryDto,
     @decorators.CurrentUser() user: decorators.CurrentUserPayload,
   ) {
     const filters = {
       status: query.status,
-      createdAfter: query.createdAfter ? new Date(query.createdAfter) : undefined,
-      createdBefore: query.createdBefore ? new Date(query.createdBefore) : undefined,
-      completedAfter: query.completedAfter ? new Date(query.completedAfter) : undefined,
-      completedBefore: query.completedBefore ? new Date(query.completedBefore) : undefined,
+      createdAfter: query.createdAfter
+        ? new Date(query.createdAfter)
+        : undefined,
+      createdBefore: query.createdBefore
+        ? new Date(query.createdBefore)
+        : undefined,
+      completedAfter: query.completedAfter
+        ? new Date(query.completedAfter)
+        : undefined,
+      completedBefore: query.completedBefore
+        ? new Date(query.completedBefore)
+        : undefined,
       page: query.page || 1,
       limit: query.limit || 20,
     };

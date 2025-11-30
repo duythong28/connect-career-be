@@ -1,0 +1,85 @@
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: connect-career-be
+  namespace: connect-career
+  annotations:
+    reloader.stakater.com/auto: "true"
+spec:
+  replicas: 2
+  revisionHistoryLimit: 3
+  strategy:
+    type: RollingUpdate
+    rollingUpdate:
+      maxSurge: 1
+      maxUnavailable: 0
+  minReadySeconds: 5
+  selector:
+    matchLabels:
+      app: connect-career-be
+  template:
+    metadata:
+      labels:
+        app: connect-career-be
+    spec:
+      containers:
+      - name: connect-career-be
+        image: connect-career-be:latest
+        imagePullPolicy: Never
+        ports:
+        - containerPort: 8080
+          name: http
+        envFrom:
+        - configMapRef:
+            name: connect-career-be-config
+        - secretRef:
+            name: connect-career-be-secret
+        env:
+        - name: GOOGLE_APPLICATION_CREDENTIALS
+          value: /etc/google-cloud/credentials.json
+        volumeMounts:
+        - name: google-cloud-credentials
+          mountPath: /etc/google-cloud
+          readOnly: true
+        resources:
+          requests:
+            memory: "256Mi"
+            cpu: "250m"
+          limits:
+            memory: "512Mi"
+            cpu: "500m"
+        readinessProbe:
+          httpGet:
+            path: /api/health
+            port: 8080
+          initialDelaySeconds: 5
+          periodSeconds: 5
+          successThreshold: 1
+        livenessProbe:
+          httpGet:
+            path: /api/health
+            port: 8080
+          initialDelaySeconds: 30
+          periodSeconds: 10
+        lifecycle:
+          preStop:
+            exec:
+              command: ["/bin/bash", "-c", "sleep 15"]
+      volumes:
+      - name: google-cloud-credentials
+        secret:
+          secretName: google-cloud-credentials
+---
+apiVersion: v1
+kind: Service
+metadata:
+  name: connect-career-be-service
+  namespace: connect-career
+spec:
+  selector:
+    app: connect-career-be
+  ports:
+  - protocol: TCP
+    port: 80
+    targetPort: 8080
+  type: ClusterIP

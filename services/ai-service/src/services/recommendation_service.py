@@ -132,7 +132,13 @@ class RecommendationService:
         # Load user embedding once
         user_emb = embedding_service.get_user_embedding(request.userId)
         user_cf = cf_service.get_user_cf_factors(request.userId)
-        
+
+        # Add logging to debug
+        if user_emb is None:
+            logger.warning(f"User {request.userId} has no embedding in database")
+        if user_cf is None:
+            logger.warning(f"User {request.userId} has no CF factors in database")
+
         # Batch load all job embeddings
         job_embeddings = {}
         job_cf_factors = {}
@@ -190,15 +196,23 @@ class RecommendationService:
                 job_emb = job_embeddings.get(job_id)
                 job_cf = job_cf_factors.get(job_id)
                 
-                # Content-based score
-                content_score = embedding_service.cosine_similarity(user_emb, job_emb) if job_emb is not None else 0.0
-                
+                if user_emb is None or job_emb is None:
+                    content_score = 0.0
+                    if user_emb is None:
+                        logger.debug(f"User embedding missing for {request.userId}")
+                    if job_emb is None:
+                        logger.debug(f"Job embedding missing for {job_id}")
+                else:
+                    content_score = embedding_service.cosine_similarity(user_emb, job_emb)
+
                 # Collaborative filtering score
-                cf_score = cf_service.dot_product(user_cf, job_cf) if (user_cf is not None and job_cf is not None) else 0.0
-                
+                if user_cf is None or job_cf is None:
+                    cf_score = 0.0
+                else:
+                    cf_score = cf_service.dot_product(user_cf, job_cf)
+
                 # Hybrid combination
                 final_score = self.alpha * content_score + (1 - self.alpha) * cf_score
-                scored_jobs.append((job_id, final_score))
             except Exception as e:
                 logger.error(f"Error scoring job {job_id}: {e}")
                 continue

@@ -34,11 +34,11 @@ export class JobInteraction {
   jobId: string;
 
   @ManyToOne(() => User, { onDelete: 'CASCADE' })
-  @JoinColumn({ name: 'user_id' })
+  @JoinColumn({ name: 'userId' })
   user: User;
 
   @ManyToOne(() => Job, { onDelete: 'CASCADE' })
-  @JoinColumn({ name: 'job_id' })
+  @JoinColumn({ name: 'jobId' })
   job: Job;
 
   @Column({
@@ -50,7 +50,7 @@ export class JobInteraction {
   @Column({ type: 'real', default: 1 })
   weight: number;
 
-  @CreateDateColumn({ type: 'timestamptz', name: 'created_at' })  // Explicit snake_case
+  @CreateDateColumn({ type: 'timestamptz', name: 'createdAt' })  // Explicit snake_case
   @Index()
   createdAt: Date;
 }

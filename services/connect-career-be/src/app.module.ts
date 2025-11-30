@@ -23,6 +23,7 @@ import { WalletModule } from './modules/subscription/subscription.module';
 import { MorganMiddleware } from './shared/kernel/middlewares/morgan.middleware';
 import { WinstonModule } from 'nest-winston';
 import winston from 'winston';
+import { RecommendationModule } from './modules/recommendations/recommendation.module';
 
 @Module({
   imports: [
@@ -123,6 +124,7 @@ import winston from 'winston';
     BackofficeModule,
     ReportModule,
     WalletModule,
+    RecommendationModule
   ],
   providers: [
     {

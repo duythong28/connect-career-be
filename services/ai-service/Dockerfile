@@ -5,5 +5,6 @@ RUN apt-get update && apt-get install -y --no-install-recommends build-essential
 COPY requirements.txt /app/
 RUN pip install --upgrade pip && pip install -r requirements.txt
 COPY src/ /app/src/
+COPY scripts/ /app/scripts/
 EXPOSE 8000
-CMD ["bash","-c","gunicorn -k uvicorn.workers.UvicornWorker -w ${UVICORN_WORKERS} -b 0.0.0.0:${PORT} main:app --chdir src --timeout 60 --graceful-timeout 30 --keep-alive 5 --access-logfile - --error-logfile -"]
+CMD ["bash","-c","gunicorn -k uvicorn.workers.UvicornWorker -w ${UVICORN_WORKERS} -b 0.0.0.0:${PORT} src.main:app --timeout 60 --graceful-timeout 30 --keep-alive 5 --access-logfile - --error-logfile -"]

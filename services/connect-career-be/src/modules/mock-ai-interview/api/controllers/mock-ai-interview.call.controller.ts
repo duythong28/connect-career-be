@@ -168,7 +168,7 @@ export class MockInterviewCallController {
     try {
       // Retrieve call details from Retell
       const callData = await this.retellAIProvider.retrieveCallDetails(callId);
-      
+
       if (!callData.transcript) {
         throw new BadRequestException('No transcript available for analysis');
       }
@@ -204,7 +204,8 @@ export class MockInterviewCallController {
       });
 
       // Get updated response with relations
-      const updatedResponse = await this.responseService.getResponseByCallId(callId);
+      const updatedResponse =
+        await this.responseService.getResponseByCallId(callId);
 
       return {
         success: true,

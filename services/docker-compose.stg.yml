@@ -1,0 +1,15 @@
+version: "3.9"
+
+services:
+  kong:
+    ports:
+      - "8000:8000"
+    environment:
+      KONG_LOG_LEVEL: info
+
+  connect-career-be:
+    environment:
+      NODE_ENV: staging
+  ai-service:
+    environment:
+      NODE_ENV: staging

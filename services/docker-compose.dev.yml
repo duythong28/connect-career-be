@@ -1,0 +1,19 @@
+version: "3.9"
+
+services:
+  kong:
+    ports:
+      - "8000:8000"
+      - "8001:8001"
+
+  connect-career-be:
+    ports:
+      - "8080:8080"
+    environment:
+      NODE_ENV: development
+
+  ai-service:
+    ports:
+      - "8002:8000"
+    environment:
+      NODE_ENV: development

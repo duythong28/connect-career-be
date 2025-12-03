@@ -24,6 +24,7 @@ import { MorganMiddleware } from './shared/kernel/middlewares/morgan.middleware'
 import { WinstonModule } from 'nest-winston';
 import winston from 'winston';
 import { RecommendationModule } from './modules/recommendations/recommendation.module';
+import { HealthController } from './health.controller';
 
 @Module({
   imports: [
@@ -142,6 +143,7 @@ import { RecommendationModule } from './modules/recommendations/recommendation.m
     WalletModule,
     RecommendationModule
   ],
+  controllers: [HealthController],
   providers: [
     {
       provide: APP_GUARD,

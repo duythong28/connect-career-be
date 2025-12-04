@@ -1,0 +1,26 @@
+apiVersion: networking.k8s.io/v1
+kind: Ingress
+metadata:
+  name: connect-career-ingress
+  namespace: connect-career
+  annotations:
+    nginx.ingress.kubernetes.io/rewrite-target: /
+spec:
+  rules:
+  - host: connect-career.local
+    http:
+      paths:
+      - path: /api
+        pathType: Prefix
+        backend:
+          service:
+            name: connect-career-be-service
+            port:
+              number: 80
+      - path: /ai
+        pathType: Prefix
+        backend:
+          service:
+            name: ai-service-service
+            port:
+              number: 80

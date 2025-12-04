@@ -23,6 +23,8 @@ import { WalletModule } from './modules/subscription/subscription.module';
 import { MorganMiddleware } from './shared/kernel/middlewares/morgan.middleware';
 import { WinstonModule } from 'nest-winston';
 import winston from 'winston';
+import { RecommendationModule } from './modules/recommendations/recommendation.module';
+import { HealthController } from './health.controller';
 
 @Module({
   imports: [
@@ -40,31 +42,26 @@ import winston from 'winston';
           configService.get<string>('LOG_LEVEL') ||
           (isDevelopment ? 'debug' : 'info');
 
-        return {
-          level: logLevel,
-          format: winston.format.combine(
-            winston.format.timestamp({ format: 'YYYY-MM-DD HH:mm:ss' }),
-            winston.format.errors({ stack: true }),
-            winston.format.splat(),
-            winston.format.json(),
-          ),
-          defaultMeta: { service: 'connect-career-be' },
-          transports: [
-            // Console transport
-            new winston.transports.Console({
-              format: winston.format.combine(
-                winston.format.colorize(),
-                winston.format.printf(
-                  ({ timestamp, level, message, context, trace, ...meta }) => {
-                    const contextStr = context ? `[${String(context)}]` : '';
-                    const metaStr = Object.keys(meta).length
-                      ? JSON.stringify(meta)
-                      : '';
-                    return `${timestamp} ${level} ${contextStr} ${message} ${metaStr}`;
-                  },
-                ),
+        const transports: winston.transport[] = [
+          new winston.transports.Console({
+            format: winston.format.combine(
+              winston.format.colorize(),
+              winston.format.printf(
+                ({ timestamp, level, message, context, trace, ...meta }) => {
+                  const contextStr = context ? `[${String(context)}]` : '';
+                  const metaStr = Object.keys(meta).length
+                    ? JSON.stringify(meta)
+                    : '';
+                  return `${timestamp} ${level} ${contextStr} ${message} ${metaStr}`;
+                },
               ),
-            }),
+            ),
+          }),
+        ];
+
+        // Add file transports only in development
+        if (isDevelopment) {
+          transports.push(
             // File transport for errors
             new winston.transports.File({
               filename: 'logs/error.log',
@@ -82,16 +79,37 @@ import winston from 'winston';
                 winston.format.json(),
               ),
             }),
-          ],
-          exceptionHandlers: [
-            new winston.transports.File({ filename: 'logs/exceptions.log' }),
-          ],
-          rejectionHandlers: [
-            new winston.transports.File({ filename: 'logs/rejections.log' }),
-          ],
+          );
+        }
+
+        return {
+          level: logLevel,
+          format: winston.format.combine(
+            winston.format.timestamp({ format: 'YYYY-MM-DD HH:mm:ss' }),
+            winston.format.errors({ stack: true }),
+            winston.format.splat(),
+            winston.format.json(),
+          ),
+          defaultMeta: { service: 'connect-career-be' },
+          transports,
+          exceptionHandlers: isDevelopment
+            ? [
+                new winston.transports.File({
+                  filename: 'logs/exceptions.log',
+                }),
+              ]
+            : [new winston.transports.Console()],
+          rejectionHandlers: isDevelopment
+            ? [
+                new winston.transports.File({
+                  filename: 'logs/rejections.log',
+                }),
+              ]
+            : [new winston.transports.Console()],
         };
       },
       inject: [ConfigService],
+  
     }),
     TypeOrmModule.forRootAsync({
       imports: [ConfigModule],
@@ -123,7 +141,9 @@ import winston from 'winston';
     BackofficeModule,
     ReportModule,
     WalletModule,
+    RecommendationModule
   ],
+  controllers: [HealthController],
   providers: [
     {
       provide: APP_GUARD,

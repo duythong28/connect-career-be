@@ -13,7 +13,11 @@ export class SemanticMemoryService implements SemanticMemory {
   private readonly logger = new Logger(SemanticMemoryService.name);
   private readonly concepts = new Map<string, Concept>();
 
-  async store(key: string, value: any, metadata?: Record<string, any>): Promise<void> {
+  async store(
+    key: string,
+    value: any,
+    metadata?: Record<string, any>,
+  ): Promise<void> {
     // Store semantic memory entry
     this.concepts.set(key, {
       concept: typeof value === 'string' ? value : JSON.stringify(value),
@@ -28,7 +32,10 @@ export class SemanticMemoryService implements SemanticMemory {
     return concept ? concept.concept : null;
   }
 
-  async search(query: string, limit: number = 10): Promise<Array<{ key: string; value: any; score: number }>> {
+  async search(
+    query: string,
+    limit: number = 10,
+  ): Promise<Array<{ key: string; value: any; score: number }>> {
     // Simple text-based search (in production, use vector similarity search)
     const results: Array<{ key: string; value: any; score: number }> = [];
     const queryLower = query.toLowerCase();
@@ -92,7 +99,7 @@ export class SemanticMemoryService implements SemanticMemory {
     // Simple Jaccard similarity
     const words1 = new Set(str1.split(/\s+/));
     const words2 = new Set(str2.split(/\s+/));
-    const intersection = new Set([...words1].filter(x => words2.has(x)));
+    const intersection = new Set([...words1].filter((x) => words2.has(x)));
     const union = new Set([...words1, ...words2]);
     return intersection.size / union.size;
   }
@@ -115,4 +122,3 @@ export class SemanticMemoryService implements SemanticMemory {
     return dotProduct / (Math.sqrt(norm1) * Math.sqrt(norm2));
   }
 }
-

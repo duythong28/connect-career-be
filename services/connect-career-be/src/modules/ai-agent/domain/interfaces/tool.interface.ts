@@ -12,4 +12,3 @@ export interface ToolParameter {
   required: boolean;
   default?: any;
 }
-

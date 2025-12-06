@@ -1,6 +1,6 @@
 import { Injectable, Logger } from '@nestjs/common';
-import { IAgent } from '../domain/interfaces/agent.interface';
-import { AgentContext, IntentResult } from '../domain/types/agent.types';
+import { IAgent } from '../../domain/interfaces/agent.interface';
+import { AgentContext, IntentResult } from '../../domain/types/agent.types';
 import { IntentDetectorService } from './intent-detector.service';
 
 @Injectable()
@@ -15,10 +15,7 @@ export class AgentRouterService {
     this.logger.log(`Registered agent: ${agent.name}`);
   }
 
-  async routeToAgent(
-    intent: string,
-    context: AgentContext,
-  ): Promise<IAgent> {
+  async routeToAgent(intent: string, context: AgentContext): Promise<IAgent> {
     // Find agents that can handle this intent
     const candidateAgents: Array<{ agent: IAgent; score: number }> = [];
 
@@ -42,7 +39,7 @@ export class AgentRouterService {
     // Return agent with highest score
     candidateAgents.sort((a, b) => b.score - a.score);
     const selectedAgent = candidateAgents[0].agent;
-    
+
     this.logger.log(
       `Routed intent "${intent}" to agent "${selectedAgent.name}" (score: ${candidateAgents[0].score})`,
     );
@@ -71,7 +68,7 @@ export class AgentRouterService {
     const requiredMemory = agent.getRequiredMemory();
     if (requiredMemory.length > 0 && context.memory) {
       const hasMemory = requiredMemory.every(
-        type => context.memory?.[type] !== undefined,
+        (type) => context.memory?.[type] !== undefined,
       );
       if (hasMemory) {
         score += 0.1;
@@ -89,4 +86,3 @@ export class AgentRouterService {
     return this.agents.get(name);
   }
 }
-

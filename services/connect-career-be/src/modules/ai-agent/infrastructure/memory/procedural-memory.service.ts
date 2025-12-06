@@ -13,7 +13,11 @@ export class ProceduralMemoryService implements ProceduralMemory {
   private readonly logger = new Logger(ProceduralMemoryService.name);
   private readonly procedures = new Map<string, Procedure>();
 
-  async store(key: string, value: any, metadata?: Record<string, any>): Promise<void> {
+  async store(
+    key: string,
+    value: any,
+    metadata?: Record<string, any>,
+  ): Promise<void> {
     // Store procedural memory entry
     this.procedures.set(key, {
       name: key,
@@ -28,7 +32,10 @@ export class ProceduralMemoryService implements ProceduralMemory {
     return procedure ? procedure.steps : null;
   }
 
-  async search(query: string, limit: number = 10): Promise<Array<{ key: string; value: any; score: number }>> {
+  async search(
+    query: string,
+    limit: number = 10,
+  ): Promise<Array<{ key: string; value: any; score: number }>> {
     // Search procedures by name or step content
     const results: Array<{ key: string; value: any; score: number }> = [];
     const queryLower = query.toLowerCase();
@@ -73,4 +80,3 @@ export class ProceduralMemoryService implements ProceduralMemory {
     return procedure ? procedure.steps : null;
   }
 }
-

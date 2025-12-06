@@ -27,11 +27,14 @@ export class ToolRegistryService {
   getToolsForAgent(agentName: string): ITool[] {
     const toolNames = this.agentTools.get(agentName) || [];
     return toolNames
-      .map(name => this.tools.get(name))
+      .map((name) => this.tools.get(name))
       .filter((tool): tool is ITool => tool !== undefined);
   }
 
-  async executeTool(name: string, parameters: Record<string, any>): Promise<any> {
+  async executeTool(
+    name: string,
+    parameters: Record<string, any>,
+  ): Promise<any> {
     const tool = this.tools.get(name);
     if (!tool) {
       throw new Error(`Tool ${name} not found`);
@@ -48,4 +51,3 @@ export class ToolRegistryService {
     }
   }
 }
-

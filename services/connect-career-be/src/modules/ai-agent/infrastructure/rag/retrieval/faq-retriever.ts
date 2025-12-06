@@ -32,7 +32,11 @@ export class FaqRetriever {
       }
     }
 
-    return await this.hybridRetriever.retrieve(query, this.faqStore, limit, filter);
+    return await this.hybridRetriever.retrieve(
+      query,
+      this.faqStore,
+      limit,
+      filter,
+    );
   }
 }
-

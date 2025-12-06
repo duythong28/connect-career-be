@@ -28,9 +28,14 @@ export class LearningIngestionService {
       );
 
       await this.learningStore.addDocuments(chunksWithEmbeddings);
-      this.logger.log(`Ingested learning resource ${resource.id} with ${chunks.length} chunks`);
+      this.logger.log(
+        `Ingested learning resource ${resource.id} with ${chunks.length} chunks`,
+      );
     } catch (error) {
-      this.logger.error(`Failed to ingest learning resource ${resource.id}: ${error}`, error instanceof Error ? error.stack : undefined);
+      this.logger.error(
+        `Failed to ingest learning resource ${resource.id}: ${error}`,
+        error instanceof Error ? error.stack : undefined,
+      );
       throw error;
     }
   }
@@ -95,9 +100,10 @@ export class LearningIngestionService {
 
   private async generateEmbedding(text: string): Promise<number[]> {
     const dimensions = 768;
-    const embedding = new Array(dimensions).fill(0).map(() => Math.random() - 0.5);
+    const embedding = new Array(dimensions)
+      .fill(0)
+      .map(() => Math.random() - 0.5);
     const norm = Math.sqrt(embedding.reduce((sum, val) => sum + val * val, 0));
-    return embedding.map(val => val / norm);
+    return embedding.map((val) => val / norm);
   }
 }
-

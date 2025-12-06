@@ -1,7 +1,8 @@
 import { Injectable, Logger } from '@nestjs/common';
 import { AIService } from 'src/shared/infrastructure/external-services/ai/services/ai.service';
-import { IntentResult } from '../domain/types/agent.types';
-import { IntentDetectionException } from '../apis/http-exceptions/intent-detection.exception';
+import { IntentResult } from '../../domain/types/agent.types';
+import { IntentDetectionException } from '../../apis/http-exceptions/intent-detection.exception';
+import { Intent } from '../../domain/enums/intent.enum';
 
 @Injectable()
 export class IntentDetectorService {
@@ -9,16 +10,52 @@ export class IntentDetectorService {
 
   // Common intents in career assistant domain
   private readonly intentPatterns = {
-    job_search: ['find job', 'search job', 'looking for', 'job opening', 'position'],
+    job_search: [
+      'find job',
+      'search job',
+      'looking for',
+      'job opening',
+      'position',
+    ],
     job_match: ['match', 'suitable', 'fit', 'recommend job'],
-    career_path: ['career path', 'career plan', 'career guidance', 'career advice'],
-    skill_gap: ['skill gap', 'missing skills', 'need to learn', 'improve skills'],
-    interview_prep: ['interview', 'mock interview', 'prepare interview', 'interview questions'],
+    career_path: [
+      'career path',
+      'career plan',
+      'career guidance',
+      'career advice',
+    ],
+    skill_gap: [
+      'skill gap',
+      'missing skills',
+      'need to learn',
+      'improve skills',
+    ],
+    interview_prep: [
+      'interview',
+      'mock interview',
+      'prepare interview',
+      'interview questions',
+    ],
     cv_review: ['review cv', 'cv feedback', 'resume review', 'improve cv'],
-    company_research: ['company info', 'about company', 'company culture', 'company research'],
-    application_status: ['application status', 'my application', 'application update'],
+    company_research: [
+      'company info',
+      'about company',
+      'company culture',
+      'company research',
+    ],
+    application_status: [
+      'application status',
+      'my application',
+      'application update',
+    ],
     learning_path: ['learn', 'course', 'training', 'tutorial', 'study'],
-    comparison: ['compare', 'difference between', 'vs', 'versus', 'which is better'],
+    comparison: [
+      'compare',
+      'difference between',
+      'vs',
+      'versus',
+      'which is better',
+    ],
     faq: ['what is', 'how to', 'explain', 'tell me about'],
   };
 
@@ -37,8 +74,12 @@ export class IntentDetectorService {
       }
 
       // Use LLM for more sophisticated intent detection
-      const llmResult = await this.detectIntentWithLLM(message, conversationHistory, userContext);
-      
+      const llmResult = await this.detectIntentWithLLM(
+        message,
+        conversationHistory,
+        userContext,
+      );
+
       // Combine pattern and LLM results
       if (patternMatch && llmResult.confidence < 0.7) {
         return patternMatch;
@@ -46,7 +87,10 @@ export class IntentDetectorService {
 
       return llmResult;
     } catch (error) {
-      this.logger.error(`Intent detection failed: ${error}`, error instanceof Error ? error.stack : undefined);
+      this.logger.error(
+        `Intent detection failed: ${error}`,
+        error instanceof Error ? error.stack : undefined,
+      );
       throw new IntentDetectionException(
         'Failed to detect intent',
         'I had trouble understanding your request. Could you please rephrase?',
@@ -60,7 +104,9 @@ export class IntentDetectorService {
     let bestMatch: { intent: string; confidence: number } | null = null;
 
     for (const [intent, patterns] of Object.entries(this.intentPatterns)) {
-      const matches = patterns.filter(pattern => lowerMessage.includes(pattern));
+      const matches = patterns.filter((pattern) =>
+        lowerMessage.includes(pattern),
+      );
       if (matches.length > 0) {
         const confidence = Math.min(0.9, 0.5 + matches.length * 0.1);
         if (!bestMatch || confidence > bestMatch.confidence) {
@@ -106,7 +152,7 @@ Return JSON with: { intent, entities: {}, confidence: 0.0-1.0, requiresClarifica
 
     const historyContext = conversationHistory
       .slice(-5)
-      .map(msg => `${msg.role}: ${msg.content}`)
+      .map((msg) => `${msg.role}: ${msg.content}`)
       .join('\n');
 
     const prompt = `User message: "${message}"
@@ -127,7 +173,7 @@ Classify the intent and extract entities.`;
     try {
       const result = JSON.parse(response.content);
       return {
-        intent: result.intent || 'faq',
+        intent: result.intent || Intent.FAQ,
         entities: result.entities || {},
         confidence: result.confidence || 0.7,
         requiresClarification: result.requiresClarification || false,
@@ -136,7 +182,7 @@ Classify the intent and extract entities.`;
     } catch (parseError) {
       this.logger.warn('Failed to parse LLM intent response, using fallback');
       return {
-        intent: 'faq',
+        intent: Intent.FAQ,
         entities: {},
         confidence: 0.5,
         requiresClarification: true,
@@ -146,9 +192,10 @@ Classify the intent and extract entities.`;
 
   private extractBasicEntities(message: string): Record<string, any> {
     const entities: Record<string, any> = {};
-    
+
     // Simple entity extraction (can be enhanced with NER)
-    const jobTitlePattern = /\b(senior|junior|lead|principal)?\s*(software engineer|developer|manager|designer|analyst|consultant)\b/gi;
+    const jobTitlePattern =
+      /\b(senior|junior|lead|principal)?\s*(software engineer|developer|manager|designer|analyst|consultant)\b/gi;
     const matches = message.match(jobTitlePattern);
     if (matches) {
       entities.jobTitles = matches;
@@ -157,4 +204,3 @@ Classify the intent and extract entities.`;
     return entities;
   }
 }
-

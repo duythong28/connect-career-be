@@ -100,9 +100,11 @@ export class MultiRagService {
         byDomain: resultsByDomain,
       };
     } catch (error) {
-      this.logger.error(`Multi-RAG retrieval failed: ${error}`, error instanceof Error ? error.stack : undefined);
+      this.logger.error(
+        `Multi-RAG retrieval failed: ${error}`,
+        error instanceof Error ? error.stack : undefined,
+      );
       throw error;
     }
   }
 }
-

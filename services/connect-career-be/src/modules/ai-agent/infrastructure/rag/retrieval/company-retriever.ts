@@ -36,7 +36,11 @@ export class CompanyRetriever {
       }
     }
 
-    return await this.hybridRetriever.retrieve(query, this.companyStore, limit, filter);
+    return await this.hybridRetriever.retrieve(
+      query,
+      this.companyStore,
+      limit,
+      filter,
+    );
   }
 }
-

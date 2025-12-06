@@ -37,11 +37,14 @@ export class AgentMonitoringService {
 
     // Update success rate
     current.successRate =
-      ((current.totalExecutions - current.errorCount) / current.totalExecutions) * 100;
+      ((current.totalExecutions - current.errorCount) /
+        current.totalExecutions) *
+      100;
 
     // Update average execution time
     current.averageExecutionTime =
-      (current.averageExecutionTime * (current.totalExecutions - 1) + executionTime) /
+      (current.averageExecutionTime * (current.totalExecutions - 1) +
+        executionTime) /
       current.totalExecutions;
 
     this.metrics.set(agentName, current);

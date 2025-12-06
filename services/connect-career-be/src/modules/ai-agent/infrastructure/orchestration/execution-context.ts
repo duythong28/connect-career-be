@@ -1,5 +1,9 @@
-import { AgentContext, WorkflowState } from '../domain/types/agent.types';
-import { EpisodicMemory, SemanticMemory, ProceduralMemory } from '../domain/interfaces/memory.interface';
+import { AgentContext, WorkflowState } from '../../domain/types/agent.types';
+import {
+  EpisodicMemory,
+  SemanticMemory,
+  ProceduralMemory,
+} from '../../domain/interfaces/memory.interface';
 
 export interface Message {
   role: 'user' | 'assistant' | 'system';
@@ -40,7 +44,11 @@ export class ExecutionContext {
     };
   }
 
-  addMessage(role: 'user' | 'assistant' | 'system', content: string, metadata?: Record<string, any>): void {
+  addMessage(
+    role: 'user' | 'assistant' | 'system',
+    content: string,
+    metadata?: Record<string, any>,
+  ): void {
     this.conversationHistory.push({
       role,
       content,
@@ -66,7 +74,11 @@ export class ExecutionContext {
         break;
       case 'semantic':
         if ('storeConcept' in memoryService) {
-          await memoryService.storeConcept(data.concept, data.embedding, data.metadata);
+          await memoryService.storeConcept(
+            data.concept,
+            data.embedding,
+            data.metadata,
+          );
         }
         break;
       case 'procedural':
@@ -83,13 +95,13 @@ export class ExecutionContext {
     // Search episodic memory
     if (this.memory.episodic) {
       const episodicResults = await this.memory.episodic.search(query, limit);
-      results.push(...episodicResults.map(r => ({ ...r, type: 'episodic' })));
+      results.push(...episodicResults.map((r) => ({ ...r, type: 'episodic' })));
     }
 
     // Search semantic memory
     if (this.memory.semantic) {
       const semanticResults = await this.memory.semantic.search(query, limit);
-      results.push(...semanticResults.map(r => ({ ...r, type: 'semantic' })));
+      results.push(...semanticResults.map((r) => ({ ...r, type: 'semantic' })));
     }
 
     return results.sort((a, b) => b.score - a.score).slice(0, limit);
@@ -99,10 +111,12 @@ export class ExecutionContext {
     return {
       userId: this.userId,
       sessionId: this.sessionId,
-      task: this.conversationHistory[this.conversationHistory.length - 1]?.content || '',
+      task:
+        this.conversationHistory[this.conversationHistory.length - 1]
+          ?.content || '',
       intent: this.currentIntent,
       entities: this.entities,
-      conversationHistory: this.conversationHistory.map(msg => ({
+      conversationHistory: this.conversationHistory.map((msg) => ({
         role: msg.role,
         content: msg.content,
       })),
@@ -115,4 +129,3 @@ export class ExecutionContext {
     };
   }
 }
-

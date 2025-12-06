@@ -29,4 +29,3 @@ export class ChatRequestDto {
   @IsOptional()
   metadata?: Record<string, any>;
 }
-

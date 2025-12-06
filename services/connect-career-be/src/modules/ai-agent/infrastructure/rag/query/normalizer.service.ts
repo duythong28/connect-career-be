@@ -23,24 +23,66 @@ export class QueryNormalizerService {
   extractKeywords(query: string): string[] {
     const normalized = this.normalizeQuery(query);
     const words = normalized.split(/\s+/);
-    
+
     // Filter out very short words
-    return words.filter(word => word.length > 2);
+    return words.filter((word) => word.length > 2);
   }
 
   private removeStopWords(text: string): string {
     const stopWords = new Set([
-      'the', 'a', 'an', 'and', 'or', 'but', 'in', 'on', 'at', 'to', 'for',
-      'of', 'with', 'by', 'from', 'as', 'is', 'was', 'are', 'were', 'be',
-      'been', 'being', 'have', 'has', 'had', 'do', 'does', 'did', 'will',
-      'would', 'should', 'could', 'may', 'might', 'must', 'can', 'this',
-      'that', 'these', 'those', 'i', 'you', 'he', 'she', 'it', 'we', 'they',
+      'the',
+      'a',
+      'an',
+      'and',
+      'or',
+      'but',
+      'in',
+      'on',
+      'at',
+      'to',
+      'for',
+      'of',
+      'with',
+      'by',
+      'from',
+      'as',
+      'is',
+      'was',
+      'are',
+      'were',
+      'be',
+      'been',
+      'being',
+      'have',
+      'has',
+      'had',
+      'do',
+      'does',
+      'did',
+      'will',
+      'would',
+      'should',
+      'could',
+      'may',
+      'might',
+      'must',
+      'can',
+      'this',
+      'that',
+      'these',
+      'those',
+      'i',
+      'you',
+      'he',
+      'she',
+      'it',
+      'we',
+      'they',
     ]);
 
     return text
       .split(/\s+/)
-      .filter(word => !stopWords.has(word.toLowerCase()))
+      .filter((word) => !stopWords.has(word.toLowerCase()))
       .join(' ');
   }
 }
-

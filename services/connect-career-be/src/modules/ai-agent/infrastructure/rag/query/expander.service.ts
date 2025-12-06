@@ -27,9 +27,7 @@ Create ${maxExpansions} variations that:
 
 Return a JSON array of query strings only.`;
 
-      const domainHint = options?.domain
-        ? `Domain: ${options.domain}\n\n`
-        : '';
+      const domainHint = options?.domain ? `Domain: ${options.domain}\n\n` : '';
 
       const prompt = `${domainHint}Original query: "${query}"\n\nGenerate ${maxExpansions} query variations as JSON array:`;
 
@@ -59,9 +57,10 @@ Return a JSON array of query strings only.`;
     // Simple extraction - look for quoted strings or numbered items
     const matches = text.match(/"([^"]+)"/g) || text.match(/\d+\.\s*(.+)/g);
     if (matches) {
-      return matches.map(m => m.replace(/^["\d.\s]+|"$/g, '').trim()).filter(Boolean);
+      return matches
+        .map((m) => m.replace(/^["\d.\s]+|"$/g, '').trim())
+        .filter(Boolean);
     }
     return [];
   }
 }
-

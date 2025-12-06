@@ -1,5 +1,11 @@
 import { Injectable, Logger } from '@nestjs/common';
-import { Task, WorkflowResult, WorkflowState, AgentContext, AgentResult } from '../domain/types/agent.types';
+import {
+  Task,
+  WorkflowResult,
+  WorkflowState,
+  AgentContext,
+  AgentResult,
+} from '../../domain/types/agent.types';
 import { ExecutionContext } from './execution-context';
 import { AgentRouterService } from './agent-router.service';
 
@@ -7,9 +13,7 @@ import { AgentRouterService } from './agent-router.service';
 export class WorkflowEngineService {
   private readonly logger = new Logger(WorkflowEngineService.name);
 
-  constructor(
-    private readonly agentRouter: AgentRouterService,
-  ) {}
+  constructor(private readonly agentRouter: AgentRouterService) {}
 
   async executeWorkflow(
     tasks: Task[],
@@ -19,7 +23,7 @@ export class WorkflowEngineService {
       currentStep: 0,
       totalSteps: tasks.length,
       completedTasks: [],
-      pendingTasks: tasks.map(t => t.id),
+      pendingTasks: tasks.map((t) => t.id),
       results: {},
     };
 
@@ -30,14 +34,14 @@ export class WorkflowEngineService {
 
     // Build dependency graph
     const taskMap = new Map<string, Task>();
-    tasks.forEach(task => {
+    tasks.forEach((task) => {
       task.status = 'pending';
       taskMap.set(task.id, task);
     });
 
     // Execute tasks in dependency order
     const executionOrder = this.topologicalSort(tasks);
-    
+
     for (const taskId of executionOrder) {
       const task = taskMap.get(taskId);
       if (!task) {
@@ -47,8 +51,8 @@ export class WorkflowEngineService {
       try {
         // Check dependencies
         if (task.dependencies && task.dependencies.length > 0) {
-          const allDepsCompleted = task.dependencies.every(
-            depId => workflowState.completedTasks.includes(depId),
+          const allDepsCompleted = task.dependencies.every((depId) =>
+            workflowState.completedTasks.includes(depId),
           );
           if (!allDepsCompleted) {
             this.logger.warn(`Task ${taskId} has unmet dependencies, skipping`);
@@ -83,7 +87,10 @@ export class WorkflowEngineService {
           errors.push(...(result.errors || []));
         }
       } catch (error) {
-        this.logger.error(`Task ${taskId} failed: ${error}`, error instanceof Error ? error.stack : undefined);
+        this.logger.error(
+          `Task ${taskId} failed: ${error}`,
+          error instanceof Error ? error.stack : undefined,
+        );
         task.status = 'failed';
         errors.push(error instanceof Error ? error : new Error(String(error)));
       }
@@ -115,7 +122,7 @@ export class WorkflowEngineService {
       }
 
       visiting.add(taskId);
-      const task = tasks.find(t => t.id === taskId);
+      const task = tasks.find((t) => t.id === taskId);
       if (task?.dependencies) {
         for (const depId of task.dependencies) {
           visit(depId);
@@ -155,4 +162,3 @@ export class WorkflowEngineService {
     };
   }
 }
-

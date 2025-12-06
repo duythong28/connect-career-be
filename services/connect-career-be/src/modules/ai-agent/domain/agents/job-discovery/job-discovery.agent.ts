@@ -5,6 +5,7 @@ import { AgentContext, AgentResult } from '../../types/agent.types';
 import { ITool } from '../../interfaces/tool.interface';
 import { JobRagService } from '../../../infrastructure/rag/rag-services/job-rag.service';
 import { JobToolsService } from '../../../infrastructure/tools/job-tools.service';
+import { Intent } from '../../enums/intent.enum';
 
 @Injectable()
 export class JobDiscoveryAgent extends BaseAgent {
@@ -17,7 +18,7 @@ export class JobDiscoveryAgent extends BaseAgent {
       aiService,
       'JobDiscoveryAgent',
       'Discovers and recommends jobs based on user preferences and skills',
-      ['job_search', 'job_discovery', 'find_jobs'],
+      [Intent.JOB_SEARCH, Intent.JOB_DISCOVERY, Intent.FIND_JOBS],
     );
   }
 
@@ -34,16 +35,19 @@ export class JobDiscoveryAgent extends BaseAgent {
       };
 
       // Retrieve relevant jobs from RAG
-      const ragResults = await this.jobRagService.retrieve(searchCriteria.query, {
-        limit: searchCriteria.limit,
-        filters: {
-          location: searchCriteria.location,
-          skills: searchCriteria.skills,
+      const ragResults = await this.jobRagService.retrieve(
+        searchCriteria.query,
+        {
+          limit: searchCriteria.limit,
+          filters: {
+            location: searchCriteria.location,
+            skills: searchCriteria.skills,
+          },
+          context: {
+            conversationHistory: context.conversationHistory,
+          },
         },
-        context: {
-          conversationHistory: context.conversationHistory,
-        },
-      });
+      );
 
       // Use tools to search if RAG doesn't return enough results
       const searchTool = this.jobTools.getSearchJobsTool();
@@ -51,9 +55,11 @@ export class JobDiscoveryAgent extends BaseAgent {
 
       // Combine and analyze results
       const allJobs = [
-        ...ragResults.map(r => {
+        ...ragResults.map((r) => {
           try {
-            return typeof r.content === 'string' ? JSON.parse(r.content) : r.content;
+            return typeof r.content === 'string'
+              ? JSON.parse(r.content)
+              : r.content;
           } catch {
             return r.content;
           }
@@ -75,7 +81,8 @@ Provide:
 3. Suggestions for improving job search`;
 
       const recommendations = await this.callLLM(recommendationPrompt, {
-        systemPrompt: 'You are a career advisor helping users find the best job matches.',
+        systemPrompt:
+          'You are a career advisor helping users find the best job matches.',
       });
 
       return this.createSuccessResult(
@@ -85,7 +92,11 @@ Provide:
           totalFound: allJobs.length,
         },
         recommendations,
-        ['View job details', 'Refine search criteria', 'Get skill gap analysis'],
+        [
+          'View job details',
+          'Refine search criteria',
+          'Get skill gap analysis',
+        ],
       );
     } catch (error) {
       return this.createErrorResult(
@@ -97,10 +108,10 @@ Provide:
 
   canHandle(intent: string, entities?: Record<string, any>): boolean {
     return (
-      intent === 'job_search' ||
-      intent === 'find_jobs' ||
-      intent === 'job_discovery' ||
-      intent.includes('job') && intent.includes('search')
+      intent === Intent.JOB_SEARCH ||
+      intent === Intent.FIND_JOBS ||
+      intent === Intent.JOB_DISCOVERY ||
+      (intent.includes('job') && intent.includes('search'))
     );
   }
 

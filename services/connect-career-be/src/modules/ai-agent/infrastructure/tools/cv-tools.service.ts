@@ -6,7 +6,8 @@ export class CvToolsService {
   getAnalyzeCvTool(): ITool {
     return {
       name: 'analyze_cv',
-      description: 'Analyze a CV/resume and extract skills, experience, education',
+      description:
+        'Analyze a CV/resume and extract skills, experience, education',
       parameters: [
         {
           name: 'cvContent',
@@ -87,6 +88,10 @@ export class CvToolsService {
   }
 
   getAllTools(): ITool[] {
-    return [this.getAnalyzeCvTool(), this.getEnhanceCvTool(), this.getGetCvTool()];
+    return [
+      this.getAnalyzeCvTool(),
+      this.getEnhanceCvTool(),
+      this.getGetCvTool(),
+    ];
   }
 }

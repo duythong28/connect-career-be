@@ -65,7 +65,8 @@ export class MediaService {
       const mimeType = this.getMimeTypeFromFileName(fileName);
 
       const response = await this.aiService.generateWithInlineFile({
-        prompt: 'Extract all text content from this document. Return the text in a structured format.',
+        prompt:
+          'Extract all text content from this document. Return the text in a structured format.',
         inline: {
           dataBase64: content,
           mimeType,
@@ -105,7 +106,8 @@ export class MediaService {
       const mimeType = this.getMimeTypeFromFileName(fileName) || 'image/jpeg';
 
       const response = await this.aiService.generateWithInlineFile({
-        prompt: 'Analyze this image and describe its content. If it contains text, extract it. If it appears to be a document (CV, resume, certificate), provide a structured analysis.',
+        prompt:
+          'Analyze this image and describe its content. If it contains text, extract it. If it appears to be a document (CV, resume, certificate), provide a structured analysis.',
         inline: {
           dataBase64: content,
           mimeType,
@@ -150,4 +152,3 @@ export class MediaService {
     return mimeTypes[extension || ''] || 'application/octet-stream';
   }
 }
-

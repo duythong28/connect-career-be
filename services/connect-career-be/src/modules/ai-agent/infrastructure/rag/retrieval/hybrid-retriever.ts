@@ -23,17 +23,35 @@ export class HybridRetriever {
 
     try {
       // Vector search
-      const vectorResults = await this.vectorRetriever.retrieve(query, store, limit * 2, filter);
+      const vectorResults = await this.vectorRetriever.retrieve(
+        query,
+        store,
+        limit * 2,
+        filter,
+      );
 
       // Keyword search (simple text matching)
-      const keywordResults = await this.keywordSearch(query, store, limit * 2, filter);
+      const keywordResults = await this.keywordSearch(
+        query,
+        store,
+        limit * 2,
+        filter,
+      );
 
       // Combine and re-rank
-      const combined = this.combineResults(vectorResults, keywordResults, vectorWeight, keywordWeight);
+      const combined = this.combineResults(
+        vectorResults,
+        keywordResults,
+        vectorWeight,
+        keywordWeight,
+      );
 
       return combined.slice(0, limit);
     } catch (error) {
-      this.logger.error(`Hybrid retrieval failed: ${error}`, error instanceof Error ? error.stack : undefined);
+      this.logger.error(
+        `Hybrid retrieval failed: ${error}`,
+        error instanceof Error ? error.stack : undefined,
+      );
       throw error;
     }
   }
@@ -60,7 +78,8 @@ export class HybridRetriever {
 
     // Add vector results
     vectorResults.forEach((chunk, index) => {
-      const score = (chunk.score || 0) * vectorWeight * (1 - index / vectorResults.length);
+      const score =
+        (chunk.score || 0) * vectorWeight * (1 - index / vectorResults.length);
       combined.set(chunk.id, { ...chunk, score });
     });
 
@@ -69,15 +88,17 @@ export class HybridRetriever {
       const existing = combined.get(chunk.id);
       if (existing) {
         // Boost score if found in both
-        existing.score = (existing.score || 0) + keywordWeight * (1 - index / keywordResults.length);
+        existing.score =
+          (existing.score || 0) +
+          keywordWeight * (1 - index / keywordResults.length);
       } else {
         const score = keywordWeight * (1 - index / keywordResults.length);
         combined.set(chunk.id, { ...chunk, score });
       }
     });
 
-    return Array.from(combined.values())
-      .sort((a, b) => (b.score || 0) - (a.score || 0));
+    return Array.from(combined.values()).sort(
+      (a, b) => (b.score || 0) - (a.score || 0),
+    );
   }
 }
-

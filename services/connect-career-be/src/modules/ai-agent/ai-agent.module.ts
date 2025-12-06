@@ -15,10 +15,10 @@ import { AgentLogService } from './application/agent-log.service';
 import { MediaService } from './application/media.service';
 
 // Orchestration Layer
-import { IntentDetectorService } from './orchestration/intent-detector.service';
-import { AgentRouterService } from './orchestration/agent-router.service';
-import { WorkflowEngineService } from './orchestration/workflow-engine.service';
-import { ResponseSynthesizerService } from './orchestration/response-synthesizer.service';
+import { IntentDetectorService } from './infrastructure/orchestration/intent-detector.service';
+import { AgentRouterService } from './infrastructure/orchestration/agent-router.service';
+import { WorkflowEngineService } from './infrastructure/orchestration/workflow-engine.service';
+import { ResponseSynthesizerService } from './infrastructure/orchestration/response-synthesizer.service';
 
 // Domain Layer - Entities
 import { AgentExecutionEntity } from './domain/entities/agent-execution.entity';
@@ -125,9 +125,9 @@ import { ExecutionLoggerService } from './infrastructure/monitoring/execution-lo
         comparisonAgent: ComparisonAgent,
         jobDiscoveryAgent: JobDiscoveryAgent,
         faqAgent: FaqAgent,
-        matchingAgent: MatchingAgent,        
-        analysisAgent: AnalysisAgent,        
-        informationGatheringAgent: InformationGatheringAgent,     
+        matchingAgent: MatchingAgent,
+        analysisAgent: AnalysisAgent,
+        informationGatheringAgent: InformationGatheringAgent,
         toolRegistry: ToolRegistryService,
         jobTools: JobToolsService,
         cvTools: CvToolsService,
@@ -135,20 +135,28 @@ import { ExecutionLoggerService } from './infrastructure/monitoring/execution-lo
         validationTools: ValidationToolsService,
       ) => {
         // Register all tools
-        jobTools.getAllTools().forEach(tool => toolRegistry.registerTool(tool));
-        cvTools.getAllTools().forEach(tool => toolRegistry.registerTool(tool));
-        learningTools.getAllTools().forEach(tool => toolRegistry.registerTool(tool));
-        validationTools.getAllTools().forEach(tool => toolRegistry.registerTool(tool));
+        jobTools
+          .getAllTools()
+          .forEach((tool) => toolRegistry.registerTool(tool));
+        cvTools
+          .getAllTools()
+          .forEach((tool) => toolRegistry.registerTool(tool));
+        learningTools
+          .getAllTools()
+          .forEach((tool) => toolRegistry.registerTool(tool));
+        validationTools
+          .getAllTools()
+          .forEach((tool) => toolRegistry.registerTool(tool));
 
         // Register all agents
         agentRouter.registerAgent(orchestratorAgent);
         agentRouter.registerAgent(comparisonAgent);
         agentRouter.registerAgent(jobDiscoveryAgent);
         agentRouter.registerAgent(faqAgent);
-        agentRouter.registerAgent(matchingAgent);              
-        agentRouter.registerAgent(analysisAgent);              
-        agentRouter.registerAgent(informationGatheringAgent);  
-            return true;
+        agentRouter.registerAgent(matchingAgent);
+        agentRouter.registerAgent(analysisAgent);
+        agentRouter.registerAgent(informationGatheringAgent);
+        return true;
       },
       inject: [
         AgentRouterService,

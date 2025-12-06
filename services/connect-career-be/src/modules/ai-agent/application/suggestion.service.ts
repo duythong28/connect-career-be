@@ -37,9 +37,10 @@ Return a JSON array of suggestion strings.`;
         ? `Current context: ${context}`
         : 'No specific context provided.';
 
-      const activitySummary = recentEvents.length > 0
-        ? `Recent activity: ${JSON.stringify(recentEvents.slice(-5))}`
-        : 'No recent activity found.';
+      const activitySummary =
+        recentEvents.length > 0
+          ? `Recent activity: ${JSON.stringify(recentEvents.slice(-5))}`
+          : 'No recent activity found.';
 
       const prompt = `${contextPrompt}\n\n${activitySummary}\n\nGenerate proactive suggestions for the user.`;
 
@@ -93,4 +94,3 @@ Return a JSON array of suggestion strings.`;
     ];
   }
 }
-

@@ -40,9 +40,7 @@ export class CompanyStore implements VectorStore {
     }
 
     return Promise.resolve(
-      results
-        .sort((a, b) => (b.score || 0) - (a.score || 0))
-        .slice(0, limit),
+      results.sort((a, b) => (b.score || 0) - (a.score || 0)).slice(0, limit),
     );
   }
 
@@ -54,7 +52,10 @@ export class CompanyStore implements VectorStore {
     return Promise.resolve();
   }
 
-  async updateDocument(id: string, chunk: Partial<DocumentChunk>): Promise<void> {
+  async updateDocument(
+    id: string,
+    chunk: Partial<DocumentChunk>,
+  ): Promise<void> {
     const existing = this.documents.get(id);
     if (existing) {
       this.documents.set(id, { ...existing, ...chunk });
@@ -80,4 +81,3 @@ export class CompanyStore implements VectorStore {
     return dotProduct / (Math.sqrt(norm1) * Math.sqrt(norm2));
   }
 }
-

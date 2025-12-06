@@ -37,7 +37,7 @@ import { QueueModule } from 'src/shared/infrastructure/queue/queue.module';
       File,
       Application,
     ]),
-    QueueModule
+    QueueModule,
   ],
   controllers: [JobCandidateController, JobOrganizationController],
   providers: [

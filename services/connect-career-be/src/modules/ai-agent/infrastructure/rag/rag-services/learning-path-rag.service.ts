@@ -36,24 +36,36 @@ export class LearningPathRagService {
   ): Promise<DocumentChunk[]> {
     try {
       const normalizedQuery = this.queryNormalizer.normalizeQuery(query);
-      const rewrittenQuery = await this.queryRewriter.rewriteQuery(normalizedQuery, {
-        conversationHistory: options?.context?.conversationHistory,
-        domain: 'learning',
-      });
+      const rewrittenQuery = await this.queryRewriter.rewriteQuery(
+        normalizedQuery,
+        {
+          conversationHistory: options?.context?.conversationHistory,
+          domain: 'learning',
+        },
+      );
 
-      const results = await this.learningRetriever.retrieveLearningResources(rewrittenQuery, {
-        limit: (options?.limit || 10) * 2,
-        filters: options?.filters,
-      });
+      const results = await this.learningRetriever.retrieveLearningResources(
+        rewrittenQuery,
+        {
+          limit: (options?.limit || 10) * 2,
+          filters: options?.filters,
+        },
+      );
 
-      const reranked = await this.crossEncoderRanker.rerank(rewrittenQuery, results, options?.limit || 10);
+      const reranked = await this.crossEncoderRanker.rerank(
+        rewrittenQuery,
+        results,
+        options?.limit || 10,
+      );
       const fused = this.scoreFusion.fuseScores(reranked);
 
       return fused.slice(0, options?.limit || 10);
     } catch (error) {
-      this.logger.error(`Learning path RAG retrieval failed: ${error}`, error instanceof Error ? error.stack : undefined);
+      this.logger.error(
+        `Learning path RAG retrieval failed: ${error}`,
+        error instanceof Error ? error.stack : undefined,
+      );
       throw error;
     }
   }
 }
-

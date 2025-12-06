@@ -22,4 +22,3 @@ export class ChatResponseDto {
   @ApiPropertyOptional({ description: 'Additional metadata' })
   metadata?: Record<string, any>;
 }
-

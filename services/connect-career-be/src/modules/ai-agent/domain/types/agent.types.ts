@@ -58,4 +58,3 @@ export interface WorkflowResult {
   finalOutput: any;
   errors?: Error[];
 }
-

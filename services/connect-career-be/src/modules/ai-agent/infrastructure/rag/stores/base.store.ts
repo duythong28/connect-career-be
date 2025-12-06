@@ -12,8 +12,11 @@ export interface DocumentChunk {
 
 export interface VectorStore {
   addDocuments(chunks: DocumentChunk[]): Promise<void>;
-  similaritySearch(queryEmbedding: number[], limit: number, filter?: Record<string, any>): Promise<DocumentChunk[]>;
+  similaritySearch(
+    queryEmbedding: number[],
+    limit: number,
+    filter?: Record<string, any>,
+  ): Promise<DocumentChunk[]>;
   deleteDocuments(ids: string[]): Promise<void>;
   updateDocument(id: string, chunk: Partial<DocumentChunk>): Promise<void>;
 }
-

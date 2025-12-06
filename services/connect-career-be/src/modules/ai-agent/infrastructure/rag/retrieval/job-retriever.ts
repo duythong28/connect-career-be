@@ -37,7 +37,11 @@ export class JobRetriever {
       }
     }
 
-    return await this.hybridRetriever.retrieve(query, this.jobStore, limit, filter);
+    return await this.hybridRetriever.retrieve(
+      query,
+      this.jobStore,
+      limit,
+      filter,
+    );
   }
 }
-

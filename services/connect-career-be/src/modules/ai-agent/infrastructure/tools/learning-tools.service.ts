@@ -73,6 +73,9 @@ export class LearningToolsService {
   }
 
   getAllTools(): ITool[] {
-    return [this.getSearchLearningResourcesTool(), this.getCreateLearningPathTool()];
+    return [
+      this.getSearchLearningResourcesTool(),
+      this.getCreateLearningPathTool(),
+    ];
   }
 }

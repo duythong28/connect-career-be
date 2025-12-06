@@ -31,12 +31,17 @@ export class CrossEncoderRanker {
         .sort((a, b) => (b.score || 0) - (a.score || 0))
         .slice(0, topK);
     } catch (error) {
-      this.logger.warn(`Cross-encoder ranking failed, using original order: ${error}`);
+      this.logger.warn(
+        `Cross-encoder ranking failed, using original order: ${error}`,
+      );
       return documents.slice(0, topK);
     }
   }
 
-  private async scoreRelevance(query: string, document: string): Promise<number> {
+  private async scoreRelevance(
+    query: string,
+    document: string,
+  ): Promise<number> {
     const systemPrompt = `You are a relevance scorer for a RAG system.
 Score how relevant the document is to the query on a scale of 0.0 to 1.0.
 Return only a number between 0.0 and 1.0.`;
@@ -61,4 +66,3 @@ Return only a number between 0.0 and 1.0.`;
     }
   }
 }
-

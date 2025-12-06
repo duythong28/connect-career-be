@@ -29,7 +29,10 @@ export class CvIngestionService {
       this.logger.log(`Ingested CV ${cv.id} with ${chunks.length} chunks`);
       return chunksWithEmbeddings;
     } catch (error) {
-      this.logger.error(`Failed to ingest CV ${cv.id}: ${error}`, error instanceof Error ? error.stack : undefined);
+      this.logger.error(
+        `Failed to ingest CV ${cv.id}: ${error}`,
+        error instanceof Error ? error.stack : undefined,
+      );
       throw error;
     }
   }
@@ -110,9 +113,10 @@ export class CvIngestionService {
 
   private async generateEmbedding(text: string): Promise<number[]> {
     const dimensions = 768;
-    const embedding = new Array(dimensions).fill(0).map(() => Math.random() - 0.5);
+    const embedding = new Array(dimensions)
+      .fill(0)
+      .map(() => Math.random() - 0.5);
     const norm = Math.sqrt(embedding.reduce((sum, val) => sum + val * val, 0));
-    return embedding.map(val => val / norm);
+    return embedding.map((val) => val / norm);
   }
 }
-

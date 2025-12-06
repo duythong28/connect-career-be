@@ -3,8 +3,8 @@ import { BaseAgent } from '../base.agent';
 import { AIService } from 'src/shared/infrastructure/external-services/ai/services/ai.service';
 import { AgentContext, AgentResult, Task } from '../../types/agent.types';
 import { ITool } from '../../interfaces/tool.interface';
-import { WorkflowEngineService } from '../../../orchestration/workflow-engine.service';
-import { ExecutionContext } from '../../../orchestration/execution-context';
+import { WorkflowEngineService } from '../../../infrastructure/orchestration/workflow-engine.service';
+import { ExecutionContext } from '../../../infrastructure/orchestration/execution-context';
 
 @Injectable()
 export class OrchestratorAgent extends BaseAgent {
@@ -115,7 +115,8 @@ Return a JSON array of tasks with this structure:
 
     try {
       const response = await this.callLLM(prompt, {
-        systemPrompt: 'You are a task decomposition expert. Break down complex tasks into atomic, executable subtasks.',
+        systemPrompt:
+          'You are a task decomposition expert. Break down complex tasks into atomic, executable subtasks.',
       });
 
       const tasks = JSON.parse(response) as Task[];
@@ -134,4 +135,3 @@ Return a JSON array of tasks with this structure:
     }
   }
 }
-

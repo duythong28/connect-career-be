@@ -146,7 +146,7 @@ import { AiAgentModule } from './modules/ai-agent/ai-agent.module';
     WalletModule,
     RecommendationModule,
     QueueModule,
-    AiAgentModule
+    AiAgentModule,
   ],
   controllers: [HealthController],
   providers: [

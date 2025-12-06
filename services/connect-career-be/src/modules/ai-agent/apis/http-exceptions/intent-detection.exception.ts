@@ -10,7 +10,9 @@ export class IntentDetectionException extends HttpException {
       {
         statusCode: HttpStatus.BAD_REQUEST,
         message,
-        userMessage: userMessage || 'Unable to understand your request. Please try rephrasing.',
+        userMessage:
+          userMessage ||
+          'Unable to understand your request. Please try rephrasing.',
         errorDetails: errorDetails
           ? { message: errorDetails.message, stack: errorDetails.stack }
           : undefined,
@@ -19,4 +21,3 @@ export class IntentDetectionException extends HttpException {
     );
   }
 }
-

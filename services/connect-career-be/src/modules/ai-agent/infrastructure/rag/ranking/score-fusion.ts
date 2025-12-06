@@ -21,33 +21,35 @@ export class ScoreFusionService {
       recencyWeight = 0.1,
     } = options;
 
-    return documents.map((doc) => {
-      const vectorScore = doc.score || 0;
-      const keywordScore = doc.metadata.keywordScore || 0;
-      const crossEncoderScore = doc.metadata.crossEncoderScore || 0;
-      const recencyScore = this.calculateRecencyScore(doc.metadata.timestamp);
+    return documents
+      .map((doc) => {
+        const vectorScore = doc.score || 0;
+        const keywordScore = doc.metadata.keywordScore || 0;
+        const crossEncoderScore = doc.metadata.crossEncoderScore || 0;
+        const recencyScore = this.calculateRecencyScore(doc.metadata.timestamp);
 
-      const fusedScore =
-        vectorScore * vectorWeight +
-        keywordScore * keywordWeight +
-        crossEncoderScore * crossEncoderWeight +
-        recencyScore * recencyWeight;
+        const fusedScore =
+          vectorScore * vectorWeight +
+          keywordScore * keywordWeight +
+          crossEncoderScore * crossEncoderWeight +
+          recencyScore * recencyWeight;
 
-      return {
-        ...doc,
-        score: fusedScore,
-        metadata: {
-          ...doc.metadata,
-          fusedScore,
-          scoreBreakdown: {
-            vector: vectorScore,
-            keyword: keywordScore,
-            crossEncoder: crossEncoderScore,
-            recency: recencyScore,
+        return {
+          ...doc,
+          score: fusedScore,
+          metadata: {
+            ...doc.metadata,
+            fusedScore,
+            scoreBreakdown: {
+              vector: vectorScore,
+              keyword: keywordScore,
+              crossEncoder: crossEncoderScore,
+              recency: recencyScore,
+            },
           },
-        },
-      };
-    }).sort((a, b) => (b.score || 0) - (a.score || 0));
+        };
+      })
+      .sort((a, b) => (b.score || 0) - (a.score || 0));
   }
 
   private calculateRecencyScore(timestamp?: Date | string): number {
@@ -55,7 +57,8 @@ export class ScoreFusionService {
       return 0.5; // Default score if no timestamp
     }
 
-    const date = typeof timestamp === 'string' ? new Date(timestamp) : timestamp;
+    const date =
+      typeof timestamp === 'string' ? new Date(timestamp) : timestamp;
     const now = new Date();
     const daysSince = (now.getTime() - date.getTime()) / (1000 * 60 * 60 * 24);
 
@@ -64,4 +67,3 @@ export class ScoreFusionService {
     return Math.exp(-daysSince / 30);
   }
 }
-

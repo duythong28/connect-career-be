@@ -19,11 +19,18 @@ export class VectorRetriever {
       const queryEmbedding = await this.generateEmbedding(query);
 
       // Search in vector store
-      const results = await store.similaritySearch(queryEmbedding, limit, filter);
+      const results = await store.similaritySearch(
+        queryEmbedding,
+        limit,
+        filter,
+      );
 
       return results;
     } catch (error) {
-      this.logger.error(`Vector retrieval failed: ${error}`, error instanceof Error ? error.stack : undefined);
+      this.logger.error(
+        `Vector retrieval failed: ${error}`,
+        error instanceof Error ? error.stack : undefined,
+      );
       throw error;
     }
   }
@@ -32,15 +39,18 @@ export class VectorRetriever {
     // Placeholder - in production, use embedding service
     // For now, return a dummy embedding
     // TODO: Integrate with actual embedding service (Vertex AI, OpenAI, etc.)
-    this.logger.warn('Using placeholder embedding - integrate with actual embedding service');
-    
+    this.logger.warn(
+      'Using placeholder embedding - integrate with actual embedding service',
+    );
+
     // Dummy embedding vector (768 dimensions for text-embedding-004)
     const dimensions = 768;
-    const embedding = new Array(dimensions).fill(0).map(() => Math.random() - 0.5);
-    
+    const embedding = new Array(dimensions)
+      .fill(0)
+      .map(() => Math.random() - 0.5);
+
     // Normalize
     const norm = Math.sqrt(embedding.reduce((sum, val) => sum + val * val, 0));
-    return embedding.map(val => val / norm);
+    return embedding.map((val) => val / norm);
   }
 }
-

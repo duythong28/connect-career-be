@@ -1,7 +1,7 @@
 import { Injectable, Logger } from '@nestjs/common';
 import { IAgent } from '../domain/interfaces/agent.interface';
 import { AgentContext, AgentResult } from '../domain/types/agent.types';
-import { AgentRouterService } from '../orchestration/agent-router.service';
+import { AgentRouterService } from '../infrastructure/orchestration/agent-router.service';
 
 @Injectable()
 export class AiAgentService {
@@ -37,9 +37,11 @@ export class AiAgentService {
     }
   }
 
-  async getAvailableAgents(): Promise<Array<{ name: string; description: string; capabilities: string[] }>> {
+  async getAvailableAgents(): Promise<
+    Array<{ name: string; description: string; capabilities: string[] }>
+  > {
     const agents = this.agentRouter.getAvailableAgents();
-    return agents.map(agent => ({
+    return agents.map((agent) => ({
       name: agent.name,
       description: agent.description,
       capabilities: agent.capabilities,
@@ -62,9 +64,8 @@ export class AiAgentService {
       name: agent.name,
       description: agent.description,
       capabilities: agent.capabilities,
-      tools: agent.getTools().map(tool => tool.name),
+      tools: agent.getTools().map((tool) => tool.name),
       requiredMemory: agent.getRequiredMemory(),
     };
   }
 }
-

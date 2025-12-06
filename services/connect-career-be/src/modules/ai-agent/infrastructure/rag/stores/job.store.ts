@@ -52,7 +52,10 @@ export class JobStore implements VectorStore {
     this.logger.log(`Deleted ${ids.length} documents from job store`);
   }
 
-  async updateDocument(id: string, chunk: Partial<DocumentChunk>): Promise<void> {
+  async updateDocument(
+    id: string,
+    chunk: Partial<DocumentChunk>,
+  ): Promise<void> {
     const existing = this.documents.get(id);
     if (existing) {
       this.documents.set(id, { ...existing, ...chunk });
@@ -77,4 +80,3 @@ export class JobStore implements VectorStore {
     return dotProduct / (Math.sqrt(norm1) * Math.sqrt(norm2));
   }
 }
-

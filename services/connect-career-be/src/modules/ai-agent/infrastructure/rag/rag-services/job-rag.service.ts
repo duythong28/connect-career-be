@@ -40,26 +40,35 @@ export class JobRagService {
       const normalizedQuery = this.queryNormalizer.normalizeQuery(query);
 
       // Rewrite query for better retrieval
-      const rewrittenQuery = await this.queryRewriter.rewriteQuery(normalizedQuery, {
-        conversationHistory: options?.context?.conversationHistory,
-        domain: 'job',
-      });
+      const rewrittenQuery = await this.queryRewriter.rewriteQuery(
+        normalizedQuery,
+        {
+          conversationHistory: options?.context?.conversationHistory,
+          domain: 'job',
+        },
+      );
 
       // Expand query for better coverage
-      const expandedQueries = await this.queryExpander.expandQuery(rewrittenQuery, {
-        maxExpansions: 2,
-        domain: 'job',
-      });
+      const expandedQueries = await this.queryExpander.expandQuery(
+        rewrittenQuery,
+        {
+          maxExpansions: 2,
+          domain: 'job',
+        },
+      );
 
       // Retrieve from all query variations
       const allResults: DocumentChunk[] = [];
       const uniqueIds = new Set<string>();
 
       // Retrieve with rewritten query
-      const rewrittenResults = await this.jobRetriever.retrieveJobs(rewrittenQuery, {
-        limit: options?.limit || 10,
-        filters: options?.filters,
-      });
+      const rewrittenResults = await this.jobRetriever.retrieveJobs(
+        rewrittenQuery,
+        {
+          limit: options?.limit || 10,
+          filters: options?.filters,
+        },
+      );
 
       for (const result of rewrittenResults) {
         if (!uniqueIds.has(result.id)) {
@@ -70,10 +79,13 @@ export class JobRagService {
 
       // Retrieve with expanded queries
       for (const expandedQuery of expandedQueries) {
-        const expandedResults = await this.jobRetriever.retrieveJobs(expandedQuery, {
-          limit: 5,
-          filters: options?.filters,
-        });
+        const expandedResults = await this.jobRetriever.retrieveJobs(
+          expandedQuery,
+          {
+            limit: 5,
+            filters: options?.filters,
+          },
+        );
 
         for (const result of expandedResults) {
           if (!uniqueIds.has(result.id)) {
@@ -95,9 +107,11 @@ export class JobRagService {
 
       return fused.slice(0, options?.limit || 10);
     } catch (error) {
-      this.logger.error(`Job RAG retrieval failed: ${error}`, error instanceof Error ? error.stack : undefined);
+      this.logger.error(
+        `Job RAG retrieval failed: ${error}`,
+        error instanceof Error ? error.stack : undefined,
+      );
       throw error;
     }
   }
 }
-

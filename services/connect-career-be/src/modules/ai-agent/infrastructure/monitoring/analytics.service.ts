@@ -34,11 +34,13 @@ export class AnalyticsService {
     startDate?: Date;
     endDate?: Date;
   }): AnalyticsEvent[] {
-    return this.events.filter(event => {
+    return this.events.filter((event) => {
       if (filters?.type && event.type !== filters.type) return false;
       if (filters?.userId && event.userId !== filters.userId) return false;
-      if (filters?.agentName && event.agentName !== filters.agentName) return false;
-      if (filters?.startDate && event.timestamp < filters.startDate) return false;
+      if (filters?.agentName && event.agentName !== filters.agentName)
+        return false;
+      if (filters?.startDate && event.timestamp < filters.startDate)
+        return false;
       if (filters?.endDate && event.timestamp > filters.endDate) return false;
       return true;
     });

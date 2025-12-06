@@ -6,6 +6,7 @@ import { ITool } from '../../interfaces/tool.interface';
 import { CvToolsService } from '../../../infrastructure/tools/cv-tools.service';
 import { EpisodicMemoryService } from '../../../infrastructure/memory/episodic-memory.service';
 import { SemanticMemoryService } from '../../../infrastructure/memory/semantic-memory.service';
+import { Intent } from '../../enums/intent.enum';
 
 @Injectable()
 export class InformationGatheringAgent extends BaseAgent {
@@ -19,7 +20,12 @@ export class InformationGatheringAgent extends BaseAgent {
       aiService,
       'InformationGatheringAgent',
       'Gathers and structures user information, preferences, and requirements through conversation',
-      ['information_gathering', 'data_collection', 'profile_building', 'preference_capture'],
+      [
+        Intent.INFORMATION_GATHERING,
+        Intent.DATA_COLLECTION,
+        Intent.PROFILE_BUILDING,
+        Intent.PREFERENCE_CAPTURE,
+      ],
     );
   }
 
@@ -28,13 +34,18 @@ export class InformationGatheringAgent extends BaseAgent {
       const { task, entities, userId, conversationHistory } = context;
 
       // Determine what information to gather
-      const gatheringType = entities?.gatheringType || this.detectGatheringType(task);
+      const gatheringType =
+        entities?.gatheringType || this.detectGatheringType(task);
 
       // Retrieve existing user information from memory
       const existingInfo = await this.retrieveExistingInfo(userId);
 
       // Identify missing information
-      const missingInfo = this.identifyMissingInfo(gatheringType, existingInfo, entities);
+      const missingInfo = this.identifyMissingInfo(
+        gatheringType,
+        existingInfo,
+        entities,
+      );
 
       if (missingInfo.length === 0 && Object.keys(existingInfo).length > 0) {
         // All information gathered, summarize
@@ -67,12 +78,18 @@ export class InformationGatheringAgent extends BaseAgent {
         {
           gatheringType,
           currentInformation: updatedInfo,
-          missingInformation: this.identifyMissingInfo(gatheringType, updatedInfo, entities),
+          missingInformation: this.identifyMissingInfo(
+            gatheringType,
+            updatedInfo,
+            entities,
+          ),
           questions,
           isComplete: missingInfo.length === 0,
         },
         `Gathering ${gatheringType} information. ${questions.length > 0 ? `Next questions: ${questions.join(', ')}` : 'Information gathering complete.'}`,
-        questions.length > 0 ? questions : ['Proceed with job search', 'Get recommendations'],
+        questions.length > 0
+          ? questions
+          : ['Proceed with job search', 'Get recommendations'],
       );
     } catch (error) {
       return this.createErrorResult(
@@ -84,10 +101,10 @@ export class InformationGatheringAgent extends BaseAgent {
 
   canHandle(intent: string, entities?: Record<string, any>): boolean {
     return (
-      intent === 'information_gathering' ||
-      intent === 'data_collection' ||
-      intent === 'profile_building' ||
-      intent === 'preference_capture' ||
+      intent === Intent.INFORMATION_GATHERING.toString() ||
+      intent === Intent.DATA_COLLECTION.toString() ||
+      intent === Intent.PROFILE_BUILDING.toString() ||
+      intent === Intent.PREFERENCE_CAPTURE.toString() ||
       intent.includes('gather') ||
       intent.includes('collect') ||
       intent.includes('ask')
@@ -102,7 +119,9 @@ export class InformationGatheringAgent extends BaseAgent {
     return ['episodic', 'semantic'];
   }
 
-  private async retrieveExistingInfo(userId?: string): Promise<Record<string, any>> {
+  private async retrieveExistingInfo(
+    userId?: string,
+  ): Promise<Record<string, any>> {
     const info: Record<string, any> = {};
 
     if (!userId) return info;
@@ -131,7 +150,10 @@ export class InformationGatheringAgent extends BaseAgent {
           const semanticData = await this.semanticMemory.retrieve(semanticKey);
           if (semanticData) {
             try {
-              const parsed = typeof semanticData === 'string' ? JSON.parse(semanticData) : semanticData;
+              const parsed =
+                typeof semanticData === 'string'
+                  ? JSON.parse(semanticData)
+                  : semanticData;
               Object.assign(info, parsed);
             } catch {
               if (typeof semanticData === 'string') {
@@ -148,8 +170,13 @@ export class InformationGatheringAgent extends BaseAgent {
       if (userId) {
         try {
           const episodes = await this.episodicMemory.retrieveEvents(userId);
-          episodes.slice(0, 10).forEach(episode => {
-            if (episode && typeof episode === 'object' && 'metadata' in episode && (episode as any).metadata?.preferences) {
+          episodes.slice(0, 10).forEach((episode) => {
+            if (
+              episode &&
+              typeof episode === 'object' &&
+              'metadata' in episode &&
+              (episode as any).metadata?.preferences
+            ) {
               Object.assign(info, (episode as any).metadata.preferences);
             }
           });
@@ -179,7 +206,7 @@ export class InformationGatheringAgent extends BaseAgent {
     const fields = requiredFields[gatheringType] || requiredFields.complete;
     const missing: string[] = [];
 
-    fields.forEach(field => {
+    fields.forEach((field) => {
       if (!existingInfo[field] && !entities?.[field]) {
         missing.push(field);
       }
@@ -203,12 +230,17 @@ Generate 2-3 questions that feel natural and don't repeat information already di
 Return only the questions, one per line.`;
 
     const response = await this.callLLM(prompt, {
-      systemPrompt: 'You are a friendly assistant gathering user information through conversation.',
+      systemPrompt:
+        'You are a friendly assistant gathering user information through conversation.',
     });
 
     return response
       .split('\n')
-      .filter(line => line.trim().length > 0 && (line.includes('?') || line.match(/^[A-Z]/)))
+      .filter(
+        (line) =>
+          line.trim().length > 0 &&
+          (line.includes('?') || line.match(/^[A-Z]/)),
+      )
       .slice(0, 3);
   }
 
@@ -235,7 +267,8 @@ Return only valid JSON, no explanation.`;
 
     try {
       const response = await this.callLLM(prompt, {
-        systemPrompt: 'You are an information extraction system. Return only valid JSON.',
+        systemPrompt:
+          'You are an information extraction system. Return only valid JSON.',
         temperature: 0.3,
       });
 
@@ -276,16 +309,23 @@ Provide a clear summary that the user can review and confirm.`;
     );
   }
 
-  private async storeInformation(userId: string, info: Record<string, any>): Promise<void> {
+  private async storeInformation(
+    userId: string,
+    info: Record<string, any>,
+  ): Promise<void> {
     try {
       // Store preferences in semantic memory
       if (info.preferences) {
-        await this.semanticMemory.store(userId, 'user_preferences', info.preferences);
+        await this.semanticMemory.store(
+          userId,
+          'user_preferences',
+          info.preferences,
+        );
       }
 
       // Store in episodic memory
       await this.episodicMemory.store(userId, {
-        type: 'information_gathering',
+        type: Intent.INFORMATION_GATHERING,
         content: `User information updated: ${Object.keys(info).join(', ')}`,
         metadata: { information: info },
       });
@@ -298,7 +338,8 @@ Provide a clear summary that the user can review and confirm.`;
     const lowerTask = task.toLowerCase();
     if (lowerTask.includes('profile')) return 'profile';
     if (lowerTask.includes('preference')) return 'preferences';
-    if (lowerTask.includes('job') && lowerTask.includes('search')) return 'job_search';
+    if (lowerTask.includes('job') && lowerTask.includes('search'))
+      return 'job_search';
     return 'complete';
   }
 }

@@ -4,7 +4,9 @@ import { InjectRepository } from '@nestjs/typeorm';
 import { ConversationEntity } from '../entities/conversation.entity';
 
 export interface IConversationRepository {
-  create(conversation: Partial<ConversationEntity>): Promise<ConversationEntity>;
+  create(
+    conversation: Partial<ConversationEntity>,
+  ): Promise<ConversationEntity>;
   findBySessionId(sessionId: string): Promise<ConversationEntity[]>;
   findByUserId(userId: string, limit?: number): Promise<ConversationEntity[]>;
   deleteBySessionId(sessionId: string): Promise<void>;
@@ -17,7 +19,9 @@ export class ConversationRepository implements IConversationRepository {
     private readonly repository: Repository<ConversationEntity>,
   ) {}
 
-  async create(conversation: Partial<ConversationEntity>): Promise<ConversationEntity> {
+  async create(
+    conversation: Partial<ConversationEntity>,
+  ): Promise<ConversationEntity> {
     const entity = this.repository.create(conversation);
     return await this.repository.save(entity);
   }
@@ -29,7 +33,10 @@ export class ConversationRepository implements IConversationRepository {
     });
   }
 
-  async findByUserId(userId: string, limit: number = 100): Promise<ConversationEntity[]> {
+  async findByUserId(
+    userId: string,
+    limit: number = 100,
+  ): Promise<ConversationEntity[]> {
     return await this.repository.find({
       where: { userId },
       order: { createdAt: 'DESC' },

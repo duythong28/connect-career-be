@@ -6,7 +6,8 @@ export class JobToolsService {
   getSearchJobsTool(): ITool {
     return {
       name: 'search_jobs',
-      description: 'Search for jobs based on criteria like title, location, skills, etc.',
+      description:
+        'Search for jobs based on criteria like title, location, skills, etc.',
       parameters: [
         {
           name: 'query',

@@ -6,6 +6,7 @@ import { ITool } from '../../interfaces/tool.interface';
 import { CvToolsService } from '../../../infrastructure/tools/cv-tools.service';
 import { MultiRagService } from '../../../infrastructure/rag/rag-services/multi-rag.service';
 import { JobRagService } from '../../../infrastructure/rag/rag-services/job-rag.service';
+import { Intent } from '../../enums/intent.enum';
 
 @Injectable()
 export class AnalysisAgent extends BaseAgent {
@@ -19,7 +20,13 @@ export class AnalysisAgent extends BaseAgent {
       aiService,
       'AnalysisAgent',
       'Analyzes CVs, skills, job requirements, and provides insights and recommendations',
-      ['cv_analysis', 'skill_analysis', 'job_analysis', 'gap_analysis', 'career_analysis'],
+      [
+        Intent.CV_ANALYSIS,
+        Intent.SKILL_ANALYSIS,
+        Intent.JOB_ANALYSIS,
+        Intent.GAP_ANALYSIS,
+        Intent.CAREER_ANALYSIS,
+      ],
     );
   }
 
@@ -28,7 +35,8 @@ export class AnalysisAgent extends BaseAgent {
       const { task, entities, userId } = context;
 
       // Determine analysis type
-      const analysisType = entities?.analysisType || this.detectAnalysisType(task);
+      const analysisType =
+        entities?.analysisType || this.detectAnalysisType(task);
 
       switch (analysisType) {
         case 'cv':
@@ -52,11 +60,11 @@ export class AnalysisAgent extends BaseAgent {
 
   canHandle(intent: string, entities?: Record<string, any>): boolean {
     return (
-      intent === 'cv_analysis' ||
-      intent === 'skill_analysis' ||
-      intent === 'job_analysis' ||
-      intent === 'gap_analysis' ||
-      intent === 'career_analysis' ||
+      intent === Intent.CV_ANALYSIS ||
+      intent === Intent.SKILL_ANALYSIS ||
+      intent === Intent.JOB_ANALYSIS ||
+      intent === Intent.GAP_ANALYSIS ||
+      intent === Intent.CAREER_ANALYSIS ||
       intent.includes('analyze') ||
       intent.includes('analysis')
     );
@@ -70,7 +78,10 @@ export class AnalysisAgent extends BaseAgent {
     return ['episodic', 'semantic', 'procedural'];
   }
 
-  private async analyzeCv(context: AgentContext, userId?: string): Promise<AgentResult> {
+  private async analyzeCv(
+    context: AgentContext,
+    userId?: string,
+  ): Promise<AgentResult> {
     // Get CV data
     let cvData = null;
     if (userId) {
@@ -119,7 +130,10 @@ ${JSON.stringify(cv, null, 2)}`;
     );
   }
 
-  private async analyzeSkills(context: AgentContext, entities?: Record<string, any>): Promise<AgentResult> {
+  private async analyzeSkills(
+    context: AgentContext,
+    entities?: Record<string, any>,
+  ): Promise<AgentResult> {
     const skills = entities?.skills || [];
 
     if (skills.length === 0) {
@@ -162,7 +176,10 @@ Market Insights: ${JSON.stringify(marketInsights.results.slice(0, 10), null, 2)}
     );
   }
 
-  private async analyzeJob(context: AgentContext, entities?: Record<string, any>): Promise<AgentResult> {
+  private async analyzeJob(
+    context: AgentContext,
+    entities?: Record<string, any>,
+  ): Promise<AgentResult> {
     const jobId = entities?.jobId;
     const jobData = entities?.job;
 
@@ -176,10 +193,15 @@ Market Insights: ${JSON.stringify(marketInsights.results.slice(0, 10), null, 2)}
     // Retrieve job details if only ID provided
     let job = jobData;
     if (jobId && !jobData) {
-      const results = await this.jobRagService.retrieve(`job id ${jobId}`, { limit: 1 });
+      const results = await this.jobRagService.retrieve(`job id ${jobId}`, {
+        limit: 1,
+      });
       if (results[0]) {
         try {
-          job = typeof results[0].content === 'string' ? JSON.parse(results[0].content) : results[0].content;
+          job =
+            typeof results[0].content === 'string'
+              ? JSON.parse(results[0].content)
+              : results[0].content;
         } catch {
           job = results[0].content;
         }
@@ -244,7 +266,7 @@ ${JSON.stringify(job, null, 2)}`;
     const gaps = requiredSkills.filter(
       (reqSkill: string) =>
         !userSkills.some(
-          userSkill =>
+          (userSkill) =>
             userSkill.toLowerCase().includes(reqSkill.toLowerCase()) ||
             reqSkill.toLowerCase().includes(userSkill.toLowerCase()),
         ),
@@ -335,7 +357,12 @@ Provide overall career recommendations and next steps.`;
     // Simple extraction - can be enhanced with LLM
     const lines = analysis.split('\n');
     return lines
-      .filter(line => line.includes('recommend') || line.includes('suggest') || line.includes('should'))
+      .filter(
+        (line) =>
+          line.includes('recommend') ||
+          line.includes('suggest') ||
+          line.includes('should'),
+      )
       .slice(0, 5);
   }
 }

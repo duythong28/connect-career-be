@@ -2,9 +2,9 @@
 // import { NotificationChannel, NotificationType } from "../../domain/entities/notification.entity";
 // import { IDomainEvent } from "src/shared/domain";
 
-// export interface NotificationTemplate { 
-//     title: string; 
-//     message: string; 
+// export interface NotificationTemplate {
+//     title: string;
+//     message: string;
 //     htmlContent: string | null;
 // }
 
@@ -14,7 +14,7 @@
 //         type: NotificationType,
 //         channel: NotificationChannel,
 //         event: IDomainEvent
-//     ): Promise<NotificationTemplate> { 
+//     ): Promise<NotificationTemplate> {
 //         const eventData = event as any;
 //             // Template mapping
 //     const templates: Record<string, (data: any) => NotificationTemplate> = {
@@ -33,10 +33,10 @@
 //           htmlContent: this.renderEmailTemplate('application-hired', data),
 //         }),
 //         // Add more templates
-//       };  
+//       };
 //       const templateKey = `${type}_${channel}`;
 //       const templateFn = templates[templateKey] || this.getDefaultTemplate(type, channel);
-      
+
 //       return templateFn(eventData);
 //     }
 
@@ -49,7 +49,7 @@
 //           message: data.message || 'You have a new notification',
 //         });
 //       }
-    
+
 //       private renderEmailTemplate(templateName: string, data: any): string {
 //         // Use React Email or similar for HTML templates
 //         // This is a placeholder

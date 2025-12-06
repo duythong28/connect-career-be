@@ -19,17 +19,17 @@ export enum JobInteractionType {
 }
 
 @Entity('job_interactions')
-@Index(['userId', 'jobId', 'type'])  // Use property names in index
-@Index(['userId', 'createdAt'])      // Additional index
+@Index(['userId', 'jobId', 'type']) // Use property names in index
+@Index(['userId', 'createdAt']) // Additional index
 export class JobInteraction {
   @PrimaryGeneratedColumn('increment')
   id: number;
 
-  @Column('uuid', { name: 'userId' })  // Explicit snake_case column name
+  @Column('uuid', { name: 'userId' }) // Explicit snake_case column name
   @Index()
   userId: string;
 
-  @Column('uuid', { name: 'jobId' })  // Explicit snake_case column name
+  @Column('uuid', { name: 'jobId' }) // Explicit snake_case column name
   @Index()
   jobId: string;
 
@@ -50,7 +50,7 @@ export class JobInteraction {
   @Column({ type: 'real', default: 1 })
   weight: number;
 
-  @CreateDateColumn({ type: 'timestamptz', name: 'createdAt' })  // Explicit snake_case
+  @CreateDateColumn({ type: 'timestamptz', name: 'createdAt' }) // Explicit snake_case
   @Index()
   createdAt: Date;
 }

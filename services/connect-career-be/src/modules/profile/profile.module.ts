@@ -45,7 +45,9 @@ import { OrganizationReviewService } from './api/services/organization-review.se
 import { RecruiterFeedbackService } from './api/services/recruiter-feedback.service';
 import { OrganizationReview } from './domain/entities/organization-reviews.entity';
 import { RecruiterFeedback } from './domain/entities/recruiter-feedbacks.entity';
-
+import { UserPreferences } from '../recommendations/domain/entities/user-preferences.entity';
+import { QueueModule } from 'src/shared/infrastructure/queue/queue.module';
+import { JobInteraction } from '../recommendations/domain/entities/job-interaction.entity';
 @Module({
   imports: [
     TypeOrmModule.forFeature([
@@ -76,7 +78,10 @@ import { RecruiterFeedback } from './domain/entities/recruiter-feedbacks.entity'
       Offer,
       OrganizationReview,
       RecruiterFeedback,
+      UserPreferences,
+      JobInteraction
     ]),
+    QueueModule
   ],
   controllers: [
     OrganizationController,

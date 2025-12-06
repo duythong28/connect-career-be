@@ -19,7 +19,7 @@ class CollaborativeFilteringService:
                 FROM job_cf_factors
                 WHERE "jobId" = %s
             """
-            results = db.execute_query(query, (job_id,))  # Fixed: was 'result'
+            results = db.execute_query(query, (job_id,))
             if results and results[0]['factors']:
                 factors_data = results[0]['factors']
                 if isinstance(factors_data, list):

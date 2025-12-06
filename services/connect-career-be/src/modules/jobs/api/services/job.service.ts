@@ -1,5 +1,4 @@
 import {
-  BadRequestException,
   Injectable,
   NotFoundException,
 } from '@nestjs/common';
@@ -15,6 +14,7 @@ import { PaginationDto } from 'src/shared/kernel';
 import { JobStateMachineFactory } from '../../domain/state-machine/job-state-machine.factory';
 import { JobTransitionContext } from './job-state-machine.interface';
 import { HiringPipeline } from 'src/modules/hiring-pipeline/domain/entities/hiring-pipeline.entity';
+import { QueueService } from 'src/shared/infrastructure/queue/queue.service';
 
 @Injectable()
 export class JobService {
@@ -26,6 +26,7 @@ export class JobService {
     @InjectRepository(Organization)
     private readonly organizationRepository: Repository<Organization>,
     private readonly stateMachineFactory: JobStateMachineFactory,
+    private readonly queueService: QueueService,
   ) {}
 
   async searchJobs(searchJobs: JobSearchDto): Promise<PaginatedResult<Job>> {
@@ -459,7 +460,12 @@ export class JobService {
       jobDataForCreate.hiringPipelineId = hiringPipeline.id;
     }
     const job = this.jobRepository.create(jobDataForCreate);
-    return await this.jobRepository.save(job);
+    const savedJob = await this.jobRepository.save(job);
+    if (savedJob.status === JobStatus.ACTIVE) {
+      await this.queueJobEmbedding(savedJob);
+    }
+
+    return savedJob;
   }
 
   async updateJob(
@@ -486,7 +492,41 @@ export class JobService {
     ) {
       job.postedDate = new Date();
     }
-    return await this.jobRepository.save(job);
+    const updatedJob = await this.jobRepository.save(job);
+    if (
+      updatedJob.status === JobStatus.ACTIVE &&
+      (updateJobDto.title ||
+        updateJobDto.description ||
+        updateJobDto.location ||
+        updateJobDto.requirements)
+    ) {
+      await this.queueJobEmbedding(updatedJob);
+    }
+    return updatedJob;
+  }
+  private async queueJobEmbedding(job: Job): Promise<void> {
+    // Fetch organization data if needed
+    const organization = await this.organizationRepository.findOne({
+      where: { id: job.organizationId },
+      relations: ['industry'],
+    });
+
+    await this.queueService.queueJobEmbedding({
+      jobId: job.id,
+      title: job.title,
+      description: job.description,
+      summary: job.summary,
+      location: job.location,
+      jobFunction: job.jobFunction,
+      seniorityLevel: job.seniorityLevel,
+      type: job.type,
+      requirements: job.requirements,
+      keywords: job.keywords,
+      organizationName: organization?.name,
+      organizationShortDescription: organization?.shortDescription,
+      organizationLongDescription: organization?.longDescription,
+      organizationIndustry: organization?.industry?.name,
+    });
   }
 
   async deleteJob(id: string, userId: string): Promise<void> {

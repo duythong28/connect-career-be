@@ -49,6 +49,16 @@ class Settings(BaseSettings):
     hybrid_alpha: float = float(os.getenv("HYBRID_ALPHA", "0.6"))
     default_limit: int = int(os.getenv("DEFAULT_LIMIT", "20"))
     
+    redis_host: str = os.getenv("REDIS_HOST", "localhost")
+    redis_port: int = int(os.getenv("REDIS_PORT", "6379"))
+    redis_password: Optional[str] = os.getenv("REDIS_PASSWORD")
+    redis_db: str = os.getenv("REDIS_DB", "0")
+    redis_decode_responses: bool = False
+    
+    embedding_cache_enabled: bool = os.getenv("EMBEDDING_CACHE_ENABLED", "true").lower() == "true"
+    embedding_cache_ttl: int = int(os.getenv("EMBEDDING_CACHE_TTL", "86400"))
+    embedding_cache_prefix: str = os.getenv("EMBEDDING_CACHE_PREFIX", "embedding:")
+    
     # Service
     app_name: str = "Job Recommender Service"
     app_version: str = "0.1.0"

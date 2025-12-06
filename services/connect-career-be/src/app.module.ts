@@ -28,6 +28,7 @@ import { HealthController } from './health.controller';
 import { ScheduleModule } from '@nestjs/schedule';
 import { EmbeddingScheduler } from './shared/infrastructure/queue/schedulers/embeding.scheduler';
 import { QueueModule } from './shared/infrastructure/queue/queue.module';
+import { AiAgentModule } from './modules/ai-agent/ai-agent.module';
 @Module({
   imports: [
     ConfigModule.forRoot({
@@ -145,6 +146,7 @@ import { QueueModule } from './shared/infrastructure/queue/queue.module';
     WalletModule,
     RecommendationModule,
     QueueModule,
+    AiAgentModule
   ],
   controllers: [HealthController],
   providers: [

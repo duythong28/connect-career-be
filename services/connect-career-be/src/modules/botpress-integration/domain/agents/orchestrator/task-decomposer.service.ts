@@ -20,11 +20,18 @@ export class TaskDecomposerService {
     private readonly logger = new Logger(TaskDecomposerService.name);
     constructor(private readonly aiService: AIService) {}
 
-    async decomposeTask(intent: string, entities: Record<string, any>, text: string): Promise<TaskPlan> {
+    async decomposeTask(intent: string, entities: Record<string, any>, text: string) {
         const prompt = this.buildDecompositionPrompt(intent, entities, text);
-        try {}
+        try {
+          const response = await this.aiService.generate({
+            prompt,
+            temperature: 0.7,
+            maxOutputTokens: 1024,
+          });
+          return JSON.parse(response.content) as TaskPlan;
+        }
         catch (error) {
-            this.logger.error(`Failed to decompose task: ${error}`, error instanceof Error ? error.stack : undefined);\
+            this.logger.error(`Failed to decompose task: ${error}`, error instanceof Error ? error.stack : undefined);
             return this.createSimpleTaskPlan(intent, entities);
         }
     }
@@ -88,7 +95,7 @@ export class TaskDecomposerService {
         const taskId = 'task1';
     
         return {
-          tasks: [
+          task: [
             {
               id: taskId,
               type: intent,

@@ -36,7 +36,9 @@ import {
 } from 'src/modules/applications/domain/entities/interview.entity';
 import { Application } from 'src/modules/applications/domain/entities/application.entity';
 import { RecruiterFeedback } from '../../domain/entities/recruiter-feedbacks.entity';
-
+import { QueueService } from 'src/shared/infrastructure/queue/queue.service';
+import { UserPreferences } from 'src/modules/recommendations/domain/entities/user-preferences.entity';
+import { JobInteraction } from 'src/modules/recommendations/domain/entities/job-interaction.entity';
 @Injectable()
 export class CandidateProfileService {
   constructor(
@@ -62,7 +64,12 @@ export class CandidateProfileService {
     private readonly offerRepository: Repository<Offer>,
     @InjectRepository(RecruiterFeedback)
     private readonly recruiterFeedbackRepository: Repository<RecruiterFeedback>,
+    @InjectRepository(UserPreferences)
+    private readonly userPreferencesRepository: Repository<UserPreferences>,
+    @InjectRepository(JobInteraction)
+    private readonly jobInteractionRepository: Repository<JobInteraction>,
     private readonly dataSource: DataSource,
+    private readonly queueService: QueueService,
   ) {}
 
   async getCandidateProfileById(id: string): Promise<any> {
@@ -531,6 +538,7 @@ export class CandidateProfileService {
       await queryRunner.manager.save(savedProfile);
 
       await queryRunner.commitTransaction();
+      await this.queueUserEmbedding(dto.userId);
 
       // Return full profile
       return true;
@@ -712,7 +720,15 @@ export class CandidateProfileService {
       await queryRunner.manager.save(profile);
 
       await queryRunner.commitTransaction();
-
+      if (
+        dto.skills ||
+        dto.languages ||
+        dto.workExperiences ||
+        dto.educations
+      ) {
+        await this.queueUserEmbedding(userId);
+      }
+  
       return await this.getCandidateProfileByUserId(userId);
     } catch (error) {
       await queryRunner.rollbackTransaction();
@@ -722,6 +738,55 @@ export class CandidateProfileService {
     }
   }
 
+  private async queueUserEmbedding(userId: string): Promise<void> {
+    // Fetch complete user data for embedding
+    const profile = await this.candidateProfileRepository.findOne({
+      where: { userId },
+      relations: ['workExperiences', 'educations'],
+    });
+
+    if (!profile) return;
+
+    const preferences = await this.userPreferencesRepository.findOne({
+      where: { userId },
+    });
+
+    // Fetch recent interactions
+    const recentInteractions = await this.jobInteractionRepository.find({
+      where: { userId },
+      relations: ['job'],
+      order: { createdAt: 'DESC' },
+      take: 5,
+    });
+
+    await this.queueService.queueUserEmbedding({
+      userId,
+      skills: profile.skills,
+      languages: profile.languages,
+      workExperiences: profile.workExperiences?.map((exp) => ({
+        jobTitle: exp.jobTitle,
+        description: exp.description,
+        skills: exp.skills,
+      })),
+      educations: profile.educations?.map((edu) => ({
+        institutionName: edu.institutionName,
+        fieldOfStudy: edu.fieldOfStudy,
+        degreeType: edu.degreeType,
+        coursework: edu.coursework,
+      })),
+      preferences: preferences
+        ? {
+            skillsLike: preferences.skillsLike,
+            preferredLocations: preferences.preferredLocations,
+            preferredRoleTypes: preferences.preferredRoleTypes,
+            industriesLike: preferences.industriesLike,
+          }
+        : undefined,
+      recentInteractions: recentInteractions.map((inter) => ({
+        jobTitle: inter.job?.title,
+      })),
+    });
+  }
   private async findOrCreateOrganization(
     name: string,
     queryRunner: QueryRunner,

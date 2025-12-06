@@ -25,13 +25,16 @@ import { WinstonModule } from 'nest-winston';
 import winston from 'winston';
 import { RecommendationModule } from './modules/recommendations/recommendation.module';
 import { HealthController } from './health.controller';
-
+import { ScheduleModule } from '@nestjs/schedule';
+import { EmbeddingScheduler } from './shared/infrastructure/queue/schedulers/embeding.scheduler';
+import { QueueModule } from './shared/infrastructure/queue/queue.module';
 @Module({
   imports: [
     ConfigModule.forRoot({
       isGlobal: true,
       envFilePath: '.env',
     }),
+    ScheduleModule.forRoot(),
     CacheModule,
     WinstonModule.forRootAsync({
       imports: [ConfigModule],
@@ -109,7 +112,6 @@ import { HealthController } from './health.controller';
         };
       },
       inject: [ConfigService],
-  
     }),
     TypeOrmModule.forRootAsync({
       imports: [ConfigModule],
@@ -141,7 +143,8 @@ import { HealthController } from './health.controller';
     BackofficeModule,
     ReportModule,
     WalletModule,
-    RecommendationModule
+    RecommendationModule,
+    QueueModule,
   ],
   controllers: [HealthController],
   providers: [
@@ -157,6 +160,7 @@ import { HealthController } from './health.controller';
       provide: APP_GUARD,
       useClass: PermissionsGuard,
     },
+    EmbeddingScheduler,
   ],
 })
 export class AppModule {

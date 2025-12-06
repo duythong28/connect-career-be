@@ -14,7 +14,7 @@ export enum NotificationChannel {
   PUSH = 'push',
 }
 
-export enum NotificationType { 
+export enum NotificationType {
   // Application related
   APPLICATION_RECEIVED = 'application_received',
   APPLICATION_STATUS_CHANGED = 'application_status_changed',
@@ -90,10 +90,10 @@ export class NotificationEntity {
     enum: NotificationType,
     nullable: true,
   })
-  type?: NotificationType
+  type?: NotificationType;
 
   @Column('jsonb', { nullable: true })
-  metadata?: Record<string, any>; 
+  metadata?: Record<string, any>;
 
   @Column({
     type: 'enum',

@@ -11,5 +11,5 @@ export class JobCfFactors {
   job: Job;
 
   @Column({ type: 'jsonb' })
-  factors: number[]
+  factors: number[];
 }

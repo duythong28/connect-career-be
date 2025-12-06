@@ -234,9 +234,14 @@ async def batch_generate_embeddings(request: dict):
 @v1_router.post("/cf/train")
 async def train_cf_factors():
     """Trigger CF factors training"""
-    # This would call your CF training script
-    # For now, return success - implement based on your CF training logic
-    return {"status": "success", "message": "CF training queued"}
+    from scripts.train_cf_factors import train_cf_factors as train_cf
+    
+    try:
+        train_cf()
+        return {"status": "success", "message": "CF training completed"}
+    except Exception as e:
+        logger.error(f"CF training failed: {e}", exc_info=True)
+        raise HTTPException(status_code=500, detail=str(e))
 
 @v1_router.post("/recommendations", response_model=RecommendationResponse)
 async def get_recommendations(request: RecommendationRequest):

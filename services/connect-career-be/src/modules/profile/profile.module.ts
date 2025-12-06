@@ -79,9 +79,9 @@ import { JobInteraction } from '../recommendations/domain/entities/job-interacti
       OrganizationReview,
       RecruiterFeedback,
       UserPreferences,
-      JobInteraction
+      JobInteraction,
     ]),
-    QueueModule
+    QueueModule,
   ],
   controllers: [
     OrganizationController,

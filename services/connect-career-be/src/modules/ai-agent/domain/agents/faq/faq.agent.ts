@@ -4,6 +4,7 @@ import { AIService } from 'src/shared/infrastructure/external-services/ai/servic
 import { AgentContext, AgentResult } from '../../types/agent.types';
 import { ITool } from '../../interfaces/tool.interface';
 import { FaqRagService } from '../../../infrastructure/rag/rag-services/faq-rag.service';
+import { Intent } from '../../enums/intent.enum';
 
 @Injectable()
 export class FaqAgent extends BaseAgent {
@@ -15,7 +16,7 @@ export class FaqAgent extends BaseAgent {
       aiService,
       'FaqAgent',
       'Answers frequently asked questions using knowledge base',
-      ['faq', 'question', 'help', 'information'],
+      [Intent.FAQ, Intent.QUESTION, Intent.HELP],
     );
   }
 
@@ -52,7 +53,8 @@ Answer: ${answer}
 Provide a clear, helpful response.`;
 
       const response = await this.callLLM(responsePrompt, {
-        systemPrompt: 'You are a helpful assistant providing clear, concise answers.',
+        systemPrompt:
+          'You are a helpful assistant providing clear, concise answers.',
       });
 
       return this.createSuccessResult(
@@ -74,9 +76,9 @@ Provide a clear, helpful response.`;
 
   canHandle(intent: string, entities?: Record<string, any>): boolean {
     return (
-      intent === 'faq' ||
-      intent === 'question' ||
-      intent === 'help' ||
+      intent === Intent.FAQ.toString() ||
+      intent === Intent.QUESTION.toString() ||
+      intent === Intent.HELP.toString() ||
       intent.includes('what') ||
       intent.includes('how') ||
       intent.includes('explain')

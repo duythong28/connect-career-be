@@ -26,7 +26,10 @@ Make it:
 Return only the rewritten query, no explanation.`;
 
       const contextPrompt = context?.conversationHistory
-        ? `Previous conversation:\n${context.conversationHistory.slice(-3).map(m => `${m.role}: ${m.content}`).join('\n')}\n\n`
+        ? `Previous conversation:\n${context.conversationHistory
+            .slice(-3)
+            .map((m) => `${m.role}: ${m.content}`)
+            .join('\n')}\n\n`
         : '';
 
       const domainHint = context?.domain
@@ -51,4 +54,3 @@ Return only the rewritten query, no explanation.`;
     }
   }
 }
-

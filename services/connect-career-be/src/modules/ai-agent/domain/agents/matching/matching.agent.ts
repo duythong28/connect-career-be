@@ -6,6 +6,7 @@ import { ITool } from '../../interfaces/tool.interface';
 import { JobRagService } from '../../../infrastructure/rag/rag-services/job-rag.service';
 import { CvToolsService } from '../../../infrastructure/tools/cv-tools.service';
 import { JobToolsService } from '../../../infrastructure/tools/job-tools.service';
+import { Intent } from '../../enums/intent.enum';
 
 @Injectable()
 export class MatchingAgent extends BaseAgent {
@@ -19,7 +20,7 @@ export class MatchingAgent extends BaseAgent {
       aiService,
       'MatchingAgent',
       'Matches user profiles and CVs with job opportunities based on skills, experience, and preferences',
-      ['job_matching', 'profile_matching', 'cv_matching', 'skill_matching'],
+      [Intent.JOB_MATCHING, Intent.PROFILE_MATCHING, Intent.CV_MATCHING, Intent.SKILL_MATCHING],
     );
   }
 
@@ -38,17 +39,28 @@ export class MatchingAgent extends BaseAgent {
         try {
           cvData = await getCvTool.execute({ userId });
         } catch (error) {
-          this.logger.warn(`Could not retrieve CV for user ${userId}: ${error}`);
+          this.logger.warn(
+            `Could not retrieve CV for user ${userId}: ${error}`,
+          );
         }
       }
 
       // Extract skills and experience from CV or entities
-      const skills = cvData?.skills || userProfile.skills || entities?.skills || [];
-      const experience = cvData?.experience || userProfile.experience || entities?.experience || [];
+      const skills =
+        cvData?.skills || userProfile.skills || entities?.skills || [];
+      const experience =
+        cvData?.experience ||
+        userProfile.experience ||
+        entities?.experience ||
+        [];
       const preferences = entities?.preferences || {};
 
       // Build search query from skills and preferences
-      const searchQuery = this.buildSearchQuery(skills, preferences, jobCriteria);
+      const searchQuery = this.buildSearchQuery(
+        skills,
+        preferences,
+        jobCriteria,
+      );
 
       // Retrieve matching jobs from RAG
       const ragResults = await this.jobRagService.retrieve(searchQuery, {
@@ -89,7 +101,8 @@ User skills: ${JSON.stringify(skills)}
 User experience: ${JSON.stringify(experience)}`;
 
       const explanation = await this.callLLM(explanationPrompt, {
-        systemPrompt: 'You are a career matching expert providing detailed match analysis.',
+        systemPrompt:
+          'You are a career matching expert providing detailed match analysis.',
       });
 
       return this.createSuccessResult(
@@ -127,7 +140,8 @@ User experience: ${JSON.stringify(experience)}`;
       intent === 'profile_matching' ||
       intent === 'cv_matching' ||
       intent === 'skill_matching' ||
-      (intent.includes('match') && (intent.includes('job') || intent.includes('profile')))
+      (intent.includes('match') &&
+        (intent.includes('job') || intent.includes('profile')))
     );
   }
 
@@ -167,7 +181,7 @@ User experience: ${JSON.stringify(experience)}`;
     experience: any[],
     preferences: Record<string, any>,
   ): Promise<Array<{ job: any; matchScore: number; reasons: string[] }>> {
-    return jobs.map(job => {
+    return jobs.map((job) => {
       const jobData = job.value || job.content || job;
       const requiredSkills = jobData.requiredSkills || jobData.skills || [];
       const jobSkills = Array.isArray(requiredSkills) ? requiredSkills : [];
@@ -175,22 +189,31 @@ User experience: ${JSON.stringify(experience)}`;
       // Calculate skill match percentage
       const matchedSkills = jobSkills.filter((skill: string) =>
         skills.some(
-          userSkill =>
+          (userSkill) =>
             userSkill.toLowerCase().includes(skill.toLowerCase()) ||
             skill.toLowerCase().includes(userSkill.toLowerCase()),
         ),
       );
-      const skillMatchScore = jobSkills.length > 0 ? matchedSkills.length / jobSkills.length : 0;
+      const skillMatchScore =
+        jobSkills.length > 0 ? matchedSkills.length / jobSkills.length : 0;
 
       // Calculate experience match
-      const experienceMatchScore = this.calculateExperienceMatch(experience, jobData);
+      const experienceMatchScore = this.calculateExperienceMatch(
+        experience,
+        jobData,
+      );
 
       // Calculate preference match
-      const preferenceMatchScore = this.calculatePreferenceMatch(preferences, jobData);
+      const preferenceMatchScore = this.calculatePreferenceMatch(
+        preferences,
+        jobData,
+      );
 
       // Weighted final score
       const matchScore =
-        skillMatchScore * 0.5 + experienceMatchScore * 0.3 + preferenceMatchScore * 0.2;
+        skillMatchScore * 0.5 +
+        experienceMatchScore * 0.3 +
+        preferenceMatchScore * 0.2;
 
       const reasons: string[] = [];
       if (skillMatchScore > 0.7) reasons.push('Strong skills match');
@@ -221,13 +244,20 @@ User experience: ${JSON.stringify(experience)}`;
     return 0.6;
   }
 
-  private calculatePreferenceMatch(preferences: Record<string, any>, jobData: any): number {
+  private calculatePreferenceMatch(
+    preferences: Record<string, any>,
+    jobData: any,
+  ): number {
     let score = 0.5;
     let factors = 0;
 
     if (preferences.location && jobData.location) {
       factors++;
-      if (jobData.location.toLowerCase().includes(preferences.location.toLowerCase())) {
+      if (
+        jobData.location
+          .toLowerCase()
+          .includes(preferences.location.toLowerCase())
+      ) {
         score += 0.3;
       }
     }
@@ -247,7 +277,9 @@ User experience: ${JSON.stringify(experience)}`;
     return factors > 0 ? Math.min(score / factors, 1.0) : 0.5;
   }
 
-  private calculateAverageScore(matches: Array<{ matchScore: number }>): number {
+  private calculateAverageScore(
+    matches: Array<{ matchScore: number }>,
+  ): number {
     if (matches.length === 0) return 0;
     const sum = matches.reduce((acc, m) => acc + m.matchScore, 0);
     return Math.round((sum / matches.length) * 100) / 100;
@@ -260,13 +292,17 @@ User experience: ${JSON.stringify(experience)}`;
     if (matches.length === 0 || userSkills.length === 0) return 0;
 
     const allRequiredSkills = new Set<string>();
-    matches.forEach(match => {
+    matches.forEach((match) => {
       const skills = match.job.requiredSkills || match.job.skills || [];
-      skills.forEach((skill: string) => allRequiredSkills.add(skill.toLowerCase()));
+      skills.forEach((skill: string) =>
+        allRequiredSkills.add(skill.toLowerCase()),
+      );
     });
 
-    const coveredSkills = Array.from(allRequiredSkills).filter(reqSkill =>
-      userSkills.some(userSkill => userSkill.toLowerCase().includes(reqSkill)),
+    const coveredSkills = Array.from(allRequiredSkills).filter((reqSkill) =>
+      userSkills.some((userSkill) =>
+        userSkill.toLowerCase().includes(reqSkill),
+      ),
     );
 
     return allRequiredSkills.size > 0

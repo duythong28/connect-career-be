@@ -54,22 +54,30 @@ export class QueueService {
   }
 
   async queueBatchEmbeddings(type: 'jobs' | 'users'): Promise<void> {
-    await this.batchEmbeddingQueue.add('batch-embedding', { type }, {
-      attempts: 2,
-      backoff: {
-        type: 'exponential',
-        delay: 5000,
+    await this.batchEmbeddingQueue.add(
+      'batch-embedding',
+      { type },
+      {
+        attempts: 2,
+        backoff: {
+          type: 'exponential',
+          delay: 5000,
+        },
       },
-    });
+    );
   }
 
   async queueCFTraining(): Promise<void> {
-    await this.cfTrainingQueue.add('train-cf', {}, {
-      attempts: 2,
-      backoff: {
-        type: 'exponential',
-        delay: 10000,
+    await this.cfTrainingQueue.add(
+      'train-cf',
+      {},
+      {
+        attempts: 2,
+        backoff: {
+          type: 'exponential',
+          delay: 10000,
+        },
       },
-    });
+    );
   }
 }

@@ -20,7 +20,9 @@ export class FaqIngestionService {
       const chunk: DocumentChunk = {
         id: faq.id,
         content: `Q: ${faq.question}\nA: ${faq.answer}`,
-        embedding: await this.generateEmbedding(`${faq.question} ${faq.answer}`),
+        embedding: await this.generateEmbedding(
+          `${faq.question} ${faq.answer}`,
+        ),
         metadata: {
           source: faq.id,
           type: 'faq',
@@ -35,16 +37,20 @@ export class FaqIngestionService {
       await this.faqStore.addDocuments([chunk]);
       this.logger.log(`Ingested FAQ ${faq.id}`);
     } catch (error) {
-      this.logger.error(`Failed to ingest FAQ ${faq.id}: ${error}`, error instanceof Error ? error.stack : undefined);
+      this.logger.error(
+        `Failed to ingest FAQ ${faq.id}: ${error}`,
+        error instanceof Error ? error.stack : undefined,
+      );
       throw error;
     }
   }
 
   private async generateEmbedding(text: string): Promise<number[]> {
     const dimensions = 768;
-    const embedding = new Array(dimensions).fill(0).map(() => Math.random() - 0.5);
+    const embedding = new Array(dimensions)
+      .fill(0)
+      .map(() => Math.random() - 0.5);
     const norm = Math.sqrt(embedding.reduce((sum, val) => sum + val * val, 0));
-    return embedding.map(val => val / norm);
+    return embedding.map((val) => val / norm);
   }
 }
-

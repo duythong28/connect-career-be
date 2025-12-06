@@ -35,4 +35,3 @@ export class MediaUploadDto {
   @IsOptional()
   metadata?: Record<string, any>;
 }
-

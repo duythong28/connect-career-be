@@ -42,4 +42,3 @@ export class AgentExecutionDto {
   @IsOptional()
   metadata?: Record<string, any>;
 }
-

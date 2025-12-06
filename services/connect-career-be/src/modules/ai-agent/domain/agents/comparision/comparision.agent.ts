@@ -4,6 +4,7 @@ import { AIService } from 'src/shared/infrastructure/external-services/ai/servic
 import { AgentContext, AgentResult } from '../../types/agent.types';
 import { ITool } from '../../interfaces/tool.interface';
 import { MultiRagService } from '../../../infrastructure/rag/rag-services/multi-rag.service';
+import { Intent } from '../../enums/intent.enum';
 
 @Injectable()
 export class ComparisonAgent extends BaseAgent {
@@ -15,7 +16,7 @@ export class ComparisonAgent extends BaseAgent {
       aiService,
       'ComparisonAgent',
       'Compares jobs, companies, offers, or learning resources side-by-side',
-      ['comparison', 'compare', 'analysis'],
+      [Intent.COMPARISON],
     );
   }
 
@@ -38,12 +39,15 @@ export class ComparisonAgent extends BaseAgent {
       const comparisonData = await Promise.all(
         itemsToCompare.map(async (item: any) => {
           const domains: Array<'job' | 'company' | 'learning' | 'faq'> = [];
-          
+
           if (comparisonType === 'job' || item.type === 'job') {
             domains.push('job');
           } else if (comparisonType === 'company' || item.type === 'company') {
             domains.push('company');
-          } else if (comparisonType === 'learning' || item.type === 'learning') {
+          } else if (
+            comparisonType === 'learning' ||
+            item.type === 'learning'
+          ) {
             domains.push('learning');
           }
 
@@ -59,7 +63,9 @@ export class ComparisonAgent extends BaseAgent {
               const firstResult = ragResults.results[0];
               if (!firstResult) return item;
               try {
-                return typeof firstResult.content === 'string' ? JSON.parse(firstResult.content) : firstResult.content;
+                return typeof firstResult.content === 'string'
+                  ? JSON.parse(firstResult.content)
+                  : firstResult.content;
               } catch {
                 return firstResult.content;
               }
@@ -81,7 +87,8 @@ Provide a comparison with:
 4. Recommendations`;
 
       const comparison = await this.callLLM(comparisonPrompt, {
-        systemPrompt: 'You are an expert at comparing and analyzing different options. Provide clear, structured comparisons.',
+        systemPrompt:
+          'You are an expert at comparing and analyzing different options. Provide clear, structured comparisons.',
       });
 
       return this.createSuccessResult(
@@ -103,11 +110,12 @@ Provide a comparison with:
 
   canHandle(intent: string, entities?: Record<string, any>): boolean {
     return (
+      intent === Intent.COMPARE_JOBS ||
+      intent === Intent.COMPARE_COMPANIES ||
+      intent === Intent.COMPARE_OFFERS ||
+      intent === Intent.COMPARISON ||
       intent.includes('compare') ||
-      intent.includes('comparison') ||
-      intent === 'compare_jobs' ||
-      intent === 'compare_companies' ||
-      intent === 'compare_offers'
+      intent.includes('comparison')
     );
   }
 

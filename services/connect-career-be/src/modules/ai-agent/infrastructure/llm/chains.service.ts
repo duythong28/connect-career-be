@@ -5,12 +5,20 @@ import { ITool } from '../../domain/interfaces/tool.interface';
 import { AgentContext } from '../../domain/types/agent.types';
 import { ConfigService } from '@nestjs/config';
 
-import { ChatPromptTemplate, MessagesPlaceholder } from '@langchain/core/prompts';
+import {
+  ChatPromptTemplate,
+  MessagesPlaceholder,
+} from '@langchain/core/prompts';
 import { DynamicStructuredTool } from '@langchain/core/tools';
 import { z } from 'zod';
 import { RunnableSequence } from '@langchain/core/runnables';
 // StateGraph and END removed - using simplified workflow implementation
-import { BaseMessage, HumanMessage, AIMessage, SystemMessage } from '@langchain/core/messages';
+import {
+  BaseMessage,
+  HumanMessage,
+  AIMessage,
+  SystemMessage,
+} from '@langchain/core/messages';
 import { BaseChatModel } from '@langchain/core/language_models/chat_models';
 import { ChatGeneration, ChatResult } from '@langchain/core/outputs';
 import { CallbackManagerForLLMRun } from '@langchain/core/callbacks/manager';
@@ -39,7 +47,6 @@ try {
   }
 }
 
-
 // Custom LLM adapter that properly extends BaseChatModel
 class CustomLLMAdapter extends BaseChatModel {
   private aiService: AIService;
@@ -61,11 +68,19 @@ class CustomLLMAdapter extends BaseChatModel {
     const formattedMessages: Array<{
       role: 'user' | 'assistant' | 'system';
       content: string;
-    }> = messages.map(msg => ({
-      role: msg instanceof HumanMessage ? 'user' as const : 
-            msg instanceof AIMessage ? 'assistant' as const : 
-            msg instanceof SystemMessage ? 'system' as const : 'user' as const,
-      content: typeof msg.content === 'string' ? msg.content : JSON.stringify(msg.content),
+    }> = messages.map((msg) => ({
+      role:
+        msg instanceof HumanMessage
+          ? ('user' as const)
+          : msg instanceof AIMessage
+            ? ('assistant' as const)
+            : msg instanceof SystemMessage
+              ? ('system' as const)
+              : ('user' as const),
+      content:
+        typeof msg.content === 'string'
+          ? msg.content
+          : JSON.stringify(msg.content),
     }));
 
     const response = await this.aiService.chat({
@@ -75,7 +90,7 @@ class CustomLLMAdapter extends BaseChatModel {
     });
 
     const message = new AIMessage(response.content);
-    
+
     return {
       generations: [
         {
@@ -111,8 +126,11 @@ export class ChainsService {
     this.llmAdapter = new CustomLLMAdapter(aiService);
 
     // Initialize LangSmith if API key is provided
-    const langsmithApiKey = this.configService?.get<string>('LANGSMITH_API_KEY');
-    this.langsmithProject = this.configService?.get<string>('LANGSMITH_PROJECT') || 'connect-career-ai-agent';
+    const langsmithApiKey =
+      this.configService?.get<string>('LANGSMITH_API_KEY');
+    this.langsmithProject =
+      this.configService?.get<string>('LANGSMITH_PROJECT') ||
+      'connect-career-ai-agent';
 
     if (langsmithApiKey) {
       try {
@@ -121,7 +139,9 @@ export class ChainsService {
         });
 
         this.langsmithEnabled = true;
-        this.logger.log(`LangSmith monitoring enabled for project: ${this.langsmithProject}`);
+        this.logger.log(
+          `LangSmith monitoring enabled for project: ${this.langsmithProject}`,
+        );
       } catch (error) {
         this.logger.warn(`Failed to initialize LangSmith: ${error}`);
         this.langsmithEnabled = false;
@@ -138,10 +158,10 @@ export class ChainsService {
   private convertToolToLangChain(tool: ITool): DynamicStructuredTool {
     // Convert parameters to Zod schema
     const schemaObject: Record<string, z.ZodTypeAny> = {};
-    
+
     for (const param of tool.parameters) {
       let zodType: z.ZodTypeAny;
-      
+
       switch (param.type) {
         case 'string':
           zodType = z.string();
@@ -203,7 +223,9 @@ export class ChainsService {
   ) {
     try {
       // Convert tools to LangChain format
-      const langChainTools = tools.map(tool => this.convertToolToLangChain(tool));
+      const langChainTools = tools.map((tool) =>
+        this.convertToolToLangChain(tool),
+      );
 
       // Create system prompt
       const systemPrompt = `You are ${agent.name}: ${agent.description}
@@ -225,7 +247,9 @@ Always explain what you're doing and why.`;
 
       // Create agent using OpenAI functions format
       if (!createOpenAIFunctionsAgent) {
-        throw new Error('createOpenAIFunctionsAgent not available. Please install langchain package.');
+        throw new Error(
+          'createOpenAIFunctionsAgent not available. Please install langchain package.',
+        );
       }
 
       const agentChain = await createOpenAIFunctionsAgent({
@@ -236,7 +260,9 @@ Always explain what you're doing and why.`;
 
       // Create executor
       if (!AgentExecutor) {
-        throw new Error('AgentExecutor not available. Please install langchain package.');
+        throw new Error(
+          'AgentExecutor not available. Please install langchain package.',
+        );
       }
 
       const executor = new AgentExecutor({
@@ -275,7 +301,9 @@ Always explain what you're doing and why.`;
                 });
                 traceId = typeof trace === 'string' ? trace : (trace as any).id;
               } catch (traceError) {
-                this.logger.warn(`Failed to create LangSmith trace: ${traceError}`);
+                this.logger.warn(
+                  `Failed to create LangSmith trace: ${traceError}`,
+                );
               }
             }
 
@@ -299,7 +327,9 @@ Always explain what you're doing and why.`;
                   end_time: Date.now(),
                 });
               } catch (updateError) {
-                this.logger.warn(`Failed to update LangSmith trace: ${updateError}`);
+                this.logger.warn(
+                  `Failed to update LangSmith trace: ${updateError}`,
+                );
               }
             }
 
@@ -324,17 +354,25 @@ Always explain what you're doing and why.`;
                   },
                 });
               } catch (updateError) {
-                this.logger.warn(`Failed to update LangSmith trace with error: ${updateError}`);
+                this.logger.warn(
+                  `Failed to update LangSmith trace with error: ${updateError}`,
+                );
               }
             }
 
-            this.logger.error(`Agent chain execution failed: ${error}`, error instanceof Error ? error.stack : undefined);
+            this.logger.error(
+              `Agent chain execution failed: ${error}`,
+              error instanceof Error ? error.stack : undefined,
+            );
             throw error;
           }
         },
       };
     } catch (error) {
-      this.logger.error(`Failed to create agent chain: ${error}`, error instanceof Error ? error.stack : undefined);
+      this.logger.error(
+        `Failed to create agent chain: ${error}`,
+        error instanceof Error ? error.stack : undefined,
+      );
       throw error;
     }
   }
@@ -356,10 +394,7 @@ Always explain what you're doing and why.`;
       ['human', '{input}'],
     ]);
 
-    const chain = RunnableSequence.from([
-      prompt,
-      this.llmAdapter,
-    ]);
+    const chain = RunnableSequence.from([prompt, this.llmAdapter]);
 
     return {
       execute: async (input: string) => {
@@ -373,7 +408,7 @@ Always explain what you're doing and why.`;
               const trace = await this.langsmithClient.createRun({
                 name: options?.runName || 'simple_chain',
                 run_type: 'chain',
-                inputs: { 
+                inputs: {
                   input,
                   ...options?.metadata,
                 },
@@ -381,7 +416,9 @@ Always explain what you're doing and why.`;
               });
               traceId = typeof trace === 'string' ? trace : (trace as any).id;
             } catch (traceError) {
-              this.logger.warn(`Failed to create LangSmith trace: ${traceError}`);
+              this.logger.warn(
+                `Failed to create LangSmith trace: ${traceError}`,
+              );
             }
           }
 
@@ -392,14 +429,16 @@ Always explain what you're doing and why.`;
           if (this.langsmithEnabled && this.langsmithClient && traceId) {
             try {
               await this.langsmithClient.updateRun(traceId, {
-                outputs: { 
+                outputs: {
                   output: result.content,
                   executionTime,
                 },
                 end_time: Date.now(),
               });
             } catch (updateError) {
-              this.logger.warn(`Failed to update LangSmith trace: ${updateError}`);
+              this.logger.warn(
+                `Failed to update LangSmith trace: ${updateError}`,
+              );
             }
           }
 
@@ -413,7 +452,9 @@ Always explain what you're doing and why.`;
                 end_time: Date.now(),
               });
             } catch (updateError) {
-              this.logger.warn(`Failed to update LangSmith trace with error: ${updateError}`);
+              this.logger.warn(
+                `Failed to update LangSmith trace with error: ${updateError}`,
+              );
             }
           }
           throw error;
@@ -441,38 +482,49 @@ Always explain what you're doing and why.`;
     try {
       // Simplified workflow implementation - StateGraph API compatibility issue
       // TODO: Update when LangGraph API is stable
-      this.logger.warn('Using simplified workflow implementation - StateGraph API needs update');
-      
+      this.logger.warn(
+        'Using simplified workflow implementation - StateGraph API needs update',
+      );
+
       return {
         definition: workflowDefinition,
         execute: async (input: Record<string, any>) => {
           try {
-            const state: any = { 
+            const state: any = {
               messages: [new HumanMessage(JSON.stringify(input))],
               data: { ...workflowDefinition.initialState, ...input },
               currentStep: '',
             };
-            
+
             // Execute nodes in order based on edges
             const executedNodes = new Set<string>();
-            let currentNodeId: string | null | undefined = workflowDefinition.nodes[0]?.id;
-            
+            let currentNodeId: string | null | undefined =
+              workflowDefinition.nodes[0]?.id;
+
             while (currentNodeId && !executedNodes.has(currentNodeId)) {
-              const node = workflowDefinition.nodes.find(n => n.id === currentNodeId);
+              const node = workflowDefinition.nodes.find(
+                (n) => n.id === currentNodeId,
+              );
               if (!node) break;
-              
-              this.logger.log(`Executing workflow node: ${node.name} (${node.id})`);
+
+              this.logger.log(
+                `Executing workflow node: ${node.name} (${node.id})`,
+              );
               executedNodes.add(currentNodeId);
-              
+
               const result = await node.handler(state);
               Object.assign(state.data, result);
               state.currentStep = node.id;
-              
+
               // Find next node based on edges
-              const nextEdge = workflowDefinition.edges.find(e => e.from === currentNodeId);
+              const nextEdge = workflowDefinition.edges.find(
+                (e) => e.from === currentNodeId,
+              );
               if (nextEdge) {
                 if (nextEdge.condition) {
-                  currentNodeId = nextEdge.condition(state) ? nextEdge.to : null;
+                  currentNodeId = nextEdge.condition(state)
+                    ? nextEdge.to
+                    : null;
                 } else {
                   currentNodeId = nextEdge.to;
                 }
@@ -480,20 +532,26 @@ Always explain what you're doing and why.`;
                 currentNodeId = null;
               }
             }
-            
+
             return {
               result: state.data,
               messages: state.messages,
               finalStep: state.currentStep,
             };
           } catch (error) {
-            this.logger.error(`Workflow execution failed: ${error}`, error instanceof Error ? error.stack : undefined);
+            this.logger.error(
+              `Workflow execution failed: ${error}`,
+              error instanceof Error ? error.stack : undefined,
+            );
             throw error;
           }
         },
       };
     } catch (error) {
-      this.logger.error(`Failed to create workflow chain: ${error}`, error instanceof Error ? error.stack : undefined);
+      this.logger.error(
+        `Failed to create workflow chain: ${error}`,
+        error instanceof Error ? error.stack : undefined,
+      );
       throw error;
     }
   }
@@ -502,7 +560,9 @@ Always explain what you're doing and why.`;
    * Create a RAG chain with retrieval
    */
   createRagChain(
-    retriever: (query: string) => Promise<Array<{ content: string; metadata?: any }>>,
+    retriever: (
+      query: string,
+    ) => Promise<Array<{ content: string; metadata?: any }>>,
     options?: {
       systemPrompt?: string;
       temperature?: number;
@@ -510,7 +570,8 @@ Always explain what you're doing and why.`;
       metadata?: Record<string, any>;
     },
   ) {
-    const systemPrompt = options?.systemPrompt || 
+    const systemPrompt =
+      options?.systemPrompt ||
       `You are a helpful assistant. Use the following context to answer questions.
 If you don't know the answer based on the context, say so.
 
@@ -526,7 +587,7 @@ Question: {question}`;
         question: (input: { question: string }) => input.question,
         context: async (input: { question: string }) => {
           const docs = await retriever(input.question);
-          return docs.map(doc => doc.content).join('\n\n');
+          return docs.map((doc) => doc.content).join('\n\n');
         },
       },
       prompt,
@@ -545,7 +606,7 @@ Question: {question}`;
               const trace = await this.langsmithClient.createRun({
                 name: options?.runName || 'rag_chain',
                 run_type: 'chain',
-                inputs: { 
+                inputs: {
                   question,
                   chainType: 'rag',
                   ...options?.metadata,
@@ -554,7 +615,9 @@ Question: {question}`;
               });
               traceId = typeof trace === 'string' ? trace : (trace as any).id;
             } catch (traceError) {
-              this.logger.warn(`Failed to create LangSmith trace: ${traceError}`);
+              this.logger.warn(
+                `Failed to create LangSmith trace: ${traceError}`,
+              );
             }
           }
 
@@ -565,14 +628,16 @@ Question: {question}`;
           if (this.langsmithEnabled && this.langsmithClient && traceId) {
             try {
               await this.langsmithClient.updateRun(traceId, {
-                outputs: { 
+                outputs: {
                   answer: result.content,
                   executionTime,
                 },
                 end_time: Date.now(),
               });
             } catch (updateError) {
-              this.logger.warn(`Failed to update LangSmith trace: ${updateError}`);
+              this.logger.warn(
+                `Failed to update LangSmith trace: ${updateError}`,
+              );
             }
           }
 
@@ -586,7 +651,9 @@ Question: {question}`;
                 end_time: Date.now(),
               });
             } catch (updateError) {
-              this.logger.warn(`Failed to update LangSmith trace with error: ${updateError}`);
+              this.logger.warn(
+                `Failed to update LangSmith trace with error: ${updateError}`,
+              );
             }
           }
           throw error;

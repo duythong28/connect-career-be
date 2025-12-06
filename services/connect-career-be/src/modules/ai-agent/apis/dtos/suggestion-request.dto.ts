@@ -21,4 +21,3 @@ export class SuggestionRequestDto {
   @IsOptional()
   metadata?: Record<string, any>;
 }
-

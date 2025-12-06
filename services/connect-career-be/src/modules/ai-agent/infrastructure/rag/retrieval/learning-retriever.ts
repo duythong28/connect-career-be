@@ -36,7 +36,11 @@ export class LearningRetriever {
       }
     }
 
-    return await this.hybridRetriever.retrieve(query, this.learningStore, limit, filter);
+    return await this.hybridRetriever.retrieve(
+      query,
+      this.learningStore,
+      limit,
+      filter,
+    );
   }
 }
-

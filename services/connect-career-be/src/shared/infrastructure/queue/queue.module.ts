@@ -22,7 +22,7 @@ import { QueueOptions } from 'bullmq';
           port: parseInt(configService.get<string>('REDIS_PORT') || '6379', 10),
           password: configService.get<string>('REDIS_PASSWORD'),
         },
-      }), 
+      }),
       inject: [ConfigService],
     }),
     BullModule.registerQueue(

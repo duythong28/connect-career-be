@@ -39,7 +39,10 @@ export class JobIngestionService {
 
       this.logger.log(`Ingested job ${job.id} with ${chunks.length} chunks`);
     } catch (error) {
-      this.logger.error(`Failed to ingest job ${job.id}: ${error}`, error instanceof Error ? error.stack : undefined);
+      this.logger.error(
+        `Failed to ingest job ${job.id}: ${error}`,
+        error instanceof Error ? error.stack : undefined,
+      );
       throw error;
     }
   }
@@ -103,9 +106,10 @@ export class JobIngestionService {
   private async generateEmbedding(text: string): Promise<number[]> {
     // Placeholder - integrate with actual embedding service
     const dimensions = 768;
-    const embedding = new Array(dimensions).fill(0).map(() => Math.random() - 0.5);
+    const embedding = new Array(dimensions)
+      .fill(0)
+      .map(() => Math.random() - 0.5);
     const norm = Math.sqrt(embedding.reduce((sum, val) => sum + val * val, 0));
-    return embedding.map(val => val / norm);
+    return embedding.map((val) => val / norm);
   }
 }
-

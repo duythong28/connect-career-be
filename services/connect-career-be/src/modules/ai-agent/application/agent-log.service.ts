@@ -45,7 +45,7 @@ export class AgentLogService {
   getLogsByAgent(agentName: string, limit: number = 50): AgentLogEntry[] {
     const allLogs: AgentLogEntry[] = [];
     for (const logs of this.logs.values()) {
-      allLogs.push(...logs.filter(log => log.agentName === agentName));
+      allLogs.push(...logs.filter((log) => log.agentName === agentName));
     }
     return allLogs
       .sort((a, b) => b.timestamp.getTime() - a.timestamp.getTime())
@@ -55,13 +55,14 @@ export class AgentLogService {
   getLogsBySession(sessionId: string): AgentLogEntry[] {
     const allLogs: AgentLogEntry[] = [];
     for (const logs of this.logs.values()) {
-      allLogs.push(...logs.filter(log => log.sessionId === sessionId));
+      allLogs.push(...logs.filter((log) => log.sessionId === sessionId));
     }
-    return allLogs.sort((a, b) => a.timestamp.getTime() - b.timestamp.getTime());
+    return allLogs.sort(
+      (a, b) => a.timestamp.getTime() - b.timestamp.getTime(),
+    );
   }
 
   private generateLogId(): string {
     return `log_${Date.now()}_${Math.random().toString(36).substr(2, 9)}`;
   }
 }
-

@@ -4,11 +4,16 @@ import { InjectRepository } from '@nestjs/typeorm';
 import { AgentExecutionEntity } from '../entities/agent-execution.entity';
 
 export interface IAgentExecutionRepository {
-  create(execution: Partial<AgentExecutionEntity>): Promise<AgentExecutionEntity>;
+  create(
+    execution: Partial<AgentExecutionEntity>,
+  ): Promise<AgentExecutionEntity>;
   findById(id: string): Promise<AgentExecutionEntity | null>;
   findBySessionId(sessionId: string): Promise<AgentExecutionEntity[]>;
   findByUserId(userId: string, limit?: number): Promise<AgentExecutionEntity[]>;
-  findByAgent(agentName: string, limit?: number): Promise<AgentExecutionEntity[]>;
+  findByAgent(
+    agentName: string,
+    limit?: number,
+  ): Promise<AgentExecutionEntity[]>;
 }
 
 @Injectable()
@@ -18,7 +23,9 @@ export class AgentExecutionRepository implements IAgentExecutionRepository {
     private readonly repository: Repository<AgentExecutionEntity>,
   ) {}
 
-  async create(execution: Partial<AgentExecutionEntity>): Promise<AgentExecutionEntity> {
+  async create(
+    execution: Partial<AgentExecutionEntity>,
+  ): Promise<AgentExecutionEntity> {
     const entity = this.repository.create(execution);
     return await this.repository.save(entity);
   }
@@ -34,7 +41,10 @@ export class AgentExecutionRepository implements IAgentExecutionRepository {
     });
   }
 
-  async findByUserId(userId: string, limit: number = 50): Promise<AgentExecutionEntity[]> {
+  async findByUserId(
+    userId: string,
+    limit: number = 50,
+  ): Promise<AgentExecutionEntity[]> {
     return await this.repository.find({
       where: { userId },
       order: { createdAt: 'DESC' },
@@ -42,7 +52,10 @@ export class AgentExecutionRepository implements IAgentExecutionRepository {
     });
   }
 
-  async findByAgent(agentName: string, limit: number = 50): Promise<AgentExecutionEntity[]> {
+  async findByAgent(
+    agentName: string,
+    limit: number = 50,
+  ): Promise<AgentExecutionEntity[]> {
     return await this.repository.find({
       where: { agentName },
       order: { createdAt: 'DESC' },

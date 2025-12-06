@@ -34,10 +34,28 @@ import { OrganizationRBACMigrationService } from './infrastructure/organization-
 import { Interview } from '../applications/domain/entities/interview.entity';
 import { Job } from '../jobs/domain/entities/job.entity';
 import { Offer } from '../applications/domain/entities/offer.entity';
-
+import { IndustryController } from './api/controllers/industry.controller';
+import { IndustryService } from './api/services/industry.service';
+import { Application } from '../applications/domain/entities/application.entity';
+import { OrganizationHiringAnalyticsService } from './api/services/organization-hiring-analytics.service';
+import { RecruiterDashboardService } from './api/services/recruiter-dashboard.service';
+import { OrganizationReviewController } from './api/controllers/organization-review.controller';
+import { RecruiterFeedbackController } from './api/controllers/recruiter-review.controller';
+import { OrganizationReviewService } from './api/services/organization-review.service';
+import { RecruiterFeedbackService } from './api/services/recruiter-feedback.service';
+import { OrganizationReview } from './domain/entities/organization-reviews.entity';
+import { RecruiterFeedback } from './domain/entities/recruiter-feedbacks.entity';
+import { UserPreferences } from '../recommendations/domain/entities/user-preferences.entity';
+import { QueueModule } from 'src/shared/infrastructure/queue/queue.module';
+import { JobInteraction } from '../recommendations/domain/entities/job-interaction.entity';
 @Module({
   imports: [
     TypeOrmModule.forFeature([
+      Application,
+      Interview,
+      Offer,
+      OrganizationMembership,
+      Industry,
       Organization,
       OrganizationLocation,
       Industry,
@@ -58,12 +76,20 @@ import { Offer } from '../applications/domain/entities/offer.entity';
       Interview,
       Job,
       Offer,
+      OrganizationReview,
+      RecruiterFeedback,
+      UserPreferences,
+      JobInteraction
     ]),
+    QueueModule
   ],
   controllers: [
     OrganizationController,
     CandidateProfileController,
     OrganizationRBACController,
+    IndustryController,
+    OrganizationReviewController,
+    RecruiterFeedbackController,
   ],
   providers: [
     OrganizationRepository,
@@ -74,6 +100,11 @@ import { Offer } from '../applications/domain/entities/offer.entity';
     LinkedInPeopleSeeder,
     OrganizationRBACService,
     OrganizationRBACMigrationService,
+    IndustryService,
+    OrganizationHiringAnalyticsService,
+    RecruiterDashboardService,
+    OrganizationReviewService,
+    RecruiterFeedbackService,
   ],
   exports: [
     OrganizationService,
@@ -82,6 +113,10 @@ import { Offer } from '../applications/domain/entities/offer.entity';
     IndustrySeeder,
     LinkedInCompanySeeder,
     LinkedInPeopleSeeder,
+    IndustryService,
+    RecruiterDashboardService,
+    OrganizationReviewService,
+    RecruiterFeedbackService,
   ],
 })
 export class ProfileModule {}

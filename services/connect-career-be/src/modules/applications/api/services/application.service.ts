@@ -171,12 +171,20 @@ export class ApplicationService {
         },
       ];
     }
+    application.addStatusHistory(
+      ApplicationStatus.NEW,
+      createDto.candidateId || 'system',
+      'Initial application created',
+    );
     const candidateProfile = await this.candidateProfileRepository.findOne({
       where: { userId: createDto.candidateId },
     });
     const cv = await this.cvRepository.findOne({
       where: { id: createDto.cvId },
     });
+    if (candidateProfile) {
+      application.candidateProfileId = candidateProfile.id;
+    }
     application.calculateMatcingScore(
       job,
       cv ?? undefined,
@@ -185,12 +193,19 @@ export class ApplicationService {
     application.updateCalculatedFields();
     return this.applicationRepository.save(application);
   }
+
   async getApplicationById(id: string): Promise<Application> {
     const qb = this.applicationRepository
       .createQueryBuilder('application')
       .leftJoinAndSelect('application.job', 'job')
+      .leftJoinAndSelect('job.user', 'jobUser')
       .leftJoinAndSelect('application.candidate', 'candidate')
       .leftJoinAndSelect('application.candidateProfile', 'candidateProfile')
+      .leftJoinAndSelect(
+        'candidate_profiles',
+        'candidateProfileFallback',
+        'candidateProfileFallback.userId = candidate.id AND application.candidateProfileId IS NULL',
+      )
       .leftJoinAndSelect('application.cv', 'cv')
       .leftJoinAndSelect('application.reviewer', 'reviewer')
       .leftJoinAndSelect('application.interviews', 'interviews')
@@ -200,6 +215,18 @@ export class ApplicationService {
 
     const application = await qb.getOne();
     if (!application) throw new NotFoundException('Application not found');
+
+    // Use fallback candidate profile if main one is null
+    if (!application.candidateProfile) {
+      // Manually load the candidate profile by userId
+      const fallbackProfile = await this.candidateProfileRepository.findOne({
+        where: { userId: application.candidateId },
+      });
+      if (fallbackProfile) {
+        application.candidateProfile = fallbackProfile;
+      }
+    }
+
     return application;
   }
 
@@ -470,6 +497,7 @@ export class ApplicationService {
     return this.applicationRepository
       .createQueryBuilder('application')
       .leftJoinAndSelect('application.job', 'job')
+      .leftJoinAndSelect('job.user', 'jobUser')
       .leftJoinAndSelect('application.candidate', 'candidate')
       .leftJoinAndSelect('application.candidateProfile', 'candidateProfile')
       .leftJoinAndSelect('application.cv', 'cv')
@@ -520,8 +548,15 @@ export class ApplicationService {
         appliedBefore: f.appliedBefore,
       });
     if (f.hasInterviews !== undefined) {
-      if (f.hasInterviews) qb.andWhere('application.totalInterviews > 0');
-      else qb.andWhere('application.totalInterviews = 0');
+      if (f.hasInterviews) {
+        qb.andWhere(
+          'EXISTS (SELECT 1 FROM interviews i WHERE i.applicationId = application.id)',
+        );
+      } else {
+        qb.andWhere(
+          'NOT EXISTS (SELECT 1 FROM interviews i WHERE i.applicationId = application.id)',
+        );
+      }
     }
     if (f.hasOffers !== undefined) {
       if (f.hasOffers) qb.andWhere('application.currentOfferId IS NOT NULL');
@@ -545,6 +580,7 @@ export class ApplicationService {
       relations: [
         'candidate',
         'job',
+        'job.user',
         'candidateProfile',
         'cv',
         'interviews',

@@ -18,7 +18,8 @@ export class AgentInterviewerService {
   ) {}
 
   async createDefaultInterviewer() {
-    const { henryInterviewer, marcusInterviewer, defaultInterviewerModel } = await this.retellAIProvider.createDefaultAgent();
+    const { henryInterviewer, marcusInterviewer, defaultInterviewerModel } =
+      await this.retellAIProvider.createDefaultAgent();
     try {
       // Check if Henry already exists
       let henry = await this.agentInterviewerRepository.findOne({
@@ -29,7 +30,7 @@ export class AgentInterviewerService {
       const systemUser = await this.userRepository.findOne({
         where: { email: systemEmail },
       });
-  
+
       if (!henry) {
         // Create Henry interviewer in database
         henry = this.agentInterviewerRepository.create({
@@ -83,7 +84,10 @@ export class AgentInterviewerService {
         defaultInterviewerModel,
       };
     } catch (error) {
-      this.logger.error('Error saving default interviewers to database:', error);
+      this.logger.error(
+        'Error saving default interviewers to database:',
+        error,
+      );
       throw error;
     }
   }

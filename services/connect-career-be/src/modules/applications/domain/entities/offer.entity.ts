@@ -242,6 +242,7 @@ export class Offer {
   isActive(): boolean {
     return [
       OfferStatus.PENDING,
+      OfferStatus.REJECTED,
       OfferStatus.NEGOTIATING,
       OfferStatus.COUNTER_OFFER,
     ].includes(this.status);

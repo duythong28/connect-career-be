@@ -21,6 +21,7 @@ import { ExpiredStateStrategy } from './domain/state-machine/strategies/expired-
 import { CancelledStateStrategy } from './domain/state-machine/strategies/cancelled-state.strategy';
 import { ArchivedStateStrategy } from './domain/state-machine/strategies/archived-state.strategy';
 import { HiringPipeline } from '../hiring-pipeline/domain/entities/hiring-pipeline.entity';
+import { QueueModule } from 'src/shared/infrastructure/queue/queue.module';
 
 @Module({
   imports: [
@@ -36,6 +37,7 @@ import { HiringPipeline } from '../hiring-pipeline/domain/entities/hiring-pipeli
       File,
       Application,
     ]),
+    QueueModule
   ],
   controllers: [JobCandidateController, JobOrganizationController],
   providers: [

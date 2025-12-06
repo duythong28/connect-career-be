@@ -231,7 +231,11 @@ export class OfferService {
     reason: string,
     userId: string,
   ): Promise<Offer | null> {
-    const offer = await this.offerRepository.findOne({ where: { id } });
+    const offer = await this.offerRepository.findOne({
+      where: { id },
+      relations: ['application', 'application.job'],
+    });
+
     if (!offer) {
       throw new NotFoundException('Offer not found');
     }
@@ -240,12 +244,39 @@ export class OfferService {
       throw new ForbiddenException('Only offer owner can cancel');
     }
 
-    await this.offerRepository.update(id, {
-      status: OfferStatus.CANCELLED,
-      cancelledDate: new Date(),
+    const application = offer.application;
+    if (!application) {
+      throw new NotFoundException('Application not found');
+    }
+
+    // Update offer status using save() (following createOffer pattern)
+    offer.status = OfferStatus.CANCELLED;
+    offer.cancelledDate = new Date();
+    const savedOffer = await this.offerRepository.save(offer);
+
+    // Update application status first (following createOffer pattern)
+    await this.applicationRepository.update(application.id, {
+      status: ApplicationStatus.OFFER_PENDING,
+      lastStatusChange: new Date(),
+      daysInCurrentStatus: 0,
     });
 
-    return this.offerRepository.findOne({ where: { id } });
+    // Prepare status history update
+    const statusHistory = application.statusHistory || [];
+    statusHistory.push({
+      status: ApplicationStatus.OFFER_PENDING,
+      changedAt: new Date(),
+      changedBy: userId,
+      reason: reason || 'Offer cancelled',
+      notes: `Offer ${offer.id} was cancelled`,
+    });
+
+    // Update application status history (following createOffer pattern)
+    await this.applicationRepository.update(application.id, {
+      statusHistory,
+    });
+
+    return savedOffer;
   }
 
   async recordCandidateResponse(
@@ -479,7 +510,7 @@ export class OfferService {
       status: ApplicationStatus.OFFER_ACCEPTED,
       changedAt: new Date(),
       changedBy: userId,
-      reason: 'Offer accepted',
+      reason: acceptDto.reason || 'Offer accepted',
       notes: acceptDto.notes,
     });
 
@@ -525,6 +556,7 @@ export class OfferService {
       throw new BadRequestException('Can only reject pending offers');
     }
 
+    console.log(latestOffer);
     // Update offer status
     await this.offerRepository.update(latestOffer.id, {
       status: OfferStatus.REJECTED,

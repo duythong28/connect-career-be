@@ -21,6 +21,7 @@ import {
   OrganizationMembership,
   OrganizationRole,
 } from './organization-memberships.entity';
+import { OrganizationReview } from './organization-reviews.entity';
 
 export enum OrganizationType {
   CORPORATION = 'corporation',
@@ -176,6 +177,9 @@ export class Organization {
 
   @Column('text', { array: true, default: [] })
   coreValues: string[];
+
+  @OneToMany(() => OrganizationReview, (review) => review.organization)
+  reviews: OrganizationReview[];
 
   @Column('jsonb', { nullable: true })
   productsServices?: {

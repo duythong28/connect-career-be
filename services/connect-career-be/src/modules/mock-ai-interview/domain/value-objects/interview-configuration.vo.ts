@@ -6,17 +6,6 @@ export interface InterviewConfiguration {
   realtimeScoring: boolean;
 }
 
-export interface InterviewResults {
-  overallScore: number;
-  dimensionScores: Record<ScoringDimension, number>;
-  strengths: string[];
-  weaknesses: string[];
-  recommendation: string[];
-  learningTags: string[];
-  transcript: string;
-  duration: number;
-}
-
 export interface QuestionContext {
   previousAnswers?: string[];
   followUpReason?: string;
@@ -110,4 +99,22 @@ export enum PersonaCategory {
   DESIGN = 'DESIGN',
   HR = 'HR',
   CUSTOMER_SUPPORT = 'CUSTOMER_SUPPORT',
+}
+
+export interface InterviewResults {
+  overallScore: number;
+  dimensionScores: Record<ScoringDimension, number>;
+  strengths: string[];
+  weaknesses: string[];
+  recommendation: string[];
+  learningTags: string[];
+  transcript: string;
+  duration: number;
+  insights?: {
+    overallTrends?: string;
+    commonStrengths?: string[];
+    commonWeaknesses?: string[];
+    recommendations?: string[];
+    keyLearnings?: string[];
+  };
 }

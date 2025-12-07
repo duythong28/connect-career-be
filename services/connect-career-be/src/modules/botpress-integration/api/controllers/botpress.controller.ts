@@ -22,7 +22,7 @@ export class BotpressController {
     @currentUserDecorator.CurrentUser()
     user: currentUserDecorator.CurrentUserPayload,
   ) {
-    return await this.botpressService.handleWebhook(webhookDto, user);
+    // return await this.botpressService.handleWebhook(webhookDto, user);
   }
 
   @Get('health')

@@ -26,4 +26,19 @@ export class AIService {
   }) {
     return (this.provider as any).generateWithInlineFile(req);
   }
+
+  async *chatStream(request: aiProviderInterface.AIChatRequest): AsyncGenerator<string, void, unknown> {
+    if (this.provider.chatStream) {
+      yield* this.provider.chatStream(request);
+    } else {
+      // Fallback: simulate streaming by chunking the response
+      const response = await this.chat(request);
+      const words = response.content.split(' ');
+      for (const word of words) {
+        yield word + ' ';
+        // Small delay to simulate streaming
+        await new Promise((resolve) => setTimeout(resolve, 20));
+      }
+    }
+  }
 }

@@ -25,6 +25,9 @@ import { Offer, OfferStatus } from '../../domain/entities/offer.entity';
 import { CandidateSnapshotDto } from '../dtos/application-detail.dto';
 import { PipelineStageType } from 'src/modules/hiring-pipeline/domain/entities/pipeline-stage.entity';
 import { CV } from 'src/modules/cv-maker/domain/entities/cv.entity';
+import { EventBus } from '@nestjs/cqrs';
+import { ApplicationCreatedEvent } from '../../domain/events/application-created.event';
+import { ApplicationStatusChangedEvent } from '../../domain/events/application-status-changed.event';
 
 export class CreateApplicationDto {
   @IsString()
@@ -108,6 +111,7 @@ export class ApplicationService {
     @InjectRepository(CV)
     private readonly cvRepository: Repository<CV>,
     private readonly jobStatusService: JobStatusService,
+    private readonly eventBus: EventBus,
   ) {}
 
   async createApplication(
@@ -191,7 +195,20 @@ export class ApplicationService {
       candidateProfile ?? undefined,
     );
     application.updateCalculatedFields();
-    return this.applicationRepository.save(application);
+    const savedApplication = await this.applicationRepository.save(application);
+
+    // Publish ApplicationCreatedEvent
+    this.eventBus.publish(
+      new ApplicationCreatedEvent(
+        savedApplication.id,
+        savedApplication.candidateId,
+        savedApplication.jobId,
+        job.title,
+        job.userId,
+      ),
+    );
+
+    return savedApplication;
   }
 
   async getApplicationById(id: string): Promise<Application> {
@@ -312,6 +329,7 @@ export class ApplicationService {
     reason?: string,
   ): Promise<Application> {
     const app = await this.getApplicationById(id);
+    const oldStatus = app.status;
     app.addStatusHistory(status, userId, reason);
     app.updateCalculatedFields();
     await this.applicationRepository.save(app);
@@ -319,8 +337,23 @@ export class ApplicationService {
       await this.jobStatusService.updateJobStatusBasedOnApplications(app.jobId);
     }
 
-    return this.getApplicationById(id);
-    return this.getApplicationById(id);
+    const updatedApp = await this.getApplicationById(id);
+
+    // Publish ApplicationStatusChangedEvent
+    this.eventBus.publish(
+      new ApplicationStatusChangedEvent(
+        updatedApp.id,
+        updatedApp.candidateId,
+        updatedApp.jobId,
+        updatedApp.job.title,
+        oldStatus,
+        status,
+        userId,
+        reason,
+      ),
+    );
+
+    return updatedApp;
   }
 
   async shortlistApplication(id: string, userId: string): Promise<Application> {

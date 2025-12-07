@@ -19,6 +19,11 @@ export class CreateInterviewDto {
   @IsString()
   interviewerEmail?: string;
 
+  @ApiPropertyOptional()
+  @IsOptional()
+  @IsString()
+  interviewerId?: string;
+
   @ApiProperty()
   @IsDateString()
   scheduledDate: string;
@@ -63,6 +68,11 @@ export class UpdateInterviewDto {
   @IsOptional()
   @IsString()
   interviewerEmail?: string;
+
+  @ApiPropertyOptional()
+  @IsOptional()
+  @IsString()
+  interviewerId?: string;
 
   @ApiPropertyOptional()
   @IsOptional()

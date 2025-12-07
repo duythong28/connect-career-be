@@ -3,8 +3,8 @@ import { CommandHandler, ICommandHandler } from '@nestjs/cqrs';
 import { SendNotificationCommand } from '../commands/send-notification.command';
 import { NotificationResponseDTO } from '../dtos/notification-response.dto';
 import * as notificationRepository from '../../domain/repositories/notification.repository';
-import { ProviderFactory } from '../../infrastructure/providers/common/provider.factory';
 import { NotificationStatus } from '../../domain/entities/notification.entity';
+import { NotificationQueueService } from 'src/shared/infrastructure/queue/services/notification-queue.service';
 
 @Injectable()
 @CommandHandler(SendNotificationCommand)
@@ -14,7 +14,7 @@ export class SendNotificationHandler
   constructor(
     @Inject(notificationRepository.NOTIFICATION_REPOSITORY)
     private readonly notificationRepository: notificationRepository.INotificationRepository,
-    private readonly providerFactory: ProviderFactory,
+    private readonly notificationQueueService: NotificationQueueService,
   ) {}
 
   async execute(
@@ -22,15 +22,22 @@ export class SendNotificationHandler
   ): Promise<NotificationResponseDTO> {
     const { recipient, message, channel, title } = command;
 
-    const provider = this.providerFactory.createProvider(channel);
-    await provider.send(recipient, title, message);
-
+    // Create notification record first
     const notification = await this.notificationRepository.create({
       recipient,
       title,
       message,
       channel,
-      status: NotificationStatus.SENT,
+      status: NotificationStatus.PENDING,
+    });
+
+    // Queue the notification for async processing
+    await this.notificationQueueService.queueNotification({
+      recipient,
+      channel,
+      title,
+      message,
+      notificationId: notification.id,
     });
 
     return new NotificationResponseDTO(notification);

@@ -13,6 +13,16 @@ import { NotificationTypeOrmRepository } from './infrastructure/repositories/not
 import { SmsProvider } from './infrastructure/providers/sms/sms.provider';
 import { UserRegisteredHandler } from './application/handlers/user-registered.handler';
 import { NodemailerProvider } from './infrastructure/providers/smtp/nodemailer.provider';
+import { NotificationService } from './application/services/notification.service';
+import { NotificationTemplateService } from './application/services/notification-template.service';
+import { NotificationGateway } from './infrastructure/providers/websocket/websocket.gateway';
+import { UserNotificationPreferences } from './domain/entities/user-notification-preferences.entity';
+import { PushNotificationToken } from './domain/entities/push-notification-token.entity';
+import { NotificationOrchestratorService } from './application/services/notification-orchstrator.service';
+import { BullModule } from '@nestjs/bullmq';
+import { NotificationProcessor } from 'src/shared/infrastructure/queue/processors/notification.processor';
+import { ScheduledNotificationScheduler } from 'src/shared/infrastructure/queue/services/scheduled-notification.scheduler';
+import { NotificationQueueService } from 'src/shared/infrastructure/queue/services/notification-queue.service';
 
 const Handlers = [
   SendNotificationHandler,
@@ -21,10 +31,27 @@ const Handlers = [
 ];
 
 @Module({
-  imports: [CqrsModule, TypeOrmModule.forFeature([NotificationEntity])],
+  imports: [
+    CqrsModule,
+    TypeOrmModule.forFeature([
+      NotificationEntity,
+      UserNotificationPreferences,
+      PushNotificationToken,
+    ]),
+    BullModule.registerQueue({
+      name: 'notifications',
+    }),
+  ],
   controllers: [NotificationsController],
   providers: [
     ...Handlers,
+    NotificationService,
+    NotificationOrchestratorService,
+    NotificationTemplateService,
+    NotificationGateway,
+    NotificationProcessor,
+    NotificationQueueService,
+    ScheduledNotificationScheduler,
     NodemailerProvider,
     {
       provide: NOTIFICATION_REPOSITORY,
@@ -44,6 +71,6 @@ const Handlers = [
     },
     ProviderFactory,
   ],
-  exports: [...Handlers],
+  exports: [...Handlers, NotificationService, NotificationOrchestratorService, NotificationQueueService],
 })
 export class NotificationsModule {}

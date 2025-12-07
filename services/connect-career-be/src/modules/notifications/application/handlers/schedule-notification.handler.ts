@@ -4,6 +4,7 @@ import { ScheduleNotificationCommand } from '../commands/schedule-notification.c
 import * as notificationRepository from '../../domain/repositories/notification.repository';
 import { NotificationResponseDTO } from '../dtos/notification-response.dto';
 import { NotificationStatus } from '../../domain/entities/notification.entity';
+import { NotificationQueueService } from 'src/shared/infrastructure/queue/services/notification-queue.service';
 
 @Injectable()
 @CommandHandler(ScheduleNotificationCommand)
@@ -14,6 +15,7 @@ export class ScheduleNotificationHandler
   constructor(
     @Inject(notificationRepository.NOTIFICATION_REPOSITORY)
     private readonly notificationRepository: notificationRepository.INotificationRepository,
+    private readonly notificationQueueService: NotificationQueueService,
   ) {}
 
   async execute(
@@ -21,6 +23,7 @@ export class ScheduleNotificationHandler
   ): Promise<NotificationResponseDTO> {
     const { recipient, title, message, channel, sendAt } = command;
 
+    // Create notification record with SCHEDULED status
     const notification = await this.notificationRepository.create({
       recipient,
       title,
@@ -29,6 +32,18 @@ export class ScheduleNotificationHandler
       status: NotificationStatus.SCHEDULED,
       scheduledAt: sendAt,
     });
+
+    // Schedule the notification using BullMQ
+    await this.notificationQueueService.scheduleNotificationAt(
+      {
+        recipient,
+        channel,
+        title,
+        message,
+        notificationId: notification.id,
+      },
+      sendAt,
+    );
 
     return new NotificationResponseDTO(notification);
   }

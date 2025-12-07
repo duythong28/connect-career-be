@@ -1,6 +1,9 @@
 from fastapi import FastAPI, HTTPException, APIRouter
 from fastapi.middleware.cors import CORSMiddleware
 import logging
+import json
+import asyncio
+from concurrent.futures import ThreadPoolExecutor
 from .config import settings
 from .models.schemas import (
     RecommendationRequest,
@@ -8,7 +11,12 @@ from .models.schemas import (
     HealthResponse,
 )
 from .services.recommendation_service import recommendation_service
-
+from .services.embedding_service import embedding_service
+from .database import db
+import sys
+import os
+sys.path.insert(0, os.path.join(os.path.dirname(__file__), '..'))
+from utils.embedding_builders import build_job_text, build_user_text
 # Setup logging
 logging.basicConfig(
     level=getattr(logging, settings.log_level),
@@ -77,7 +85,6 @@ async def generate_job_embedding(job_data: dict):
         if not job_id:
             raise HTTPException(status_code=400, detail="jobId is required")
         
-        # Build job text (reuse logic from train_embeddings.py)
         parts = []
         if job_data.get('title'):
             parts.append(job_data['title'])
@@ -139,7 +146,6 @@ async def generate_user_embedding(user_data: dict):
             raise HTTPException(status_code=400, detail="userId is required")
         
         # Build user text (reuse logic from train_embeddings.py)
-        from .scripts.train_embeddings import build_user_text
         
         user_text = build_user_text(user_data)
         
@@ -195,19 +201,199 @@ async def train_cf_factors():
         logger.error(f"CF training failed: {e}", exc_info=True)
         raise HTTPException(status_code=500, detail=str(e))
 
+executor = ThreadPoolExecutor(max_workers=4)
+
 @v1_router.post("/recommendations", response_model=RecommendationResponse)
 async def get_recommendations(request: RecommendationRequest):
     """Get job recommendations for a user"""
     try:
-        recommendations = await recommendation_service.get_recommendations(
-            userId=request.userId,
-            limit=request.limit or 20,
+        # Run CPU-intensive computation in thread pool
+        loop = asyncio.get_event_loop()
+        job_ids, scores = await loop.run_in_executor(
+            executor,
+            recommendation_service.get_recommendations,
+            request
         )
-        return RecommendationResponse(jobIds=recommendations)
+        return RecommendationResponse(jobIds=job_ids, scores=scores)
     except Exception as e:
         logger.error(f"Error getting recommendations: {e}", exc_info=True)
         raise HTTPException(status_code=500, detail=str(e))
 
+@v1_router.post("/embeddings/job/{job_id}")
+async def generate_job_embedding_by_id(job_id: str):
+    """Generate embedding for a job by fetching data from database"""
+    try:
+        # Fetch job data from database (same query as train_embeddings.py)
+        query = """
+            SELECT 
+                j.id,
+                j.title,
+                j.description,
+                j.summary,
+                j.location,
+                j."jobFunction",
+                j."seniorityLevel",
+                j.type,
+                j.requirements,
+                j.keywords,
+                o.name as organization_name,
+                o.tagline as organization_tagline,
+                o."shortDescription" as organization_short_description,
+                i.name as organization_industry
+            FROM jobs j
+            LEFT JOIN organizations o ON o.id = j."organizationId"
+            LEFT JOIN industries i ON i.id = o."industryId"
+            WHERE j.id = %s
+        """
+        
+        results = db.execute_query(query, (job_id,))
+        if not results:
+            raise HTTPException(status_code=404, detail=f"Job {job_id} not found")
+        
+        job_row = results[0]
+        
+        # Build job text using the same logic
+        job_text = build_job_text(dict(job_row))
+        
+        if not job_text.strip():
+            raise HTTPException(status_code=400, detail="Job has no text content")
+        
+        # Generate embedding
+        embedding = embedding_service.encode_text(job_text)
+        
+        # Upsert into database
+        upsert_query = """
+            INSERT INTO job_content_embeddings ("jobId", embedding)
+            VALUES (%s, %s::jsonb)
+            ON CONFLICT ("jobId") 
+            DO UPDATE SET embedding = EXCLUDED.embedding
+        """
+        db.execute_update(upsert_query, (job_id, json.dumps(embedding.tolist())))
+        
+        return {
+            "status": "success",
+            "jobId": job_id,
+            "message": f"Embedding generated and stored for job {job_id}"
+        }
+    except HTTPException:
+        raise
+    except Exception as e:
+        logger.error(f"Error generating job embedding for {job_id}: {e}", exc_info=True)
+        raise HTTPException(status_code=500, detail=str(e))
+
+
+@v1_router.post("/embeddings/user/{user_id}")
+async def generate_user_embedding_by_id(user_id: str):
+    """Generate embedding for a user by fetching data from database"""
+    try:
+        # Fetch user profile data (same queries as train_embeddings.py)
+        profile_query = """
+            SELECT 
+                cp.skills,
+                cp.languages
+            FROM candidate_profiles cp
+            WHERE cp."userId" = %s
+            LIMIT 1
+        """
+        profile_result = db.execute_query(profile_query, (user_id,))
+        profile_data = profile_result[0] if profile_result else {}
+        
+        # Fetch work experiences
+        work_exp_query = """
+            SELECT 
+                we."jobTitle",
+                we.description,
+                we.skills
+            FROM work_experiences we
+            JOIN candidate_profiles cp ON cp.id = we."candidateProfileId"
+            WHERE cp."userId" = %s
+            ORDER BY we."startDate" DESC
+        """
+        work_experiences = db.execute_query(work_exp_query, (user_id,))
+        
+        # Fetch education
+        edu_query = """
+            SELECT 
+                e."institutionName",
+                e."fieldOfStudy",
+                e."degreeType",
+                e.coursework
+            FROM educations e
+            JOIN candidate_profiles cp ON cp.id = e."candidateProfileId"
+            WHERE cp."userId" = %s
+            ORDER BY e."graduationDate" DESC NULLS LAST, e."startDate" DESC
+        """
+        educations = db.execute_query(edu_query, (user_id,))
+        
+        # Fetch user preferences
+        pref_query = """
+            SELECT 
+                up."skillsLike",
+                up."preferredLocations",
+                up."preferredRoleTypes",
+                up."industriesLike"
+            FROM user_preferences up
+            WHERE up."userId" = %s
+            LIMIT 1
+        """
+        pref_result = db.execute_query(pref_query, (user_id,))
+        preferences = pref_result[0] if pref_result else {}
+        
+        # Fetch recent job interactions
+        interaction_query = """
+            SELECT DISTINCT ON (j.title)
+                j.title as job_title,
+                ji."createdAt"
+            FROM job_interactions ji
+            JOIN jobs j ON j.id = ji."jobId"
+            WHERE ji."userId" = %s
+            AND ji.type IN ('save', 'favorite', 'apply')
+            ORDER BY j.title, ji."createdAt" DESC
+            LIMIT 5
+        """
+        interactions = db.execute_query(interaction_query, (user_id,))
+        
+        # Build user data dict
+        user_data = {
+            **profile_data,
+            'work_experiences': [dict(exp) for exp in work_experiences],
+            'educations': [dict(edu) for edu in educations],
+            'skills_like': preferences.get('skillsLike'),
+            'preferred_locations': preferences.get('preferredLocations'),
+            'preferred_role_types': preferences.get('preferredRoleTypes'),
+            'industries_like': preferences.get('industriesLike'),
+            'recent_interactions': [dict(inter) for inter in interactions]
+        }
+        
+        # Build user text using the same logic
+        user_text = build_user_text(user_data)
+        
+        if not user_text.strip():
+            raise HTTPException(status_code=400, detail="User has no profile data")
+        
+        # Generate embedding
+        embedding = embedding_service.encode_text(user_text)
+        
+        # Upsert into database
+        upsert_query = """
+            INSERT INTO user_content_embeddings ("userId", embedding)
+            VALUES (%s, %s::jsonb)
+            ON CONFLICT ("userId") 
+            DO UPDATE SET embedding = EXCLUDED.embedding
+        """
+        db.execute_update(upsert_query, (user_id, json.dumps(embedding.tolist())))
+        
+        return {
+            "status": "success",
+            "userId": user_id,
+            "message": f"Embedding generated and stored for user {user_id}"
+        }
+    except HTTPException:
+        raise
+    except Exception as e:
+        logger.error(f"Error generating user embedding for {user_id}: {e}", exc_info=True)
+        raise HTTPException(status_code=500, detail=str(e))
+    
 # Register routers
 api_router.include_router(v1_router)
 app.include_router(api_router)

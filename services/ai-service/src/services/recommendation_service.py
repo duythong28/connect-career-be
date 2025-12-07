@@ -122,9 +122,9 @@ class RecommendationService:
             logger.warning(f"No candidate jobs found for user {request.userId}")
             return [], []
         
-        # Limit candidates for performance (can be optimized with better filtering)
-        if len(candidate_job_ids) > 1000:
-            candidate_job_ids = candidate_job_ids[:1000]
+        # Limit candidates for performance - reduce from 1000 to 500
+        if len(candidate_job_ids) > 500:
+            candidate_job_ids = candidate_job_ids[:500]
         
         # 2. Batch load all embeddings and CF factors at once
         logger.info(f"Loading embeddings and CF factors for {len(candidate_job_ids)} jobs")
@@ -133,9 +133,10 @@ class RecommendationService:
         user_emb = embedding_service.get_user_embedding(request.userId)
         user_cf = cf_service.get_user_cf_factors(request.userId)
 
-        # Add logging to debug
         if user_emb is None:
             logger.warning(f"User {request.userId} has no embedding in database")
+            return [], []  # Early return if no user embedding
+        
         if user_cf is None:
             logger.warning(f"User {request.userId} has no CF factors in database")
 
@@ -188,31 +189,32 @@ class RecommendationService:
         except Exception as e:
             logger.error(f"Error batch loading job CF factors: {e}")
         
-        # 3. Score each candidate using pre-loaded data
+        # 3. Score each candidate using pre-loaded data - VECTORIZED APPROACH
         scored_jobs = []
+        user_emb_norm = np.linalg.norm(user_emb) if user_emb is not None else 1.0
+        
         for job_id in candidate_job_ids:
             try:
-                # Get pre-loaded embeddings/CF factors
                 job_emb = job_embeddings.get(job_id)
                 job_cf = job_cf_factors.get(job_id)
                 
-                if user_emb is None or job_emb is None:
-                    content_score = 0.0
-                    if user_emb is None:
-                        logger.debug(f"User embedding missing for {request.userId}")
-                    if job_emb is None:
-                        logger.debug(f"Job embedding missing for {job_id}")
+                # Content-based score
+                if job_emb is not None:
+                    content_score = float(np.dot(user_emb, job_emb) / (user_emb_norm * np.linalg.norm(job_emb)))
                 else:
-                    content_score = embedding_service.cosine_similarity(user_emb, job_emb)
+                    content_score = 0.0
 
                 # Collaborative filtering score
-                if user_cf is None or job_cf is None:
-                    cf_score = 0.0
+                if user_cf is not None and job_cf is not None:
+                    cf_score = float(np.dot(user_cf, job_cf))
                 else:
-                    cf_score = cf_service.dot_product(user_cf, job_cf)
+                    cf_score = 0.0
 
                 # Hybrid combination
                 final_score = self.alpha * content_score + (1 - self.alpha) * cf_score
+                
+                # Append the score
+                scored_jobs.append((job_id, final_score))
             except Exception as e:
                 logger.error(f"Error scoring job {job_id}: {e}")
                 continue

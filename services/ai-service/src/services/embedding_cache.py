@@ -41,7 +41,7 @@ class EmbeddingCache:
         self.host = host or settings.redis_host
         self.port = port or settings.redis_port
         self.password = password or settings.redis_password
-        self.db = db or settings.redis_db
+        self.db = db
         self.ttl_seconds = ttl_seconds or settings.embedding_cache_ttl
         self.key_prefix = key_prefix or settings.embedding_cache_prefix
         
@@ -52,10 +52,12 @@ class EmbeddingCache:
                 host=self.host,
                 port=self.port,
                 password=self.password,
-                db=self.db,
+                db=self.db,  # Now it's an integer
                 decode_responses=False,  # Keep binary for numpy arrays
-                max_connections=50,
+                max_connections=3,  # Reduced from 50 to 3 - Redis Cloud has limited connections
                 retry_on_timeout=True,
+                socket_keepalive=True,
+                socket_keepalive_options={},
             )
             self.redis_client = redis.Redis(connection_pool=self.connection_pool)
         
@@ -299,6 +301,9 @@ def get_cache() -> Optional[EmbeddingCache]:
     - Disabled cleanly via config
     """
     global _embedding_cache
+    
+    # TEMPORARY: Force disable cache until Redis connections are cleared
+    return None  # Add this line temporarily
     
     if not settings.embedding_cache_enabled:
         return None

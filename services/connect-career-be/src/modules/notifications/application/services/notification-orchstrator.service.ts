@@ -13,6 +13,7 @@ import { UserNotificationPreferences } from '../../domain/entities/user-notifica
 import { ProviderFactory } from '../../infrastructure/providers/common/provider.factory';
 import { NotificationTemplateService } from './notification-template.service';
 import { NotificationQueueService } from 'src/shared/infrastructure/queue/services/notification-queue.service';
+import { User } from 'src/modules/identity/domain/entities';
 
 export interface NotificationConfig {
   type: NotificationType;
@@ -30,6 +31,8 @@ export class NotificationOrchestratorService {
     private readonly notificationRepository: Repository<NotificationEntity>,
     @InjectRepository(UserNotificationPreferences)
     private readonly userNotificationPreferencesRepository: Repository<UserNotificationPreferences>,
+    @InjectRepository(User)
+    private readonly userRepository: Repository<User>,
     private readonly providerFactory: ProviderFactory,
     private readonly eventBus: EventBus,
     private readonly templateService: NotificationTemplateService,
@@ -193,9 +196,37 @@ export class NotificationOrchestratorService {
     userId: string,
     channel: NotificationChannel,
   ): Promise<string> {
-    // For email/SMS, you might need to fetch user's email/phone
-    // For now, return userId
-    return userId;
+    switch (channel) {
+      case NotificationChannel.EMAIL:
+        const user = await this.userRepository.findOne({
+          where: { id: userId },
+          select: ['id', 'email'],
+        });
+        if (!user || !user.email) {
+          this.logger.warn(`User ${userId} not found or has no email address`);
+          throw new Error(`User ${userId} not found or has no email address`);
+        }
+        return user.email;
+      
+      case NotificationChannel.SMS:
+        const userForSms = await this.userRepository.findOne({
+          where: { id: userId },
+          select: ['id', 'phoneNumber'],
+        });
+        if (!userForSms || !userForSms.phoneNumber) {
+          this.logger.warn(`User ${userId} not found or has no phone number`);
+          throw new Error(`User ${userId} not found or has no phone number`);
+        }
+        return userForSms.phoneNumber;
+      
+      case NotificationChannel.WEBSOCKET:
+      case NotificationChannel.PUSH:
+        // For WebSocket and Push, we can use userId directly
+        return userId;
+      
+      default:
+        return userId;
+    }
   }
 
   private async getOrCreatePreferences(userId: string): Promise<UserNotificationPreferences> {

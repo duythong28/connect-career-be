@@ -34,6 +34,7 @@ import { NotificationProcessor } from 'src/shared/infrastructure/queue/processor
 import { ScheduledNotificationScheduler } from 'src/shared/infrastructure/queue/services/scheduled-notification.scheduler';
 import { NotificationQueueService } from 'src/shared/infrastructure/queue/services/notification-queue.service';
 import { jwtConfig } from '../identity/infrastructure/config/jwt.config';
+import { User } from '../identity/domain/entities';
 
 const Handlers = [
   SendNotificationHandler,
@@ -56,6 +57,7 @@ const Handlers = [
       NotificationEntity,
       UserNotificationPreferences,
       PushNotificationToken,
+      User
     ]),
     BullModule.registerQueue({
       name: 'notifications',

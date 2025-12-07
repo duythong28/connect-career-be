@@ -166,7 +166,7 @@ export class SearchService {
       if (type === SearchType.ALL || type === SearchType.JOBS) {
         const jobDto: Partial<JobSearchDto> = {
           searchTerm: q,
-          pageNumber: page,  // ✅ Use actual page from DTO
+          pageNumber: page, 
           pageSize: resultsPerType,
           sortBy,
           sortOrder,
@@ -183,7 +183,7 @@ export class SearchService {
       if (type === SearchType.ALL || type === SearchType.ORGANIZATIONS) {
         const orgDto: OrganizationSearchDto = {
           search: q,
-          page: page,  // ✅ Use actual page from DTO
+          page: page,   
           limit: resultsPerType,
           sortBy,
           sortOrder,
@@ -200,7 +200,7 @@ export class SearchService {
       if (type === SearchType.ALL || type === SearchType.PEOPLE) {
         const peopleDto: PeopleSearchDto = {
           searchTerm: q,
-          page: page,  // ✅ Use actual page from DTO
+          page: page,   
           limit: resultsPerType,
           sortBy,
           sortOrder,

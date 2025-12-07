@@ -41,9 +41,10 @@ class EmbeddingCache:
         self.host = host or settings.redis_host
         self.port = port or settings.redis_port
         self.password = password or settings.redis_password
-        self.db = db
+        self.db = int(db) if db is not None else int(settings.redis_db)
         self.ttl_seconds = ttl_seconds or settings.embedding_cache_ttl
         self.key_prefix = key_prefix or settings.embedding_cache_prefix
+
         
         if connection_pool:
             self.redis_client = redis.Redis(connection_pool=connection_pool)

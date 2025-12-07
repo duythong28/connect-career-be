@@ -23,6 +23,7 @@
     "test:e2e": "jest --config ./test/jest-e2e.json"
   },
   "dependencies": {
+    "@elastic/elasticsearch": "^9.2.0",
     "@google-cloud/vertexai": "^1.10.0",
     "@google/genai": "^1.22.0",
     "@google/generative-ai": "^0.24.1",

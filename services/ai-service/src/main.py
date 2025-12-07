@@ -50,7 +50,24 @@ from fastapi import HTTPException
 from .services.embedding_service import embedding_service
 from .database import db
 import json
-import numpy as np
+
+
+@v1_router.post("/embeddings/encode")
+async def encode_text(request: dict):
+    """Encode text to embedding vector"""
+    try:
+        text = request.get('text')
+        if not text:
+            raise HTTPException(status_code=400, detail="text is required")
+        
+        # Generate embedding
+        embedding = embedding_service.encode_text(text)
+        
+        return {"embedding": embedding.tolist()}
+    except Exception as e:
+        logger.error(f"Error encoding text: {e}", exc_info=True)
+        raise HTTPException(status_code=500, detail=str(e))
+
 
 @v1_router.post("/embeddings/job")
 async def generate_job_embedding(job_data: dict):
@@ -122,74 +139,9 @@ async def generate_user_embedding(user_data: dict):
             raise HTTPException(status_code=400, detail="userId is required")
         
         # Build user text (reuse logic from train_embeddings.py)
-        parts = []
+        from .scripts.train_embeddings import build_user_text
         
-        if user_data.get('skills'):
-            skills = user_data['skills']
-            if isinstance(skills, list):
-                parts.append("Skills: " + ", ".join(skills))
-        
-        if user_data.get('languages'):
-            languages = user_data['languages']
-            if isinstance(languages, list):
-                parts.append("Languages: " + ", ".join(languages))
-        
-        if user_data.get('workExperiences'):
-            exp_parts = []
-            for exp in user_data['workExperiences']:
-                exp_text = []
-                if exp.get('jobTitle'):
-                    exp_text.append(exp['jobTitle'])
-                if exp.get('description'):
-                    exp_text.append(exp['description'])
-                if exp.get('skills'):
-                    exp_skills = exp['skills']
-                    if isinstance(exp_skills, list):
-                        exp_text.append(", ".join(exp_skills))
-                if exp_text:
-                    exp_parts.append(" | ".join(exp_text))
-            if exp_parts:
-                parts.append("Experience: " + " | ".join(exp_parts))
-        
-        if user_data.get('educations'):
-            edu_parts = []
-            for edu in user_data['educations']:
-                edu_text = []
-                if edu.get('institutionName'):
-                    edu_text.append(edu['institutionName'])
-                if edu.get('fieldOfStudy'):
-                    edu_text.append(edu['fieldOfStudy'])
-                if edu.get('degreeType'):
-                    edu_text.append(edu['degreeType'])
-                if edu.get('coursework'):
-                    coursework = edu['coursework']
-                    if isinstance(coursework, list):
-                        edu_text.append(", ".join(coursework))
-                if edu_text:
-                    edu_parts.append(" | ".join(edu_text))
-            if edu_parts:
-                parts.append("Education: " + " | ".join(edu_parts))
-        
-        if user_data.get('preferences'):
-            pref = user_data['preferences']
-            if pref.get('skillsLike'):
-                parts.append("Preferred Skills: " + ", ".join(pref['skillsLike']))
-            if pref.get('preferredLocations'):
-                parts.append("Preferred Locations: " + ", ".join(pref['preferredLocations']))
-            if pref.get('preferredRoleTypes'):
-                parts.append("Preferred Roles: " + ", ".join(pref['preferredRoleTypes']))
-            if pref.get('industriesLike'):
-                parts.append("Preferred Industries: " + ", ".join(pref['industriesLike']))
-        
-        if user_data.get('recentInteractions'):
-            interaction_parts = []
-            for inter in user_data['recentInteractions'][:5]:
-                if inter.get('jobTitle'):
-                    interaction_parts.append(inter['jobTitle'])
-            if interaction_parts:
-                parts.append("Recent Interests: " + " | ".join(interaction_parts))
-        
-        user_text = "\n".join(filter(None, parts))
+        user_text = build_user_text(user_data)
         
         if not user_text.strip():
             raise HTTPException(status_code=400, detail="User has no profile data")
@@ -247,40 +199,23 @@ async def train_cf_factors():
 async def get_recommendations(request: RecommendationRequest):
     """Get job recommendations for a user"""
     try:
-        job_ids, scores = recommendation_service.get_recommendations(request)
-        return RecommendationResponse(jobIds=job_ids, scores=scores)
+        recommendations = await recommendation_service.get_recommendations(
+            userId=request.userId,
+            limit=request.limit or 20,
+        )
+        return RecommendationResponse(jobIds=recommendations)
     except Exception as e:
-        logger.error(f"Error generating recommendations: {e}", exc_info=True)
+        logger.error(f"Error getting recommendations: {e}", exc_info=True)
         raise HTTPException(status_code=500, detail=str(e))
 
-
-# Include v1 router under api router
+# Register routers
 api_router.include_router(v1_router)
-
-# Include api router in main app
 app.include_router(api_router)
 
-# Health check (no versioning - common practice)
 @app.get("/health", response_model=HealthResponse)
-async def health():
+async def health_check():
     """Health check endpoint"""
-    return HealthResponse(status="ok", version=settings.app_version)
-
-
-# Root endpoint (no versioning)
-@app.get("/")
-async def root():
-    return {
-        "service": settings.app_name,
-        "version": settings.app_version,
-        "status": "running",
-        "api_version": "v1",
-        "endpoints": {
-            "health": "/health",
-            "recommendations": "/api/v1/recommendations"
-        }
-    }
-
+    return HealthResponse(status="healthy", version=settings.app_version)
 
 if __name__ == "__main__":
     import uvicorn

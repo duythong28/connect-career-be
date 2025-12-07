@@ -25,6 +25,10 @@ import {
   RejectOfferDto,
 } from '../dtos/offer.dto';
 import { Job, JobStatus } from 'src/modules/jobs/domain/entities/job.entity';
+import { EventBus } from '@nestjs/cqrs';
+import { OfferSentEvent } from '../../domain/events/offer-sent.event';
+import { OfferAcceptedEvent } from '../../domain/events/offer-accepted.event';
+import { OfferRejectedEvent } from '../../domain/events/offer-rejected.event';
 
 @Injectable()
 export class OfferService {
@@ -35,6 +39,7 @@ export class OfferService {
     private readonly applicationRepository: Repository<Application>,
     @InjectRepository(Job)
     private readonly jobRepository: Repository<Job>,
+    private readonly eventBus: EventBus,
   ) {}
 
   async getOffersByApplication(applicationId: string): Promise<Offer[]> {
@@ -525,7 +530,25 @@ export class OfferService {
     // Check if job should be closed
     await this.checkAndCloseJob(application.jobId);
 
-    return this.offerRepository.findOne({ where: { id: latestOffer.id } });
+    const updatedOffer = await this.offerRepository.findOne({
+      where: { id: latestOffer.id },
+    });
+
+    // Publish OfferAcceptedEvent
+    if (updatedOffer) {
+      this.eventBus.publish(
+        new OfferAcceptedEvent(
+          updatedOffer.id,
+          applicationId,
+          application.candidateId,
+          application.jobId,
+          application.job?.title || 'Unknown Job',
+          userId,
+        ),
+      );
+    }
+
+    return updatedOffer;
   }
 
   async rejectOffer(
@@ -581,6 +604,25 @@ export class OfferService {
       statusHistory,
     });
 
-    return this.offerRepository.findOne({ where: { id: latestOffer.id } });
+    const updatedOffer = await this.offerRepository.findOne({
+      where: { id: latestOffer.id },
+    });
+
+    // Publish OfferRejectedEvent
+    if (updatedOffer) {
+      this.eventBus.publish(
+        new OfferRejectedEvent(
+          updatedOffer.id,
+          applicationId,
+          application.candidateId,
+          application.jobId,
+          application.job?.title || 'Unknown Job',
+          userId,
+          rejectDto.reason,
+        ),
+      );
+    }
+
+    return updatedOffer;
   }
 }

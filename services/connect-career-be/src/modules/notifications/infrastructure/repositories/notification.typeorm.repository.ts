@@ -1,6 +1,6 @@
 import { Injectable } from '@nestjs/common';
 import { InjectRepository } from '@nestjs/typeorm';
-import { Repository } from 'typeorm';
+import { Repository, IsNull } from 'typeorm';
 import { NotificationEntity, NotificationStatus } from '../../domain/entities/notification.entity';
 import { INotificationRepository } from '../../domain/repositories/notification.repository';
 
@@ -106,7 +106,7 @@ export class NotificationTypeOrmRepository implements INotificationRepository {
     return this.ormRepository.count({
       where: {
         recipient: recipientId,
-        readAt: null,
+        readAt: IsNull(),
         status: NotificationStatus.SENT,
       },
     });

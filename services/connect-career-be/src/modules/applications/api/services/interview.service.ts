@@ -19,6 +19,10 @@ import {
   SubmitInterviewFeedbackDto,
   RescheduleInterviewDto,
 } from '../dtos/interview.dto';
+import { EventBus } from '@nestjs/cqrs';
+import { InterviewScheduledEvent } from '../../domain/events/interview-scheduled.event';
+import { InterviewCancelledEvent } from '../../domain/events/interview-cancelled.event';
+import { InterviewRescheduledEvent } from '../../domain/events/interview-rescheduled.event';
 
 @Injectable()
 export class InterviewService {
@@ -27,6 +31,7 @@ export class InterviewService {
     private readonly interviewRepository: Repository<Interview>,
     @InjectRepository(Application)
     private readonly applicationRepository: Repository<Application>,
+    private readonly eventBus: EventBus,
   ) {}
 
   async scheduleInterview(
@@ -35,6 +40,7 @@ export class InterviewService {
   ): Promise<Interview> {
     const application = await this.applicationRepository.findOne({
       where: { id: applicationId },
+      relations: ['job', 'candidate'],
     });
 
     if (!application) {
@@ -53,6 +59,24 @@ export class InterviewService {
     await this.applicationRepository.update(applicationId, {
       totalInterviews: () => 'totalInterviews + 1',
     });
+
+    // Publish InterviewScheduledEvent
+    this.eventBus.publish(
+      new InterviewScheduledEvent(
+        savedInterview.id,
+        applicationId,
+        application.candidateId,
+        application.jobId,
+        application.job?.title || 'Unknown Job',
+        new Date(createDto.scheduledDate),
+        createDto.type,
+        createDto.interviewerId,
+        createDto.interviewerName,
+        createDto.location,
+        createDto.meetingLink,
+        createDto.duration,
+      ),
+    );
 
     return savedInterview;
   }
@@ -79,13 +103,29 @@ export class InterviewService {
     return interview;
   }
 
-  async deleteInterviewById(id: string): Promise<boolean> {
+  async deleteInterviewById(id: string, cancelledBy?: string): Promise<boolean> {
     const interview = await this.interviewRepository.findOne({
       where: { id },
+      relations: ['application', 'application.job'],
     });
 
     if (!interview) {
       throw new NotFoundException('Interview not found');
+    }
+
+    // Publish InterviewCancelledEvent before deletion
+    if (interview.application) {
+      this.eventBus.publish(
+        new InterviewCancelledEvent(
+          interview.id,
+          interview.applicationId,
+          interview.application.candidateId,
+          interview.application.jobId,
+          interview.application.job?.title || 'Unknown Job',
+          cancelledBy || 'system',
+          'Interview cancelled',
+        ),
+      );
     }
 
     await this.interviewRepository.delete(id);

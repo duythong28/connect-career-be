@@ -2,9 +2,8 @@ import { Injectable, Logger } from '@nestjs/common';
 import { Cron, CronExpression } from '@nestjs/schedule';
 import { InjectRepository } from '@nestjs/typeorm';
 import { Repository } from 'typeorm';
-import { NotificationEntity, NotificationStatus } from '../../domain/entities/notification.entity';
 import { NotificationQueueService } from './notification-queue.service';
-import { NotificationChannel } from '../../domain/entities/notification.entity';
+import { NotificationEntity, NotificationStatus } from 'src/modules/notifications/domain/entities/notification.entity';
 
 @Injectable()
 export class ScheduledNotificationScheduler {
@@ -89,7 +88,7 @@ export class ScheduledNotificationScheduler {
         .createQueryBuilder()
         .delete()
         .where('status IN (:...statuses)', {
-          statuses: [NotificationStatus.COMPLETED, NotificationStatus.FAILED],
+          statuses: [NotificationStatus.SENT, NotificationStatus.READ, NotificationStatus.FAILED],
         })
         .andWhere('createdAt < :date', { date: thirtyDaysAgo })
         .execute();

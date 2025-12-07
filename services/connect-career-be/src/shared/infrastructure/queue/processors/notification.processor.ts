@@ -2,10 +2,10 @@ import { Processor, WorkerHost } from '@nestjs/bullmq';
 import { Logger } from '@nestjs/common';
 import { Job } from 'bullmq';
 import { Inject } from '@nestjs/common';
-import * as notificationRepository from '../../domain/repositories/notification.repository';
-import { ProviderFactory } from '../providers/common/provider.factory';
-import { NotificationEntity, NotificationStatus, NotificationChannel } from '../../domain/entities/notification.entity';
-import { NotificationTemplateService } from '../../application/services/notification-template.service';
+import * as notificationRepository from 'src/modules/notifications/domain/repositories/notification.repository';
+import { ProviderFactory } from 'src/modules/notifications/infrastructure/providers/common/provider.factory';
+import { NotificationEntity, NotificationStatus, NotificationChannel, NotificationType } from 'src/modules/notifications/domain/entities/notification.entity';
+import { NotificationTemplateService } from 'src/modules/notifications/application/services/notification-template.service';
 
 export interface SendNotificationJobData {
   recipient: string;
@@ -43,19 +43,20 @@ export class NotificationProcessor extends WorkerHost {
       let notification: NotificationEntity;
       
       if (notificationId) {
-        notification = await this.notificationRepository.findById(notificationId);
-        if (!notification) {
+        const foundNotification = await this.notificationRepository.findById(notificationId);
+        if (!foundNotification) {
           throw new Error(`Notification ${notificationId} not found`);
         }
+        notification = foundNotification;
       } else {
         // Create notification record with PENDING status
         notification = await this.notificationRepository.create({
           recipient,
           title,
           message,
-          htmlContent: htmlContent || null,
+          htmlContent: htmlContent || undefined,
           channel,
-          type: type as any,
+          type: type ? (type as NotificationType) : undefined,
           metadata,
           status: NotificationStatus.PENDING,
         });
@@ -63,7 +64,7 @@ export class NotificationProcessor extends WorkerHost {
 
       // Get provider and send notification
       const provider = this.providerFactory.createProvider(channel);
-      await provider.send(recipient, title, message, metadata);
+      await provider.send(recipient, title, message);
 
       // Update notification status to SENT
       notification.status = NotificationStatus.SENT;

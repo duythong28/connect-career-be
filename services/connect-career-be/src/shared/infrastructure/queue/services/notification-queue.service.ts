@@ -1,8 +1,8 @@
 import { Injectable } from '@nestjs/common';
 import { InjectQueue } from '@nestjs/bullmq';
 import { Queue } from 'bullmq';
-import { SendNotificationJobData } from './notification.processor';
-import { NotificationChannel } from '../../domain/entities/notification.entity';
+import { SendNotificationJobData } from '../processors/notification.processor';
+import { NotificationChannel } from 'src/modules/notifications/domain/entities/notification.entity';
 
 @Injectable()
 export class NotificationQueueService {

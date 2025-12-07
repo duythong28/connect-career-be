@@ -20,6 +20,7 @@ import { ApplicationRecruiterController } from './api/controller/application.rec
 import { JobStatusService } from '../jobs/api/services/job-status.service';
 import { JobsModule } from '../jobs/jobs.module';
 import { ApplicationSeeder } from './infrastructure/seeders/application.seeder';
+import { CqrsModule, EventBus } from '@nestjs/cqrs';
 
 @Module({
   imports: [
@@ -36,6 +37,7 @@ import { ApplicationSeeder } from './infrastructure/seeders/application.seeder';
       PipelineTransition,
     ]),
     JobsModule,
+    CqrsModule
   ],
   controllers: [ApplicationCandidateController, ApplicationRecruiterController],
   providers: [

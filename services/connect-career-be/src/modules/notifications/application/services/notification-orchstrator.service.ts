@@ -95,7 +95,7 @@ export class NotificationOrchestratorService {
         recipient: userId,
         title: template.title,
         message: template.message,
-        htmlContent: template.htmlContent || null,
+        htmlContent: template.htmlContent || undefined,
         channel,
         type: config.type,
         metadata: config.metadata,

@@ -35,11 +35,11 @@ export abstract class ValueObject<T> {
     if (vo === null || vo === undefined) {
       return false;
     }
-    
+
     if (!(vo instanceof ValueObject)) {
       return false;
     }
-    
+
     return JSON.stringify(this.props) === JSON.stringify(vo.props);
   }
 
@@ -66,7 +66,7 @@ export abstract class ValueObject<T> {
    */
   public static deserialize<V extends ValueObject<T>, T>(
     this: new (props: T) => V,
-    serialized: string
+    serialized: string,
   ): V {
     const props = JSON.parse(serialized) as T;
     return new this(props);

@@ -2,7 +2,6 @@ import { HttpStatus } from '@nestjs/common';
 import { CustomException } from './custom.exception';
 import { BaseErrorCode } from './base-error-code';
 
-
 export class ForbiddenException extends CustomException {
   constructor(
     errorCode: BaseErrorCode,
@@ -18,7 +17,7 @@ export class ForbiddenException extends CustomException {
   ): ForbiddenException {
     return new ForbiddenException(
       new BaseErrorCode(errorCode, message),
-      statusCode
+      statusCode,
     );
   }
 }

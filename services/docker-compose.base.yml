@@ -1,0 +1,25 @@
+version: "3.9"
+
+services:
+  kong:
+    image: kong:3.8
+    environment:
+      KONG_DATABASE: "off"
+      KONG_DECLARATIVE_CONFIG: /kong/declarative/kong.yml
+      KONG_PROXY_LISTEN: "0.0.0.0:8000"
+      KONG_ADMIN_LISTEN: "0.0.0.0:8001"
+    volumes:
+      - ./api-gateway/kong.yml:/kong/declarative/kong.yml:ro
+    depends_on:
+      - connect-career-be
+      - ai-service
+
+  connect-career-be:
+    image: connect-career-be:${CC_BE_TAG:-latest}
+    env_file:
+      - ./connect-career-be/.env
+
+  ai-service:
+    image: ai-service:${AI_SERVICE_TAG:-latest}
+    env_file:
+      - ./ai-service/.env

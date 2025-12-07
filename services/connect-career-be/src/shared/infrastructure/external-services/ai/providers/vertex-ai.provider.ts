@@ -39,10 +39,43 @@ export class VertexAIProvider implements AIProvider {
     const generativeModel = this.vertexAI.getGenerativeModel({
       model: this.textModelId,
     });
-    const contents = request.messages.map((m) => ({
-      role: m.role,
-      parts: [{ text: m.content }],
-    }));
+
+    const contents: Array<{
+      role: 'user' | 'model';
+      parts: Array<{ text: string }>;
+    }> = [];
+    const systemMessages: string[] = [];
+
+    for (const message of request.messages) {
+      if (message.role === 'system') {
+        systemMessages.push(message.content);
+      } else if (message.role === 'user') {
+        let userContent = message.content;
+        if (systemMessages.length > 0 && contents.length === 0) {
+          userContent = systemMessages.join('\n\n') + '\n\n' + userContent;
+          systemMessages.length = 0; // Clear after using
+        }
+        contents.push({
+          role: 'user',
+          parts: [{ text: userContent }],
+        });
+      } else if (message.role === 'assistant') {
+        // VertexAI uses 'model' role for assistant responses
+        contents.push({
+          role: 'model',
+          parts: [{ text: message.content }],
+        });
+      }
+    }
+
+    // If only system messages exist, convert to user message
+    if (systemMessages.length > 0 && contents.length === 0) {
+      contents.push({
+        role: 'user',
+        parts: [{ text: systemMessages.join('\n\n') }],
+      });
+    }
+
     const response = await generativeModel.generateContent({
       contents,
       generationConfig: {
@@ -113,5 +146,62 @@ export class VertexAIProvider implements AIProvider {
     const text =
       resp?.response?.candidates?.[0]?.content?.parts?.[0]?.text || '';
     return { content: text, raw: resp };
+  }
+
+  async *chatStream(request: AIChatRequest): AsyncGenerator<string, void, unknown> {
+    const generativeModel = this.vertexAI.getGenerativeModel({
+      model: this.textModelId,
+    });
+  
+    const contents: Array<{
+      role: 'user' | 'model';
+      parts: Array<{ text: string }>;
+    }> = [];
+    const systemMessages: string[] = [];
+  
+    for (const message of request.messages) {
+      if (message.role === 'system') {
+        systemMessages.push(message.content);
+      } else if (message.role === 'user') {
+        let userContent = message.content;
+        if (systemMessages.length > 0 && contents.length === 0) {
+          userContent = systemMessages.join('\n\n') + '\n\n' + userContent;
+          systemMessages.length = 0;
+        }
+        contents.push({
+          role: 'user',
+          parts: [{ text: userContent }],
+        });
+      } else if (message.role === 'assistant') {
+        contents.push({
+          role: 'model',
+          parts: [{ text: message.content }],
+        });
+      }
+    }
+  
+    if (systemMessages.length > 0 && contents.length === 0) {
+      contents.push({
+        role: 'user',
+        parts: [{ text: systemMessages.join('\n\n') }],
+      });
+    }
+  
+    const streamingResp = await generativeModel.generateContentStream({
+      contents,
+      generationConfig: {
+        temperature: request.temperature ?? 0.7,
+        topP: request.topP ?? 0.95,
+        topK: request.topK ?? 40,
+        maxOutputTokens: request.maxOutputTokens ?? 1024,
+      },
+    });
+  
+    for await (const chunk of streamingResp.stream) {
+      const text = chunk.candidates?.[0]?.content?.parts?.[0]?.text || '';
+      if (text) {
+        yield text;
+      }
+    }
   }
 }

@@ -728,7 +728,7 @@ export class CandidateProfileService {
       ) {
         await this.queueUserEmbedding(userId);
       }
-  
+
       return await this.getCandidateProfileByUserId(userId);
     } catch (error) {
       await queryRunner.rollbackTransaction();

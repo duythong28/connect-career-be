@@ -350,7 +350,7 @@ export class MockInterviewService {
     }
 
     const [sessions, total] = await queryBuilder
-      .orderBy('session.startedAt', 'DESC')
+      .orderBy('session.createdAt', 'DESC')
       .addOrderBy('session.id', 'DESC')
       .skip((filters.page - 1) * filters.limit)
       .take(filters.limit)

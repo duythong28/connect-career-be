@@ -178,6 +178,7 @@ export class WalletService {
       balanceAfter,
       status: TransactionStatus.COMPLETED,
       description: description || 'Wallet credit',
+      relatedPaymentTransactionId: metadata?.paymentTransactionId as string,
       metadata,
     });
 

@@ -57,7 +57,7 @@ const Handlers = [
       NotificationEntity,
       UserNotificationPreferences,
       PushNotificationToken,
-      User
+      User,
     ]),
     BullModule.registerQueue({
       name: 'notifications',
@@ -97,6 +97,11 @@ const Handlers = [
     },
     ProviderFactory,
   ],
-  exports: [...Handlers, NotificationService, NotificationOrchestratorService, NotificationQueueService],
+  exports: [
+    ...Handlers,
+    NotificationService,
+    NotificationOrchestratorService,
+    NotificationQueueService,
+  ],
 })
 export class NotificationsModule {}

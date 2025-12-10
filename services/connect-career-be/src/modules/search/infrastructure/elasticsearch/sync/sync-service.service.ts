@@ -43,4 +43,3 @@ export class SyncService {
     return { jobs, organizations, people };
   }
 }
-

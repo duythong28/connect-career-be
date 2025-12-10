@@ -20,7 +20,12 @@ export class MatchingAgent extends BaseAgent {
       aiService,
       'MatchingAgent',
       'Matches user profiles and CVs with job opportunities based on skills, experience, and preferences',
-      [Intent.JOB_MATCHING, Intent.PROFILE_MATCHING, Intent.CV_MATCHING, Intent.SKILL_MATCHING],
+      [
+        Intent.JOB_MATCHING,
+        Intent.PROFILE_MATCHING,
+        Intent.CV_MATCHING,
+        Intent.SKILL_MATCHING,
+      ],
     );
   }
 

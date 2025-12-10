@@ -6,6 +6,7 @@ import { Logger, ValidationPipe } from '@nestjs/common';
 import { NestExpressApplication } from '@nestjs/platform-express'; // Add this
 import { join } from 'path';
 import { WINSTON_MODULE_NEST_PROVIDER } from 'nest-winston';
+// import { BillableActionsSeeder } from './modules/subscription/infrastructure/seeders/billable-actions.seeder';
 // import { HiringPipelineSeeder } from './modules/hiring-pipeline/infrastructure/seeders/hiring-pipeline.seeder';
 // import { ApplicationSeeder } from './modules/applications/infrastructure/seeders/application.seeder';
 // import { DefaultRolesSeeder } from './modules/identity/infrastructure/seeders/default-roles.seeder';
@@ -48,6 +49,9 @@ async function bootstrap() {
     // 8. Seed applications
     // const applicationSeeder = app.get(ApplicationSeeder);
     // await applicationSeeder.seed();
+    // 9. Seed billable actions
+    // const billableActionsSeeder = app.get(BillableActionsSeeder);
+    // await billableActionsSeeder.seed();
   } catch (error: unknown) {
     console.error(
       'Failed to run seeders:',

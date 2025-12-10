@@ -1,7 +1,10 @@
 import { Injectable } from '@nestjs/common';
 import { InjectRepository } from '@nestjs/typeorm';
 import { Repository, IsNull } from 'typeorm';
-import { NotificationEntity, NotificationStatus } from '../../domain/entities/notification.entity';
+import {
+  NotificationEntity,
+  NotificationStatus,
+} from '../../domain/entities/notification.entity';
 import { INotificationRepository } from '../../domain/repositories/notification.repository';
 
 @Injectable()
@@ -11,7 +14,9 @@ export class NotificationTypeOrmRepository implements INotificationRepository {
     private readonly ormRepository: Repository<NotificationEntity>,
   ) {}
 
-  async create(notificationData: Partial<NotificationEntity>): Promise<NotificationEntity> {
+  async create(
+    notificationData: Partial<NotificationEntity>,
+  ): Promise<NotificationEntity> {
     const notification = this.ormRepository.create(notificationData);
     return this.ormRepository.save(notification);
   }
@@ -47,11 +52,15 @@ export class NotificationTypeOrmRepository implements INotificationRepository {
       .orderBy('notification.createdAt', 'DESC');
 
     if (options?.status) {
-      queryBuilder.andWhere('notification.status = :status', { status: options.status });
+      queryBuilder.andWhere('notification.status = :status', {
+        status: options.status,
+      });
     }
 
     if (options?.type) {
-      queryBuilder.andWhere('notification.type = :type', { type: options.type });
+      queryBuilder.andWhere('notification.type = :type', {
+        type: options.type,
+      });
     }
 
     const total = await queryBuilder.getCount();
@@ -69,7 +78,10 @@ export class NotificationTypeOrmRepository implements INotificationRepository {
     return { notifications, total };
   }
 
-  async markAsRead(id: string, recipientId: string): Promise<NotificationEntity | null> {
+  async markAsRead(
+    id: string,
+    recipientId: string,
+  ): Promise<NotificationEntity | null> {
     const notification = await this.ormRepository.findOne({
       where: { id, recipient: recipientId },
     });

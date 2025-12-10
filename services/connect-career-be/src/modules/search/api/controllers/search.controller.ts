@@ -169,4 +169,3 @@ export class SearchController {
     return this.semanticSearchService.searchPeople(dto);
   }
 }
-

@@ -38,4 +38,3 @@ export class AutocompleteDto {
   @Min(1)
   size?: number = 10;
 }
-

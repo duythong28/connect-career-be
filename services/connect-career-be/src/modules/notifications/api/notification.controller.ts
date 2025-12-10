@@ -9,7 +9,12 @@ import {
   Query,
   UseGuards,
 } from '@nestjs/common';
-import { ApiBearerAuth, ApiOperation, ApiResponse, ApiTags } from '@nestjs/swagger';
+import {
+  ApiBearerAuth,
+  ApiOperation,
+  ApiResponse,
+  ApiTags,
+} from '@nestjs/swagger';
 import { SendNotificationCommand } from '../application/commands/send-notification.command';
 import { ScheduleNotificationCommand } from '../application/commands/schedule-notification.command';
 import { NotificationResponseDTO } from '../application/dtos/notification-response.dto';
@@ -51,7 +56,10 @@ export class NotificationsController {
 
   @Get()
   @ApiOperation({ summary: 'Get user notifications' })
-  @ApiResponse({ status: 200, description: 'Notifications retrieved successfully' })
+  @ApiResponse({
+    status: 200,
+    description: 'Notifications retrieved successfully',
+  })
   async getNotifications(
     @decorators.CurrentUser() user: decorators.CurrentUserPayload,
     @Query() query: GetNotificationsQueryDto,
@@ -62,7 +70,9 @@ export class NotificationsController {
   @Get('unread-count')
   @ApiOperation({ summary: 'Get unread notification count' })
   @ApiResponse({ status: 200, description: 'Unread count retrieved' })
-  async getUnreadCount(@decorators.CurrentUser() user: decorators.CurrentUserPayload) {
+  async getUnreadCount(
+    @decorators.CurrentUser() user: decorators.CurrentUserPayload,
+  ) {
     return this.notificationService.getUnreadCount(user.sub);
   }
 
@@ -79,13 +89,17 @@ export class NotificationsController {
   @Patch('read-all')
   @ApiOperation({ summary: 'Mark all notifications as read' })
   @ApiResponse({ status: 200, description: 'All notifications marked as read' })
-  async markAllAsRead(@decorators.CurrentUser() user: decorators.CurrentUserPayload) {
+  async markAllAsRead(
+    @decorators.CurrentUser() user: decorators.CurrentUserPayload,
+  ) {
     return this.notificationService.markAllAsRead(user.sub);
   }
 
   @Get('preferences')
   @ApiOperation({ summary: 'Get user notification preferences' })
-  async getPreferences(@decorators.CurrentUser() user: decorators.CurrentUserPayload) {
+  async getPreferences(
+    @decorators.CurrentUser() user: decorators.CurrentUserPayload,
+  ) {
     return this.notificationService.getOrCreatePreferences(user.sub);
   }
 
@@ -95,7 +109,10 @@ export class NotificationsController {
     @decorators.CurrentUser() user: decorators.CurrentUserPayload,
     @Body() dto: UpdatePreferencesDto,
   ) {
-    return this.notificationService.updatePreferences(user.sub, dto.preferences || {});
+    return this.notificationService.updatePreferences(
+      user.sub,
+      dto.preferences || {},
+    );
   }
 
   @Post('push-token')

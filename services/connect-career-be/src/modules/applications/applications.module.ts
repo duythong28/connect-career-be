@@ -37,7 +37,7 @@ import { CqrsModule, EventBus } from '@nestjs/cqrs';
       PipelineTransition,
     ]),
     JobsModule,
-    CqrsModule
+    CqrsModule,
   ],
   controllers: [ApplicationCandidateController, ApplicationRecruiterController],
   providers: [

@@ -45,4 +45,3 @@ export class OfferSentHandler implements IEventHandler<OfferSentEvent> {
     }
   }
 }
-

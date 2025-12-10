@@ -41,7 +41,9 @@ export class JobIndexerService {
 
     const failed = results.filter((r) => r.status === 'rejected');
     if (failed.length > 0) {
-      this.logger.warn(`Failed to index ${failed.length} out of ${jobIds.length} jobs`);
+      this.logger.warn(
+        `Failed to index ${failed.length} out of ${jobIds.length} jobs`,
+      );
     }
   }
 
@@ -86,8 +88,9 @@ export class JobIndexerService {
       this.logger.log(`Indexed ${indexed} jobs, failed: ${failed}`);
     }
 
-    this.logger.log(`Reindexing complete. Indexed: ${indexed}, Failed: ${failed}`);
+    this.logger.log(
+      `Reindexing complete. Indexed: ${indexed}, Failed: ${failed}`,
+    );
     return { indexed, failed };
   }
 }
-

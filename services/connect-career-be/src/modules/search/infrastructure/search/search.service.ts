@@ -5,9 +5,15 @@ import { OrganizationSearchDto } from 'src/modules/profile/api/dtos/organization
 import { ElasticsearchService } from '../elasticsearch/elasticsearch.service';
 import { JobQueryBuilderService } from '../elasticsearch/queries/job-query-builder.service';
 import { OrganizationQueryBuilderService } from '../elasticsearch/queries/organization-query-builder.service';
-import { PeopleQueryBuilderService, PeopleSearchDto } from '../elasticsearch/queries/people-query-builder.service';
+import {
+  PeopleQueryBuilderService,
+  PeopleSearchDto,
+} from '../elasticsearch/queries/people-query-builder.service';
 import { GlobalSearchDto, SearchType } from '../../api/dtos/global-search.dto';
-import { AutocompleteDto, AutocompleteType } from '../../api/dtos/autocomplete.dto';
+import {
+  AutocompleteDto,
+  AutocompleteType,
+} from '../../api/dtos/autocomplete.dto';
 
 export interface SearchResult<T> {
   items: T[];
@@ -42,7 +48,10 @@ export class SearchService {
   async searchJobs(dto: JobSearchDto): Promise<SearchResult<any>> {
     try {
       const query = this.jobQueryBuilder.buildSearchQuery(dto);
-      const sort = this.jobQueryBuilder.buildSortQuery(dto.sortBy, dto.sortOrder);
+      const sort = this.jobQueryBuilder.buildSortQuery(
+        dto.sortBy,
+        dto.sortOrder,
+      );
 
       const page = dto.pageNumber || 1;
       const size = dto.pageSize || 10;
@@ -56,9 +65,10 @@ export class SearchService {
         size,
       });
 
-      const total = typeof response.hits.total === 'number' 
-        ? response.hits.total 
-        : response.hits.total?.value || 0;
+      const total =
+        typeof response.hits.total === 'number'
+          ? response.hits.total
+          : response.hits.total?.value || 0;
 
       return {
         items: response.hits.hits.map((hit: any) => ({
@@ -76,10 +86,15 @@ export class SearchService {
     }
   }
 
-  async searchOrganizations(dto: OrganizationSearchDto): Promise<SearchResult<any>> {
+  async searchOrganizations(
+    dto: OrganizationSearchDto,
+  ): Promise<SearchResult<any>> {
     try {
       const query = this.organizationQueryBuilder.buildSearchQuery(dto);
-      const sort = this.organizationQueryBuilder.buildSortQuery(dto.sortBy, dto.sortOrder);
+      const sort = this.organizationQueryBuilder.buildSortQuery(
+        dto.sortBy,
+        dto.sortOrder,
+      );
 
       const page = dto.page || 1;
       const size = dto.limit || 20;
@@ -93,9 +108,10 @@ export class SearchService {
         size,
       });
 
-      const total = typeof response.hits.total === 'number' 
-        ? response.hits.total 
-        : response.hits.total?.value || 0;
+      const total =
+        typeof response.hits.total === 'number'
+          ? response.hits.total
+          : response.hits.total?.value || 0;
 
       return {
         items: response.hits.hits.map((hit: any) => ({
@@ -116,7 +132,10 @@ export class SearchService {
   async searchPeople(dto: PeopleSearchDto): Promise<SearchResult<any>> {
     try {
       const query = this.peopleQueryBuilder.buildSearchQuery(dto);
-      const sort = this.peopleQueryBuilder.buildSortQuery(dto.sortBy, dto.sortOrder);
+      const sort = this.peopleQueryBuilder.buildSortQuery(
+        dto.sortBy,
+        dto.sortOrder,
+      );
 
       const page = dto.page || 1;
       const size = dto.limit || 20;
@@ -130,9 +149,10 @@ export class SearchService {
         size,
       });
 
-      const total = typeof response.hits.total === 'number' 
-        ? response.hits.total 
-        : response.hits.total?.value || 0;
+      const total =
+        typeof response.hits.total === 'number'
+          ? response.hits.total
+          : response.hits.total?.value || 0;
 
       return {
         items: response.hits.hits.map((hit: any) => ({
@@ -166,7 +186,7 @@ export class SearchService {
       if (type === SearchType.ALL || type === SearchType.JOBS) {
         const jobDto: Partial<JobSearchDto> = {
           searchTerm: q,
-          pageNumber: page, 
+          pageNumber: page,
           pageSize: resultsPerType,
           sortBy,
           sortOrder,
@@ -183,7 +203,7 @@ export class SearchService {
       if (type === SearchType.ALL || type === SearchType.ORGANIZATIONS) {
         const orgDto: OrganizationSearchDto = {
           search: q,
-          page: page,   
+          page: page,
           limit: resultsPerType,
           sortBy,
           sortOrder,
@@ -200,7 +220,7 @@ export class SearchService {
       if (type === SearchType.ALL || type === SearchType.PEOPLE) {
         const peopleDto: PeopleSearchDto = {
           searchTerm: q,
-          page: page,   
+          page: page,
           limit: resultsPerType,
           sortBy,
           sortOrder,
@@ -265,7 +285,8 @@ export class SearchService {
             },
           });
 
-          const jobSuggestOptions = jobSuggestResponse.suggest?.job_suggest?.[0]?.options;
+          const jobSuggestOptions =
+            jobSuggestResponse.suggest?.job_suggest?.[0]?.options;
           if (Array.isArray(jobSuggestOptions)) {
             suggestions.push(
               ...jobSuggestOptions.map((option: any) => ({
@@ -282,7 +303,10 @@ export class SearchService {
       }
 
       // Autocomplete organizations
-      if (type === AutocompleteType.ALL || type === AutocompleteType.ORGANIZATIONS) {
+      if (
+        type === AutocompleteType.ALL ||
+        type === AutocompleteType.ORGANIZATIONS
+      ) {
         try {
           const orgSuggestResponse = await this.client.search({
             index: this.elasticsearchService.getOrganizationIndex(),
@@ -298,7 +322,8 @@ export class SearchService {
             },
           });
 
-          const orgSuggestOptions = orgSuggestResponse.suggest?.org_suggest?.[0]?.options;
+          const orgSuggestOptions =
+            orgSuggestResponse.suggest?.org_suggest?.[0]?.options;
           if (Array.isArray(orgSuggestOptions)) {
             suggestions.push(
               ...orgSuggestOptions.map((option: any) => ({
@@ -325,4 +350,3 @@ export class SearchService {
     }
   }
 }
-

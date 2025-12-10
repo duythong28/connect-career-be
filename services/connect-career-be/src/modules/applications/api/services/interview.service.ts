@@ -103,7 +103,10 @@ export class InterviewService {
     return interview;
   }
 
-  async deleteInterviewById(id: string, cancelledBy?: string): Promise<boolean> {
+  async deleteInterviewById(
+    id: string,
+    cancelledBy?: string,
+  ): Promise<boolean> {
     const interview = await this.interviewRepository.findOne({
       where: { id },
       relations: ['application', 'application.job'],

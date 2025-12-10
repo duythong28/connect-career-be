@@ -167,7 +167,9 @@ export class AiAgentController {
 
   @Post('chats/:sessionId/messages/stream')
   @HttpCode(HttpStatus.OK)
-  @ApiOperation({ summary: 'Send a chat message with streaming response (SSE)' })
+  @ApiOperation({
+    summary: 'Send a chat message with streaming response (SSE)',
+  })
   async sendMessageStream(
     @Param('sessionId') sessionId: string,
     @Body() dto: ChatRequestDto,
@@ -193,7 +195,7 @@ export class AiAgentController {
       for await (const event of stream) {
         const data = JSON.stringify({ type: event.type, ...event.data });
         res.write(`data: ${data}\n\n`);
-        
+
         // Flush after each write to ensure immediate sending
         if (typeof (res as any).flush === 'function') {
           (res as any).flush();

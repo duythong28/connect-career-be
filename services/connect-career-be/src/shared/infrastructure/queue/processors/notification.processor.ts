@@ -4,7 +4,12 @@ import { Job } from 'bullmq';
 import { Inject } from '@nestjs/common';
 import * as notificationRepository from 'src/modules/notifications/domain/repositories/notification.repository';
 import { ProviderFactory } from 'src/modules/notifications/infrastructure/providers/common/provider.factory';
-import { NotificationEntity, NotificationStatus, NotificationChannel, NotificationType } from 'src/modules/notifications/domain/entities/notification.entity';
+import {
+  NotificationEntity,
+  NotificationStatus,
+  NotificationChannel,
+  NotificationType,
+} from 'src/modules/notifications/domain/entities/notification.entity';
 import { NotificationTemplateService } from 'src/modules/notifications/application/services/notification-template.service';
 
 export interface SendNotificationJobData {
@@ -32,8 +37,17 @@ export class NotificationProcessor extends WorkerHost {
   }
 
   async process(job: Job<SendNotificationJobData>): Promise<void> {
-    const { recipient, channel, title, message, htmlContent, type, metadata, notificationId } = job.data;
-    
+    const {
+      recipient,
+      channel,
+      title,
+      message,
+      htmlContent,
+      type,
+      metadata,
+      notificationId,
+    } = job.data;
+
     this.logger.log(
       `Processing notification job ${job.id} for recipient ${recipient} via ${channel}`,
     );
@@ -41,9 +55,10 @@ export class NotificationProcessor extends WorkerHost {
     try {
       // Get or create notification record
       let notification: NotificationEntity;
-      
+
       if (notificationId) {
-        const foundNotification = await this.notificationRepository.findById(notificationId);
+        const foundNotification =
+          await this.notificationRepository.findById(notificationId);
         if (!foundNotification) {
           throw new Error(`Notification ${notificationId} not found`);
         }
@@ -83,13 +98,17 @@ export class NotificationProcessor extends WorkerHost {
       // Update notification status to FAILED if it exists
       if (notificationId) {
         try {
-          const notification = await this.notificationRepository.findById(notificationId);
+          const notification =
+            await this.notificationRepository.findById(notificationId);
           if (notification) {
             notification.status = NotificationStatus.FAILED;
             await this.notificationRepository.save(notification);
           }
         } catch (updateError) {
-          this.logger.error('Failed to update notification status to FAILED', updateError);
+          this.logger.error(
+            'Failed to update notification status to FAILED',
+            updateError,
+          );
         }
       }
 

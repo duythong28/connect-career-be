@@ -1,6 +1,11 @@
 import { Injectable } from '@nestjs/common';
 import { JobSearchDto } from 'src/modules/jobs/api/dtos/search-job.dto';
-import { JobStatus, JobType, JobSeniorityLevel, JobSource } from 'src/modules/jobs/domain/entities/job.entity';
+import {
+  JobStatus,
+  JobType,
+  JobSeniorityLevel,
+  JobSource,
+} from 'src/modules/jobs/domain/entities/job.entity';
 
 @Injectable()
 export class JobQueryBuilderService {
@@ -155,4 +160,3 @@ export class JobQueryBuilderService {
     return sort;
   }
 }
-

@@ -1,7 +1,10 @@
 import { Injectable, NotFoundException } from '@nestjs/common';
 import { Inject } from '@nestjs/common';
 import * as notificationRepository from '../../domain/repositories/notification.repository';
-import { NotificationEntity, NotificationStatus } from '../../domain/entities/notification.entity';
+import {
+  NotificationEntity,
+  NotificationStatus,
+} from '../../domain/entities/notification.entity';
 import { InjectRepository } from '@nestjs/typeorm';
 import { Repository } from 'typeorm';
 import { UserNotificationPreferences } from '../../domain/entities/user-notification-preferences.entity';
@@ -26,15 +29,13 @@ export class NotificationService {
   ) {}
 
   async getUserNotifications(userId: string, query: GetNotificationsQuery) {
-    const { notifications, total } = await this.notificationRepository.findByRecipient(
-      userId,
-      {
+    const { notifications, total } =
+      await this.notificationRepository.findByRecipient(userId, {
         status: query.status,
         type: query.type,
         limit: query.limit || 20,
         offset: query.offset || 0,
-      },
-    );
+      });
 
     return {
       notifications,
@@ -48,7 +49,10 @@ export class NotificationService {
   }
 
   async markAsRead(notificationId: string, userId: string) {
-    const notification = await this.notificationRepository.markAsRead(notificationId, userId);
+    const notification = await this.notificationRepository.markAsRead(
+      notificationId,
+      userId,
+    );
     if (!notification) {
       throw new NotFoundException('Notification not found');
     }
@@ -65,7 +69,9 @@ export class NotificationService {
     return { count };
   }
 
-  async getOrCreatePreferences(userId: string): Promise<UserNotificationPreferences> {
+  async getOrCreatePreferences(
+    userId: string,
+  ): Promise<UserNotificationPreferences> {
     let preferences = await this.preferencesRepository.findOne({
       where: { userId },
     });
@@ -100,7 +106,10 @@ export class NotificationService {
     return preferences;
   }
 
-  async updatePreferences(userId: string, preferences: Partial<UserNotificationPreferences['preferences']>) {
+  async updatePreferences(
+    userId: string,
+    preferences: Partial<UserNotificationPreferences['preferences']>,
+  ) {
     const existing = await this.getOrCreatePreferences(userId);
     existing.preferences = {
       ...existing.preferences,
@@ -109,7 +118,13 @@ export class NotificationService {
     return this.preferencesRepository.save(existing);
   }
 
-  async registerPushToken(userId: string, token: string, platform: 'fcm' | 'apns' | 'web', deviceId?: string, deviceName?: string) {
+  async registerPushToken(
+    userId: string,
+    token: string,
+    platform: 'fcm' | 'apns' | 'web',
+    deviceId?: string,
+    deviceName?: string,
+  ) {
     // Deactivate old tokens for this device
     if (deviceId) {
       await this.pushTokenRepository.update(

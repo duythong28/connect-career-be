@@ -56,6 +56,23 @@ export class OrganizationManagementService {
       });
     }
 
+    queryBuilder
+      .leftJoinAndSelect('organization.industry', 'industry')
+      .leftJoinAndSelect('organization.logoFile', 'logoFile')
+      .leftJoinAndSelect('organization.bannerFile', 'bannerFile')
+      .leftJoinAndSelect('organization.locations', 'locations')
+      .leftJoinAndSelect('organization.memberships', 'memberships')
+      .leftJoinAndSelect('organization.files', 'files')
+      .leftJoin('organization.user', 'user')
+      .addSelect([
+        'user.id',
+        'user.email',
+        'user.firstName',
+        'user.lastName',
+        'user.fullName',
+        'user.avatarUrl',
+      ]);
+      
     const [data, total] = await queryBuilder
       .orderBy('organization.createdAt', 'DESC')
       .skip(skip)
@@ -77,15 +94,32 @@ export class OrganizationManagementService {
   async getOrganizationById(
     organizationId: string,
   ): Promise<OrganizationResponse> {
-    const organization = await this.organizationRepository.findOne({
-      where: { id: organizationId },
-    });
+    const organization = await this.organizationRepository
+      .createQueryBuilder('organization')
+      .leftJoinAndSelect('organization.industry', 'industry')
+      .leftJoinAndSelect('organization.logoFile', 'logoFile')
+      .leftJoinAndSelect('organization.bannerFile', 'bannerFile')
+      .leftJoinAndSelect('organization.locations', 'locations')
+      .leftJoinAndSelect('organization.memberships', 'memberships')
+      .leftJoinAndSelect('organization.files', 'files')
+      .leftJoin('organization.user', 'user')
+      .addSelect([
+        'user.id',
+        'user.email',
+        'user.firstName',
+        'user.lastName',
+        'user.fullName',
+        'user.avatarUrl',
+      ])
+      .where('organization.id = :organizationId', { organizationId })
+      .getOne();
 
     if (!organization) {
       throw new NotFoundException('Organization not found');
     }
     return this.mapToOrganizationResponse(organization);
   }
+
 
   async updateOrganizationStatus(
     organizationId: string,

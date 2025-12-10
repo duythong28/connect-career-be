@@ -148,17 +148,19 @@ export class VertexAIProvider implements AIProvider {
     return { content: text, raw: resp };
   }
 
-  async *chatStream(request: AIChatRequest): AsyncGenerator<string, void, unknown> {
+  async *chatStream(
+    request: AIChatRequest,
+  ): AsyncGenerator<string, void, unknown> {
     const generativeModel = this.vertexAI.getGenerativeModel({
       model: this.textModelId,
     });
-  
+
     const contents: Array<{
       role: 'user' | 'model';
       parts: Array<{ text: string }>;
     }> = [];
     const systemMessages: string[] = [];
-  
+
     for (const message of request.messages) {
       if (message.role === 'system') {
         systemMessages.push(message.content);
@@ -179,14 +181,14 @@ export class VertexAIProvider implements AIProvider {
         });
       }
     }
-  
+
     if (systemMessages.length > 0 && contents.length === 0) {
       contents.push({
         role: 'user',
         parts: [{ text: systemMessages.join('\n\n') }],
       });
     }
-  
+
     const streamingResp = await generativeModel.generateContentStream({
       contents,
       generationConfig: {
@@ -196,7 +198,7 @@ export class VertexAIProvider implements AIProvider {
         maxOutputTokens: request.maxOutputTokens ?? 1024,
       },
     });
-  
+
     for await (const chunk of streamingResp.stream) {
       const text = chunk.candidates?.[0]?.content?.parts?.[0]?.text || '';
       if (text) {

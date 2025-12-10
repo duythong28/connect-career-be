@@ -48,7 +48,8 @@ export class ChatService {
         .filter(
           (e: { sessionId?: string; type?: string }) =>
             e.sessionId === sessionId &&
-            (e.type === EventType.USER_MESSAGE || e.type === EventType.ASSISTANT_MESSAGE),
+            (e.type === EventType.USER_MESSAGE ||
+              e.type === EventType.ASSISTANT_MESSAGE),
         )
         .map((e: { type?: string; content?: string; message?: string }) => {
           const role: 'user' | 'assistant' =
@@ -176,7 +177,7 @@ export class ChatService {
     metadata?: Record<string, any>,
   ): AsyncGenerator<{ type: string; data: any }, void, unknown> {
     const startTime = Date.now();
-  
+
     try {
       // Create execution context
       const context = new ExecutionContext(userId, sessionId, {
@@ -184,14 +185,15 @@ export class ChatService {
         semantic: this.semanticMemory,
         procedural: this.proceduralMemory,
       });
-  
+
       // Load conversation history from memory
       const recentEvents = await this.episodicMemory.retrieveEvents(userId);
       const conversationHistory = recentEvents
         .filter(
           (e: { sessionId?: string; type?: string }) =>
             e.sessionId === sessionId &&
-            (e.type === EventType.USER_MESSAGE || e.type === EventType.ASSISTANT_MESSAGE),
+            (e.type === EventType.USER_MESSAGE ||
+              e.type === EventType.ASSISTANT_MESSAGE),
         )
         .map((e: { type?: string; content?: string; message?: string }) => {
           const role: 'user' | 'assistant' =
@@ -199,15 +201,15 @@ export class ChatService {
           const content: string = e.content || e.message || '';
           return { role, content };
         });
-  
+
       // Add conversation history to context
       conversationHistory.forEach((msg) => {
         context.addMessage(msg.role, msg.content);
       });
-  
+
       // Add current user message
       context.addMessage('user', message, metadata);
-  
+
       // Store user message in episodic memory
       await this.episodicMemory.storeEvent(userId, {
         type: EventType.USER_MESSAGE,
@@ -215,7 +217,7 @@ export class ChatService {
         content: message,
         timestamp: new Date(),
       });
-  
+
       // Persist user message to database
       await this.conversationRepository.create({
         userId,
@@ -224,7 +226,7 @@ export class ChatService {
         role: 'user',
         metadata,
       });
-  
+
       // Detect intent
       const intentResult = await this.intentDetector.detectIntent(
         message,
@@ -234,19 +236,19 @@ export class ChatService {
         })),
         metadata,
       );
-  
+
       context.currentIntent = intentResult.intent;
       context.entities = intentResult.entities;
-  
+
       // Route to appropriate agent
       const agent = await this.agentRouter.routeToAgent(
         intentResult.intent,
         context.toAgentContext(),
       );
-  
+
       // Execute agent
       const agentResult = await agent.execute(context.toAgentContext());
-  
+
       // Stream response synthesis
       let fullResponse = '';
       const responseStream = this.responseSynthesizer.synthesizeStream(
@@ -262,12 +264,12 @@ export class ChatService {
           data: { content: chunk },
         };
       }
-  
+
       const executionTime = Date.now() - startTime;
-  
+
       // Add assistant response to context
       context.addMessage('assistant', fullResponse);
-  
+
       // Store assistant message in episodic memory
       await this.episodicMemory.storeEvent(userId, {
         type: EventType.ASSISTANT_MESSAGE,
@@ -275,7 +277,7 @@ export class ChatService {
         content: fullResponse,
         timestamp: new Date(),
       });
-  
+
       // Persist assistant message to database
       await this.conversationRepository.create({
         userId,
@@ -291,7 +293,7 @@ export class ChatService {
           confidence: intentResult.confidence,
         },
       });
-  
+
       // Store in memory
       await context.updateMemory('episodic', {
         intent: intentResult.intent,
@@ -299,7 +301,7 @@ export class ChatService {
         response: fullResponse,
         timestamp: new Date(),
       });
-  
+
       // Send completion event
       yield {
         type: 'complete',

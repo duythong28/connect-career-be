@@ -27,7 +27,9 @@ export class AIService {
     return (this.provider as any).generateWithInlineFile(req);
   }
 
-  async *chatStream(request: aiProviderInterface.AIChatRequest): AsyncGenerator<string, void, unknown> {
+  async *chatStream(
+    request: aiProviderInterface.AIChatRequest,
+  ): AsyncGenerator<string, void, unknown> {
     if (this.provider.chatStream) {
       yield* this.provider.chatStream(request);
     } else {

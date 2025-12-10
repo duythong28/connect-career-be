@@ -23,6 +23,9 @@ import { RefundBackofficeService } from './api/services/refund-backoffice.servic
 import { WalletBackofficeService } from './api/services/wallet-backoffice.service';
 import { Refund } from './domain/entities/refund.entity';
 import { IdentityModule } from '../identity/identity.module';
+import { BillableActionsSeeder } from './infrastructure/seeders/billable-actions.seeder';
+import { BillableActionsService } from './api/services/billable-action.service';
+import { BillableActionsController } from './api/controllers/billable-action.controller';
 
 @Module({
   imports: [
@@ -45,6 +48,7 @@ import { IdentityModule } from '../identity/identity.module';
     ZaloPayPaymentController,
     WalletBackofficeController,
     RefundBackofficeController,
+    BillableActionsController,
   ],
   providers: [
     WalletService,
@@ -55,7 +59,9 @@ import { IdentityModule } from '../identity/identity.module';
     StripeProvider,
     WalletBackofficeService,
     RefundBackofficeService,
+    BillableActionsService,
+    BillableActionsSeeder,
   ],
-  exports: [WalletService, PaymentService],
+  exports: [WalletService, PaymentService, BillableActionsService],
 })
 export class WalletModule {}

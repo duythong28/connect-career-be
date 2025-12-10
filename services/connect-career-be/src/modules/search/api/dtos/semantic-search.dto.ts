@@ -75,4 +75,3 @@ export class SemanticPeopleSearchResult {
   @ApiProperty({ description: 'User details', required: false })
   user?: any;
 }
-

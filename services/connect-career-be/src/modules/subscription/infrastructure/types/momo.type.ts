@@ -75,7 +75,7 @@ export interface MoMoConfirmPaymentData {
 
 export interface MoMoRefundRequest {
   partnerCode: string;
-  orderId: string; 
+  orderId: string;
   requestId: string;
   amount: number;
   transId: number;
@@ -86,7 +86,7 @@ export interface MoMoRefundRequest {
 }
 
 export interface MoMoRefundResponse {
-  partnerCode: string; 
+  partnerCode: string;
   orderId: string;
   requestId: string;
   amount: number;

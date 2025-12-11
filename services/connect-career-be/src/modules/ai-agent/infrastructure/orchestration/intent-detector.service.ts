@@ -8,8 +8,8 @@ import { Intent } from '../../domain/enums/intent.enum';
 export class IntentDetectorService {
   private readonly logger = new Logger(IntentDetectorService.name);
 
-  // Common intents in career assistant domain
-  private readonly intentPatterns = {
+  // Candidate intents
+  private readonly candidateIntentPatterns = {
     job_search: [
       'find job',
       'search job',
@@ -59,16 +59,67 @@ export class IntentDetectorService {
     faq: ['what is', 'how to', 'explain', 'tell me about'],
   };
 
+  // Recruiter intents
+  private readonly recruiterIntentPatterns = {
+    create_job_post: [
+      'create job',
+      'post a job',
+      'job posting',
+      'job description',
+      'write job',
+    ],
+    edit_job_post: [
+      'edit job',
+      'update job',
+      'modify job',
+      'rewrite job',
+    ],
+    search_candidates: [
+      'find candidates',
+      'search candidates',
+      'talent pool',
+      'candidate search',
+    ],
+    screen_candidate: [
+      'screen candidate',
+      'review candidate',
+      'evaluate candidate',
+      'assess candidate',
+    ],
+    compare_candidates: [
+      'compare candidates',
+      'candidate comparison',
+      'compare applicants',
+    ],
+    generate_interview_questions: [
+      'interview questions',
+      'generate questions',
+      'create questions',
+    ],
+    shortlist_candidates: [
+      'shortlist',
+      'top candidates',
+      'best candidates',
+    ],
+    candidate_scorecard: [
+      'score candidate',
+      'rate candidate',
+      'candidate score',
+    ],
+    faq: ['what is', 'how to', 'explain', 'tell me about'],
+  };
+
   constructor(private readonly aiService: AIService) {}
 
   async detectIntent(
     message: string,
     conversationHistory: Array<{ role: string; content: string }> = [],
     userContext?: any,
+    role?: 'candidate' | 'recruiter',
   ): Promise<IntentResult> {
     try {
-      // First, try pattern matching for quick detection
-      const patternMatch = this.matchPatterns(message);
+      // Use role-specific patterns if role is provided
+      const patternMatch = this.matchPatterns(message, role);
       if (patternMatch && patternMatch.confidence > 0.8) {
         return patternMatch;
       }
@@ -78,6 +129,7 @@ export class IntentDetectorService {
         message,
         conversationHistory,
         userContext,
+        role,
       );
 
       // Combine pattern and LLM results
@@ -99,12 +151,17 @@ export class IntentDetectorService {
     }
   }
 
-  private matchPatterns(message: string): IntentResult | null {
+  private matchPatterns(message: string, role?: 'candidate' | 'recruiter'): IntentResult | null {
     const lowerMessage = message.toLowerCase();
     let bestMatch: { intent: string; confidence: number } | null = null;
 
-    for (const [intent, patterns] of Object.entries(this.intentPatterns)) {
-      const matches = patterns.filter((pattern) =>
+    // Use role-specific patterns
+    const patterns = role === 'recruiter' 
+      ? this.recruiterIntentPatterns 
+      : this.candidateIntentPatterns;
+
+    for (const [intent, patternList] of Object.entries(patterns)) {
+      const matches = patternList.filter((pattern) =>
         lowerMessage.includes(pattern),
       );
       if (matches.length > 0) {
@@ -131,10 +188,10 @@ export class IntentDetectorService {
     message: string,
     conversationHistory: Array<{ role: string; content: string }>,
     userContext?: any,
+    role?: 'candidate' | 'recruiter',
   ): Promise<IntentResult> {
-    const systemPrompt = `You are an intent classifier for a career assistant AI system.
-Analyze the user's message and classify it into one of these intents:
-- job_search: User wants to find jobs
+    // Role-specific intent lists
+    const candidateIntents = `- job_search: User wants to find jobs
 - job_match: User wants job recommendations based on their profile
 - career_path: User wants career planning advice
 - skill_gap: User wants to know what skills they need
@@ -144,7 +201,28 @@ Analyze the user's message and classify it into one of these intents:
 - application_status: User wants to check application status
 - learning_path: User wants learning resources
 - comparison: User wants to compare jobs/companies/offers
-- faq: General questions
+- faq: General questions`;
+
+    const recruiterIntents = `- create_job_post: User wants to create a job posting
+- edit_job_post: User wants to edit/update a job posting
+- search_candidates: User wants to find/search candidates
+- screen_candidate: User wants to screen/evaluate a candidate
+- compare_candidates: User wants to compare multiple candidates
+- generate_interview_questions: User wants interview questions generated
+- shortlist_candidates: User wants to create a shortlist
+- candidate_scorecard: User wants to score/rate a candidate
+- faq: General questions`;
+
+    const intentList = role === 'recruiter' ? recruiterIntents : candidateIntents;
+    const roleContext = role === 'recruiter' 
+      ? 'You are helping a recruiter with hiring tasks.'
+      : 'You are helping a job seeker with career-related tasks.';
+
+    const systemPrompt = `You are an intent classifier for a career assistant AI system.
+${roleContext}
+
+Analyze the user's message and classify it into one of these intents:
+${intentList}
 
 Also extract relevant entities like: job titles, skills, companies, locations, etc.
 

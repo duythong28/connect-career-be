@@ -72,7 +72,7 @@ export class OrganizationManagementService {
         'user.fullName',
         'user.avatarUrl',
       ]);
-      
+
     const [data, total] = await queryBuilder
       .orderBy('organization.createdAt', 'DESC')
       .skip(skip)
@@ -119,7 +119,6 @@ export class OrganizationManagementService {
     }
     return this.mapToOrganizationResponse(organization);
   }
-
 
   async updateOrganizationStatus(
     organizationId: string,

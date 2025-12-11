@@ -39,11 +39,12 @@ export class MoMoProvider extends BasePaymentProvider {
   readonly supportedCurrencies = ['VND'];
   readonly supportedRegions = ['VN'];
 
-  constructor(private readonly configService: ConfigService,
+  constructor(
+    private readonly configService: ConfigService,
     @InjectRepository(PaymentTransaction)
     private paymentTransactionRepository: Repository<PaymentTransaction>,
     @InjectRepository(Refund)
-    private refundRepository: Repository<Refund>, 
+    private refundRepository: Repository<Refund>,
   ) {
     super();
   }
@@ -180,7 +181,6 @@ export class MoMoProvider extends BasePaymentProvider {
     }
   }
 
-
   async refundPayment(
     paymentId: string,
     amount?: number,
@@ -189,65 +189,65 @@ export class MoMoProvider extends BasePaymentProvider {
     const partnerCode = this.configService.get<string>('PARTNER_CODE_MOMO');
     const accessKey = this.configService.get<string>('ACCESS_KEY_MOMO');
     const secretKey = this.configService.get<string>('SECRET_KEY_MOMO');
-  
+
     if (!partnerCode || !accessKey || !secretKey) {
       throw new BadRequestException('MoMo configuration is missing');
     }
-  
+
     // paymentId is your orderId. We need the stored transId.
     const transaction = await this.paymentTransactionRepository.findOne({
       where: { providerPaymentId: paymentId, provider: this.providerCode },
     });
-  
+
     if (!transaction) {
       throw new BadRequestException(
         `Payment transaction not found for orderId ${paymentId}`,
       );
     }
-  
+
     const transId = transaction.providerTransactionId
       ? Number(transaction.providerTransactionId)
       : undefined;
-  
+
     if (!transId) {
       throw new BadRequestException(
         'Cannot refund: missing MoMo transaction id (transId). Ensure webhook stored it.',
       );
     }
-  
+
     const refundAmount = Math.round(amount ?? Number(transaction.amount));
     if (refundAmount <= 0) {
       throw new BadRequestException('Refund amount must be greater than 0');
     }
-  
+
     try {
       const requestId = `${partnerCode}${Date.now()}`;
       const orderId = `${paymentId}-refund-${Date.now()}`; // refund orderId must differ
       const description = reason ?? 'Refund';
       const lang = 'en';
-  
+
       const rawSignature =
-      'accessKey=' +
-      accessKey +
-      '&amount=' +
-      refundAmount +
-      '&description=' +
-      description +
-      '&orderId=' +
-      orderId +
-      '&partnerCode=' +
-      partnerCode +
-      '&requestId=' +
-      requestId +
-      '&transId=' +
-      transId;
-  
+        'accessKey=' +
+        accessKey +
+        '&amount=' +
+        refundAmount +
+        '&description=' +
+        description +
+        '&orderId=' +
+        orderId +
+        '&partnerCode=' +
+        partnerCode +
+        '&requestId=' +
+        requestId +
+        '&transId=' +
+        transId;
+
       console.log(rawSignature);
       const signature = crypto
         .createHmac('sha256', secretKey)
         .update(rawSignature)
         .digest('hex');
-  
+
       const requestBody: MoMoRefundRequest = {
         partnerCode,
         orderId,
@@ -260,22 +260,22 @@ export class MoMoProvider extends BasePaymentProvider {
       };
 
       console.log(JSON.stringify(requestBody));
-  
+
       const options: AxiosRequestConfig = {
         headers: { 'Content-Type': 'application/json' },
         method: 'POST',
         url: 'https://test-payment.momo.vn/v2/gateway/api/refund',
         data: JSON.stringify(requestBody),
       };
-  
+
       const response: AxiosResponse<MoMoRefundResponse> = await axios(options);
-  
+
       if (response.data.resultCode !== 0) {
         throw new BadRequestException(
           `MoMo refund failed: ${response.data.message}`,
         );
       }
-  
+
       const refund = this.refundRepository.create({
         userId: transaction.userId,
         paymentTransactionId: transaction.id,
@@ -283,17 +283,20 @@ export class MoMoProvider extends BasePaymentProvider {
         currency: 'VND',
         status: RefundStatus.PROCESSED,
         providerRefundId: response.data.orderId ?? orderId,
-        metadata: response.data, 
+        metadata: response.data,
       });
       await this.refundRepository.save(refund);
-      
+
       // Update transaction (if full refund)
       if (refundAmount >= Number(transaction.amount)) {
         transaction.status = PaymentStatus.REFUNDED;
       }
-      transaction.providerResponse = { ...transaction.providerResponse, refund: response.data };
+      transaction.providerResponse = {
+        ...transaction.providerResponse,
+        refund: response.data,
+      };
       await this.paymentTransactionRepository.save(transaction);
-      
+
       return {
         success: true,
         refundId: refund.id,
@@ -305,30 +308,32 @@ export class MoMoProvider extends BasePaymentProvider {
     } catch (error) {
       const resp = (error as any).response;
       const config = (error as any).config;
-      this.logger.error(
-        'Failed to refund MoMo payment',
-        resp?.data ?? error,
-      );
+      this.logger.error('Failed to refund MoMo payment', resp?.data ?? error);
       this.logger.debug('Request payload:', config?.data);
       throw new BadRequestException('Failed to refund payment');
     }
   }
-  
+
   // Helper to get transId
-  private async queryPayment(orderId: string): Promise<MoMoQueryPaymentResponse> {
+  private async queryPayment(
+    orderId: string,
+  ): Promise<MoMoQueryPaymentResponse> {
     const partnerCode = this.configService.get<string>('PARTNER_CODE_MOMO');
     const accessKey = this.configService.get<string>('ACCESS_KEY_MOMO');
     const secretKey = this.configService.get<string>('SECRET_KEY_MOMO');
-  
+
     if (!partnerCode || !accessKey || !secretKey) {
       throw new BadRequestException('MoMo configuration is missing');
     }
-  
+
     const requestId = `${partnerCode}${Date.now()}`;
     const lang = 'en';
     const data = `accessKey=${accessKey}&orderId=${orderId}&partnerCode=${partnerCode}&requestId=${requestId}`;
-    const signature = crypto.createHmac('sha256', secretKey).update(data).digest('hex');
-  
+    const signature = crypto
+      .createHmac('sha256', secretKey)
+      .update(data)
+      .digest('hex');
+
     const requestBody: MoMoQueryPaymentRequest = {
       partnerCode,
       requestId,
@@ -336,15 +341,16 @@ export class MoMoProvider extends BasePaymentProvider {
       signature,
       lang,
     };
-  
+
     const options: AxiosRequestConfig = {
       headers: { 'Content-Type': 'application/json' },
       method: 'POST',
       url: 'https://test-payment.momo.vn/v2/gateway/api/query',
       data: JSON.stringify(requestBody),
     };
-  
-    const response: AxiosResponse<MoMoQueryPaymentResponse> = await axios(options);
+
+    const response: AxiosResponse<MoMoQueryPaymentResponse> =
+      await axios(options);
     return response.data;
   }
 
@@ -429,11 +435,11 @@ export class MoMoProvider extends BasePaymentProvider {
         provider: this.providerCode,
       },
     });
-  
+
     if (transaction) {
       transaction.providerTransactionId = String(transId);
       transaction.providerResponse = payload;
-  
+
       if (resultCode === 0) {
         transaction.status = PaymentStatus.COMPLETED;
         transaction.completedAt = new Date();
@@ -442,18 +448,18 @@ export class MoMoProvider extends BasePaymentProvider {
         transaction.failedAt = new Date();
         transaction.failureReason = message || 'Payment failed';
       }
-  
+
       await this.paymentTransactionRepository.save(transaction);
     } else {
       this.logger.warn(`Payment transaction not found for orderId ${orderId}`);
     }
-  
+
     const eventType = resultCode === 0 ? 'payment.succeeded' : 'payment.failed';
-  
+
     return {
       type: eventType,
       data: payload,
       paymentId: orderId,
-    };  
+    };
   }
 }

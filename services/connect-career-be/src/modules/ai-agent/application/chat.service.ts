@@ -1,15 +1,24 @@
-import { Injectable, Logger } from '@nestjs/common';
+import { Injectable, Logger, NotFoundException } from '@nestjs/common';
 import { IntentDetectorService } from '../infrastructure/orchestration/intent-detector.service';
 import { AgentRouterService } from '../infrastructure/orchestration/agent-router.service';
-import { WorkflowEngineService } from '../infrastructure/orchestration/workflow-engine.service';
 import { ResponseSynthesizerService } from '../infrastructure/orchestration/response-synthesizer.service';
 import { ExecutionContext } from '../infrastructure/orchestration/execution-context';
 import { ChatResponseDto } from '../apis/dtos/chat-response.dto';
 import { EpisodicMemoryService } from '../infrastructure/memory/episodic-memory.service';
 import { SemanticMemoryService } from '../infrastructure/memory/semantic-memory.service';
 import { ProceduralMemoryService } from '../infrastructure/memory/procedural-memory.service';
-import { ConversationRepository } from '../domain/repositories/conversation.repository';
+import { SessionRepository } from '../domain/repositories/session.repository';
+import { MessageRepository } from '../domain/repositories/message.repository';
+import { AttachmentRepository } from '../domain/repositories/attachment.repository';
+import { LangSmithService } from './langsmith.service';
+import { MediaService, MediaProcessingResult } from './media.service';
+import {
+  MediaAttachmentDto,
+} from '../apis/dtos/media-attachment.dto';
 import { EventType } from '../domain/enums/event-type.enum';
+import { GraphBuilderService } from '../infrastructure/orchestration/graph-builder.service';
+import { AgentState } from '../domain/types/agent-state.type';
+import { HumanMessage, AIMessage } from '@langchain/core/messages';
 
 @Injectable()
 export class ChatService {
@@ -18,13 +27,32 @@ export class ChatService {
   constructor(
     private readonly intentDetector: IntentDetectorService,
     private readonly agentRouter: AgentRouterService,
-    private readonly workflowEngine: WorkflowEngineService,
     private readonly responseSynthesizer: ResponseSynthesizerService,
     private readonly episodicMemory: EpisodicMemoryService,
     private readonly semanticMemory: SemanticMemoryService,
     private readonly proceduralMemory: ProceduralMemoryService,
-    private readonly conversationRepository: ConversationRepository,
+    private readonly sessionRepository: SessionRepository,
+    private readonly messageRepository: MessageRepository,
+    private readonly attachmentRepository: AttachmentRepository,
+    private readonly langSmithService: LangSmithService,
+    private readonly mediaService: MediaService,
+    private readonly graphBuilder: GraphBuilderService,
   ) {}
+
+  async createChat(userId: string): Promise<{ sessionId: string }> {
+    const session = await this.sessionRepository.create({
+      userId,
+      metadata: {},
+    });
+
+    await this.episodicMemory.storeEvent(userId, {
+      type: EventType.CHAT_SESSION_CREATED,
+      sessionId: session.id,
+      timestamp: new Date(),
+    });
+
+    return { sessionId: session.id };
+  }
 
   async processMessage(
     userId: string,
@@ -35,6 +63,17 @@ export class ChatService {
     const startTime = Date.now();
 
     try {
+      // Verify session exists and belongs to user
+      const session = await this.sessionRepository.findById(sessionId);
+      if (!session) {
+        throw new NotFoundException(`Session ${sessionId} not found`);
+      }
+      if (session.userId !== userId) {
+        throw new NotFoundException(
+          'Unauthorized: Session does not belong to user',
+        );
+      }
+
       // Create execution context
       const context = new ExecutionContext(userId, sessionId, {
         episodic: this.episodicMemory,
@@ -42,55 +81,103 @@ export class ChatService {
         procedural: this.proceduralMemory,
       });
 
-      // Load conversation history from memory
-      const recentEvents = await this.episodicMemory.retrieveEvents(userId);
-      const conversationHistory = recentEvents
-        .filter(
-          (e: { sessionId?: string; type?: string }) =>
-            e.sessionId === sessionId &&
-            (e.type === EventType.USER_MESSAGE ||
-              e.type === EventType.ASSISTANT_MESSAGE),
-        )
-        .map((e: { type?: string; content?: string; message?: string }) => {
-          const role: 'user' | 'assistant' =
-            e.type === EventType.USER_MESSAGE ? 'user' : 'assistant';
-          const content: string = e.content || e.message || '';
-          return { role, content };
-        });
+      // Load conversation history from messages
+      const messages = await this.messageRepository.findBySessionId(sessionId);
+      const conversationHistory = messages.map((msg) => ({
+        role: msg.role,
+        content: msg.content,
+      }));
 
       // Add conversation history to context
       conversationHistory.forEach((msg) => {
         context.addMessage(msg.role, msg.content);
       });
 
-      // Add current user message
-      context.addMessage('user', message, metadata);
+      // Process media attachments if provided
+      const mediaResults: MediaProcessingResult[] = [];
+      if (
+        metadata?.attachments &&
+        Array.isArray(metadata.attachments) &&
+        metadata.attachments.length > 0
+      ) {
+        for (const attachment of metadata.attachments) {
+          try {
+            if (
+              attachment &&
+              typeof attachment === 'object' &&
+              'name' in attachment &&
+              'sourceType' in attachment
+            ) {
+              const result = await this.processAttachment(
+                attachment as MediaAttachmentDto,
+                userId,
+                sessionId,
+                metadata,
+              );
+              mediaResults.push(result);
+            }
+          } catch (error) {
+            const attachmentName =
+              attachment &&
+              typeof attachment === 'object' &&
+              'name' in attachment
+                ? String((attachment as { name: unknown }).name)
+                : 'unknown';
+            this.logger.error(
+              `Failed to process attachment: ${attachmentName}`,
+              error,
+            );
+          }
+        }
+      }
 
-      // Store user message in episodic memory
+      // Enrich message with media context
+      const enrichedMessage =
+        message || (mediaResults.length > 0 ? 'Processing media files...' : '');
+      const enrichedMetadata: Record<string, unknown> = {
+        ...metadata,
+        attachments: metadata?.attachments as unknown,
+        mediaResults,
+        hasMedia: mediaResults.length > 0,
+      };
+
+      // Add current user message
+      context.addMessage('user', enrichedMessage, enrichedMetadata);
+
+      // Store user message
       await this.episodicMemory.storeEvent(userId, {
         type: EventType.USER_MESSAGE,
         sessionId,
-        content: message,
+        content: enrichedMessage,
         timestamp: new Date(),
       });
 
       // Persist user message to database
-      await this.conversationRepository.create({
-        userId,
+      const userMessage = await this.messageRepository.create({
         sessionId,
-        message,
+        content: enrichedMessage,
         role: 'user',
-        metadata,
+        metadata: enrichedMetadata,
       });
+
+      // Create attachment entities if attachments exist
+      if (metadata?.attachments && Array.isArray(metadata.attachments)) {
+        await this.createAttachmentsForMessage(
+          userMessage.id,
+          metadata.attachments as MediaAttachmentDto[],
+          userId,
+          sessionId,
+        );
+      }
 
       // Detect intent
       const intentResult = await this.intentDetector.detectIntent(
-        message,
+        enrichedMessage,
         context.conversationHistory.map((msg) => ({
           role: msg.role,
           content: msg.content,
         })),
-        metadata,
+        enrichedMetadata,
       );
 
       context.currentIntent = intentResult.intent;
@@ -113,6 +200,25 @@ export class ChatService {
 
       const executionTime = Date.now() - startTime;
 
+      // Log to LangSmith
+      const langSmithRunId = await this.langSmithService.logAgentExecution({
+        sessionId,
+        userId,
+        agentName: agent.name,
+        input: {
+          message: enrichedMessage,
+          intent: intentResult.intent,
+          entities: intentResult.entities,
+        },
+        output: agentResult,
+        metadata: {
+          executionTime,
+          intent: intentResult.intent,
+          entities: intentResult.entities,
+          confidence: intentResult.confidence,
+        },
+      });
+
       // Add assistant response to context
       context.addMessage('assistant', response);
 
@@ -124,26 +230,34 @@ export class ChatService {
         timestamp: new Date(),
       });
 
-      // Persist assistant message to database
-      await this.conversationRepository.create({
-        userId,
+      // Persist assistant message with all metadata
+      const assistantMessage = await this.messageRepository.create({
         sessionId,
-        message: response,
+        content: response,
         role: 'assistant',
-        intent: intentResult.intent,
-        entities: intentResult.entities,
-        agentName: agent.name,
         metadata: {
-          ...metadata,
+          intent: intentResult.intent,
+          intentConfidence: intentResult.confidence,
+          entities: intentResult.entities,
+          agentName: agent.name,
+          agentExecutionId: langSmithRunId || undefined,
           executionTime,
-          confidence: intentResult.confidence,
+          executionSuccess: agentResult.success,
+          executionResult: agentResult.data as unknown,
+          executionErrors: agentResult.errors as unknown as any[] | undefined,
+          ...enrichedMetadata,
         },
+      });
+
+      // Update session updatedAt
+      await this.sessionRepository.update(sessionId, {
+        updatedAt: new Date(),
       });
 
       // Store in memory
       await context.updateMemory('episodic', {
         intent: intentResult.intent,
-        message,
+        message: enrichedMessage,
         response,
         timestamp: new Date(),
       });
@@ -155,11 +269,7 @@ export class ChatService {
         entities: intentResult.entities,
         suggestions: agentResult.nextSteps,
         agent: agent.name,
-        metadata: {
-          ...metadata,
-          executionTime,
-          confidence: intentResult.confidence,
-        },
+        metadata: assistantMessage.metadata,
       };
     } catch (error) {
       this.logger.error(
@@ -177,100 +287,165 @@ export class ChatService {
     metadata?: Record<string, any>,
   ): AsyncGenerator<{ type: string; data: any }, void, unknown> {
     const startTime = Date.now();
+    let isError = false;
+    let userMessage: { id: string } | null = null;
+    let fullResponse = '';
 
     try {
-      // Create execution context
-      const context = new ExecutionContext(userId, sessionId, {
-        episodic: this.episodicMemory,
-        semantic: this.semanticMemory,
-        procedural: this.proceduralMemory,
-      });
+      // Verify session
+      const session = await this.sessionRepository.findById(sessionId);
+      if (!session || session.userId !== userId) {
+        throw new NotFoundException('Session not found or unauthorized');
+      }
 
-      // Load conversation history from memory
-      const recentEvents = await this.episodicMemory.retrieveEvents(userId);
-      const conversationHistory = recentEvents
-        .filter(
-          (e: { sessionId?: string; type?: string }) =>
-            e.sessionId === sessionId &&
-            (e.type === EventType.USER_MESSAGE ||
-              e.type === EventType.ASSISTANT_MESSAGE),
-        )
-        .map((e: { type?: string; content?: string; message?: string }) => {
-          const role: 'user' | 'assistant' =
-            e.type === EventType.USER_MESSAGE ? 'user' : 'assistant';
-          const content: string = e.content || e.message || '';
-          return { role, content };
-        });
+      // Process media attachments
+      const mediaResults: MediaProcessingResult[] = [];
+      if (
+        metadata?.attachments &&
+        Array.isArray(metadata.attachments) &&
+        metadata.attachments.length > 0
+      ) {
+        for (const attachment of metadata.attachments) {
+          try {
+            if (
+              attachment &&
+              typeof attachment === 'object' &&
+              'name' in attachment &&
+              'sourceType' in attachment
+            ) {
+              const result = await this.processAttachment(
+                attachment as MediaAttachmentDto,
+                userId,
+                sessionId,
+                metadata,
+              );
+              mediaResults.push(result);
+            }
+          } catch (error) {
+            const attachmentName =
+              attachment &&
+              typeof attachment === 'object' &&
+              'name' in attachment
+                ? String((attachment as { name: unknown }).name)
+                : 'unknown';
+            this.logger.error(
+              `Failed to process attachment: ${attachmentName}`,
+              error,
+            );
+          }
+        }
+      }
 
-      // Add conversation history to context
-      conversationHistory.forEach((msg) => {
-        context.addMessage(msg.role, msg.content);
-      });
+      const enrichedMessage =
+        message || (mediaResults.length > 0 ? 'Processing media files...' : '');
+      const enrichedMetadata: Record<string, unknown> = {
+        ...metadata,
+        attachments: metadata?.attachments as unknown,
+        mediaResults,
+        hasMedia: mediaResults.length > 0,
+      };
 
-      // Add current user message
-      context.addMessage('user', message, metadata);
-
-      // Store user message in episodic memory
+      // Store user message
       await this.episodicMemory.storeEvent(userId, {
         type: EventType.USER_MESSAGE,
         sessionId,
-        content: message,
+        content: enrichedMessage,
         timestamp: new Date(),
       });
 
-      // Persist user message to database
-      await this.conversationRepository.create({
-        userId,
+      userMessage = await this.messageRepository.create({
         sessionId,
-        message,
+        content: enrichedMessage,
         role: 'user',
-        metadata,
+        metadata: enrichedMetadata,
       });
 
-      // Detect intent
-      const intentResult = await this.intentDetector.detectIntent(
-        message,
-        context.conversationHistory.map((msg) => ({
-          role: msg.role,
-          content: msg.content,
-        })),
-        metadata,
-      );
+      // Create attachment entities if attachments exist
+      if (metadata?.attachments && Array.isArray(metadata.attachments)) {
+        await this.createAttachmentsForMessage(
+          userMessage.id,
+          metadata.attachments as MediaAttachmentDto[],
+          userId,
+          sessionId,
+        );
+      }
 
-      context.currentIntent = intentResult.intent;
-      context.entities = intentResult.entities;
+      // Load conversation history
+      const messages = await this.messageRepository.findBySessionId(sessionId);
+      const conversationHistory = messages.map((msg) => new (msg.role === 'user' ? HumanMessage : AIMessage)(msg.content));
 
-      // Route to appropriate agent
-      const agent = await this.agentRouter.routeToAgent(
-        intentResult.intent,
-        context.toAgentContext(),
-      );
+      // Get user profile (if available)
+      const userProfile = await this.getUserProfile(userId);
 
-      // Execute agent
-      const agentResult = await agent.execute(context.toAgentContext());
+      // Initialize agent state
+      const initialState: Partial<AgentState> = {
+        messages: [...conversationHistory, new HumanMessage(enrichedMessage)],
+        thread_id: sessionId,
+        user_profile: userProfile,
+        context_data: enrichedMetadata,
+      };
 
-      // Stream response synthesis
-      let fullResponse = '';
-      const responseStream = this.responseSynthesizer.synthesizeStream(
-        [agentResult],
-        context,
-      );
+      // Get checkpointer and build graph
+      const checkpointer = await this.graphBuilder.getCheckpointer();
+      const graph = await this.graphBuilder.buildGraph(checkpointer);
 
-      // Stream chunks
-      for await (const chunk of responseStream) {
-        fullResponse += chunk;
-        yield {
-          type: 'chunk',
-          data: { content: chunk },
-        };
+      // Stream events from LangGraph
+      const config = {
+        configurable: {
+          thread_id: sessionId,
+        },
+        metadata: {
+          thread_id: sessionId,
+          session_id: sessionId,
+          user_id: userId,
+        },
+      };
+
+      // Stream events (simplified handling)
+      try {
+        const stream = graph.streamEvents(initialState as any, { version: 'v2', ...config });
+        for await (const event of stream) {
+          const eventType = (event as any).event;
+          const eventName = (event as any).name;
+
+          // Emit basic thinking signals
+          if (eventType === 'on_chain_start') {
+            yield { type: 'chunk', data: { content: '', isThinking: eventName !== 'ANSWER' } };
+          }
+
+          // Handle streaming LLM responses
+          if (
+            eventName === 'ANSWER' &&
+            eventType === 'on_chat_model_stream' &&
+            (event as any).data?.chunk
+          ) {
+            const chunk = (event as any).data.chunk;
+            if (chunk.content) {
+              fullResponse += chunk.content;
+              yield { type: 'chunk', data: { content: chunk.content, isThinking: false } };
+            }
+          }
+
+          // Handle final state
+          if (eventType === 'on_chain_end' && eventName === 'LangGraph') {
+            const finalState = (event as any).data?.output as AgentState;
+            if (finalState?.messages && finalState.messages.length > 0) {
+              const lastMessage = finalState.messages[finalState.messages.length - 1];
+              if (lastMessage instanceof AIMessage) {
+                const content = lastMessage.content;
+                fullResponse = typeof content === 'string' ? content : JSON.stringify(content) || fullResponse;
+              }
+            }
+          }
+        }
+      } catch (streamError) {
+        this.logger.error('streamEvents failed', streamError);
+        throw streamError;
       }
 
       const executionTime = Date.now() - startTime;
 
-      // Add assistant response to context
-      context.addMessage('assistant', fullResponse);
-
-      // Store assistant message in episodic memory
+      // Store assistant message
       await this.episodicMemory.storeEvent(userId, {
         type: EventType.ASSISTANT_MESSAGE,
         sessionId,
@@ -278,78 +453,142 @@ export class ChatService {
         timestamp: new Date(),
       });
 
-      // Persist assistant message to database
-      await this.conversationRepository.create({
-        userId,
+      await this.messageRepository.create({
         sessionId,
-        message: fullResponse,
+        content: fullResponse,
         role: 'assistant',
-        intent: intentResult.intent,
-        entities: intentResult.entities,
-        agentName: agent.name,
         metadata: {
-          ...metadata,
           executionTime,
-          confidence: intentResult.confidence,
+          ...enrichedMetadata,
         },
       });
 
-      // Store in memory
-      await context.updateMemory('episodic', {
-        intent: intentResult.intent,
-        message,
-        response: fullResponse,
-        timestamp: new Date(),
+      await this.sessionRepository.update(sessionId, {
+        updatedAt: new Date(),
       });
 
       // Send completion event
       yield {
         type: 'complete',
         data: {
-          agent: agent.name,
-          suggestions: agentResult.nextSteps || [],
-          intent: intentResult.intent,
-          entities: intentResult.entities,
           metadata: {
-            ...metadata,
+            ...enrichedMetadata,
             executionTime,
-            confidence: intentResult.confidence,
           },
         },
       };
     } catch (error) {
+      isError = true;
       this.logger.error(
         `Failed to process message stream: ${error}`,
         error instanceof Error ? error.stack : undefined,
       );
+
       yield {
         type: 'error',
         data: {
           error: error instanceof Error ? error.message : String(error),
         },
       };
+    } finally {
+      // Cleanup: persist user message even on error
+      if (isError && userMessage) {
+        this.logger.warn(
+          `Persisting user message with error metadata for failed chat in session ${sessionId}`,
+        );
+      }
     }
   }
 
-  private generateSessionId(): string {
-    return `session_${Date.now()}_${Math.random().toString(36).substr(2, 9)}`;
+  private getUserProfile(userId: string): Promise<Record<string, any>> {
+    // TODO: Implement user profile retrieval
+    // This should fetch user profile from your user/profile service
+    return Promise.resolve({ userId });
   }
 
-  async createChat(userId: string): Promise<{ sessionId: string }> {
-    const sessionId = this.generateSessionId();
-
-    await this.episodicMemory.storeEvent(userId, {
-      type: EventType.CHAT_SESSION_CREATED,
-      sessionId,
-      timestamp: new Date(),
-    });
-
-    return { sessionId };
+  private async processAttachment(
+    attachment: MediaAttachmentDto,
+    userId: string,
+    sessionId: string,
+    metadata?: Record<string, any>,
+  ): Promise<MediaProcessingResult> {
+    // Since attachments always come with URLs, only handle URL case
+    if (!attachment.url) {
+      throw new Error('URL is required for attachments');
+    }
+    return await this.mediaService.processMediaFromUrl(
+      attachment.url,
+      attachment.type,
+      attachment.name,
+      { userId, sessionId, metadata },
+    );
   }
 
   /**
-   * Get conversation history for a specific session
+   * Create AttachmentEntity records for a message
+   * Since attachments always come with URLs, we process them and create entities
    */
+  private async createAttachmentsForMessage(
+    messageId: string,
+    attachments: MediaAttachmentDto[],
+    userId: string,
+    sessionId: string,
+  ): Promise<void> {
+    for (const attachment of attachments) {
+      try {
+        // Only process if URL is provided (which should always be the case)
+        if (!attachment.url) {
+          this.logger.warn(
+            `Attachment ${attachment.name} has no URL, skipping`,
+          );
+          continue;
+        }
+
+        // Process media from URL
+        let processingResult: any = null;
+        try {
+          const result = await this.mediaService.processMediaFromUrl(
+            attachment.url,
+            attachment.type,
+            attachment.name,
+            { userId, sessionId },
+          );
+          processingResult = {
+            success: result.success,
+            extractedText: result.extractedText,
+            analysis: result.analysis,
+            error: result.error,
+          };
+        } catch (error) {
+          this.logger.error(
+            `Failed to process attachment ${attachment.name}:`,
+            error,
+          );
+          processingResult = {
+            success: false,
+            error: error instanceof Error ? error.message : String(error),
+          };
+        }
+
+        // Create attachment entity
+        await this.attachmentRepository.create({
+          messageId,
+          type: attachment.type,
+          name: attachment.name,
+          mimeType: attachment.mimeType,
+          url: attachment.url,
+          processingResult: processingResult,
+        });
+      } catch (error) {
+        this.logger.error(
+          `Failed to create attachment entity for ${attachment.name}:`,
+          error,
+        );
+        // Continue with other attachments even if one fails
+      }
+    }
+  }
+
   async getConversationHistory(
     userId: string,
     sessionId: string,
@@ -357,94 +596,61 @@ export class ChatService {
     Array<{
       id: string;
       role: 'user' | 'assistant' | 'system';
-      message: string;
-      intent?: string;
-      agentName?: string;
+      content: string;
       createdAt: Date;
       metadata?: Record<string, any>;
     }>
   > {
-    const conversations =
-      await this.conversationRepository.findBySessionId(sessionId);
-
-    // Verify user owns this session
-    if (conversations.length > 0 && conversations[0].userId !== userId) {
-      throw new Error('Unauthorized: Session does not belong to user');
+    const session = await this.sessionRepository.findById(sessionId);
+    if (!session || session.userId !== userId) {
+      throw new NotFoundException('Session not found or unauthorized');
     }
 
-    return conversations.map((conv) => ({
-      id: conv.id,
-      role: conv.role,
-      message: conv.message,
-      intent: conv.intent,
-      agentName: conv.agentName,
-      createdAt: conv.createdAt,
-      metadata: conv.metadata,
+    const messages = await this.messageRepository.findBySessionId(sessionId);
+    return messages.map((msg) => ({
+      id: msg.id,
+      role: msg.role,
+      content: msg.content,
+      createdAt: msg.createdAt,
+      metadata: msg.metadata,
     }));
   }
 
-  /**
-   * Get all chat sessions for a user
-   */
   async getUserChatSessions(
     userId: string,
     limit: number = 50,
   ): Promise<
     Array<{
       sessionId: string;
-      lastMessage: string;
-      lastMessageAt: Date;
+      title?: string;
+      lastMessage?: string;
+      lastMessageAt?: Date;
       messageCount: number;
-      firstMessageAt: Date;
+      createdAt: Date;
+      updatedAt: Date;
     }>
   > {
-    const conversations = await this.conversationRepository.findByUserId(
-      userId,
-      limit * 10,
-    );
+    const sessions = await this.sessionRepository.findByUserId(userId, limit);
 
-    // Group by sessionId
-    const sessionMap = new Map<
-      string,
-      {
-        sessionId: string;
-        messages: typeof conversations;
-      }
-    >();
+    return sessions.map((session) => {
+      const messages = session.messages || [];
+      const sortedMessages = messages.sort(
+        (a, b) => b.createdAt.getTime() - a.createdAt.getTime(),
+      );
+      const lastMessage = sortedMessages[0];
 
-    conversations.forEach((conv) => {
-      if (!sessionMap.has(conv.sessionId)) {
-        sessionMap.set(conv.sessionId, {
-          sessionId: conv.sessionId,
-          messages: [],
-        });
-      }
-      sessionMap.get(conv.sessionId)!.messages.push(conv);
+      return {
+        sessionId: session.id,
+        title: session.title,
+        lastMessage: lastMessage?.content,
+        lastMessageAt: lastMessage?.createdAt,
+        messageCount: messages.length,
+        createdAt: session.createdAt,
+        updatedAt: session.updatedAt,
+      };
     });
-
-    // Format response
-    return Array.from(sessionMap.values())
-      .map(({ sessionId, messages }) => {
-        const sortedMessages = messages.sort(
-          (a, b) => a.createdAt.getTime() - b.createdAt.getTime(),
-        );
-
-        return {
-          sessionId,
-          lastMessage: sortedMessages[sortedMessages.length - 1]?.message || '',
-          lastMessageAt:
-            sortedMessages[sortedMessages.length - 1]?.createdAt || new Date(),
-          messageCount: sortedMessages.length,
-          firstMessageAt: sortedMessages[0]?.createdAt || new Date(),
-        };
-      })
-      .sort((a, b) => b.lastMessageAt.getTime() - a.lastMessageAt.getTime())
-      .slice(0, limit);
   }
 
-  /**
-   * Get recent conversations across all sessions
-   */
   async getRecentConversations(
     userId: string,
     limit: number = 20,
@@ -453,28 +659,23 @@ export class ChatService {
       id: string;
       sessionId: string;
       role: 'user' | 'assistant' | 'system';
-      message: string;
-      intent?: string;
-      agentName?: string;
+      content: string;
       createdAt: Date;
+      metadata?: Record<string, any>;
     }>
   > {
-    const conversations = await this.conversationRepository.findByUserId(
-      userId,
-      limit,
-    );
+    const messages = await this.messageRepository.findByUserId(userId, limit);
 
-    return conversations
+    return messages
       .sort((a, b) => b.createdAt.getTime() - a.createdAt.getTime())
       .slice(0, limit)
-      .map((conv) => ({
-        id: conv.id,
-        sessionId: conv.sessionId,
-        role: conv.role,
-        message: conv.message,
-        intent: conv.intent,
-        agentName: conv.agentName,
-        createdAt: conv.createdAt,
+      .map((msg) => ({
+        id: msg.id,
+        sessionId: msg.sessionId,
+        role: msg.role,
+        content: msg.content,
+        createdAt: msg.createdAt,
+        metadata: msg.metadata,
       }));
   }
 }

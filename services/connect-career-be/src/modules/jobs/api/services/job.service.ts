@@ -688,4 +688,21 @@ export class JobService {
       JobStatus.ARCHIVED,
     );
   }
+
+  async getJobsByIds(ids: string[]): Promise<Job[]> {
+    if (!ids || ids.length === 0) {
+      return [];
+    }
+  
+    return this.jobRepository.find({
+      where: ids.map((id) => ({ id })),
+      relations: [
+        'organization',
+        'organization.logoFile',
+        'organization.industry',
+        'user',
+      ],
+      order: { postedDate: 'DESC' },
+    });
+  }
 }

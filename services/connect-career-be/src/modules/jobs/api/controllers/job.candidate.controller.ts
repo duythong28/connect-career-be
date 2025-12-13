@@ -17,6 +17,8 @@ import * as decorators from 'src/modules/identity/api/decorators';
 import { JwtAuthGuard } from 'src/modules/identity/api/guards/jwt-auth.guard';
 import { SavedJobService } from '../services/saved-job.service';
 import { SaveJobDto, UpdateSavedJobDto } from '../dtos/saved-job.dto';
+import { GetJobsByIdsDto } from '../dtos/get-jobs-by-ids.dto';
+import { ApiOperation, ApiResponse } from '@nestjs/swagger';
 
 @Controller('/v1/candidates/jobs/')
 export class JobCandidateController {
@@ -238,5 +240,19 @@ export class JobCandidateController {
     @decorators.CurrentUser() user: decorators.CurrentUserPayload,
   ) {
     return this.savedJobService.getUserJobStats(user.sub);
+  }
+
+  @Get('by-ids')
+  @decorators.Public()
+  @ApiOperation({ summary: 'Get jobs by a list of job IDs' })
+  @ApiResponse({
+    status: 200,
+    description: 'Jobs retrieved successfully',
+  })
+  async getJobsByIds(@Query() dto: GetJobsByIdsDto) {
+    if (!dto.ids || dto.ids.length === 0) {
+      return [];
+    }
+    return this.jobService.getJobsByIds(dto.ids);
   }
 }

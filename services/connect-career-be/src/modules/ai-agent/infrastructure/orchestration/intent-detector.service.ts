@@ -3,6 +3,7 @@ import { AIService } from 'src/shared/infrastructure/external-services/ai/servic
 import { IntentResult } from '../../domain/types/agent.types';
 import { IntentDetectionException } from '../../apis/http-exceptions/intent-detection.exception';
 import { Intent } from '../../domain/enums/intent.enum';
+import { PromptService } from '../prompts/prompt.service';
 
 @Injectable()
 export class IntentDetectorService {
@@ -68,12 +69,7 @@ export class IntentDetectorService {
       'job description',
       'write job',
     ],
-    edit_job_post: [
-      'edit job',
-      'update job',
-      'modify job',
-      'rewrite job',
-    ],
+    edit_job_post: ['edit job', 'update job', 'modify job', 'rewrite job'],
     search_candidates: [
       'find candidates',
       'search candidates',
@@ -96,11 +92,7 @@ export class IntentDetectorService {
       'generate questions',
       'create questions',
     ],
-    shortlist_candidates: [
-      'shortlist',
-      'top candidates',
-      'best candidates',
-    ],
+    shortlist_candidates: ['shortlist', 'top candidates', 'best candidates'],
     candidate_scorecard: [
       'score candidate',
       'rate candidate',
@@ -109,7 +101,10 @@ export class IntentDetectorService {
     faq: ['what is', 'how to', 'explain', 'tell me about'],
   };
 
-  constructor(private readonly aiService: AIService) {}
+  constructor(
+    private readonly aiService: AIService,
+    private readonly promptService: PromptService,
+  ) {}
 
   async detectIntent(
     message: string,
@@ -151,14 +146,18 @@ export class IntentDetectorService {
     }
   }
 
-  private matchPatterns(message: string, role?: 'candidate' | 'recruiter'): IntentResult | null {
+  private matchPatterns(
+    message: string,
+    role?: 'candidate' | 'recruiter',
+  ): IntentResult | null {
     const lowerMessage = message.toLowerCase();
     let bestMatch: { intent: string; confidence: number } | null = null;
 
     // Use role-specific patterns
-    const patterns = role === 'recruiter' 
-      ? this.recruiterIntentPatterns 
-      : this.candidateIntentPatterns;
+    const patterns =
+      role === 'recruiter'
+        ? this.recruiterIntentPatterns
+        : this.candidateIntentPatterns;
 
     for (const [intent, patternList] of Object.entries(patterns)) {
       const matches = patternList.filter((pattern) =>
@@ -190,54 +189,22 @@ export class IntentDetectorService {
     userContext?: any,
     role?: 'candidate' | 'recruiter',
   ): Promise<IntentResult> {
-    // Role-specific intent lists
-    const candidateIntents = `- job_search: User wants to find jobs
-- job_match: User wants job recommendations based on their profile
-- career_path: User wants career planning advice
-- skill_gap: User wants to know what skills they need
-- interview_prep: User wants interview preparation help
-- cv_review: User wants CV/resume feedback
-- company_research: User wants information about companies
-- application_status: User wants to check application status
-- learning_path: User wants learning resources
-- comparison: User wants to compare jobs/companies/offers
-- faq: General questions`;
-
-    const recruiterIntents = `- create_job_post: User wants to create a job posting
-- edit_job_post: User wants to edit/update a job posting
-- search_candidates: User wants to find/search candidates
-- screen_candidate: User wants to screen/evaluate a candidate
-- compare_candidates: User wants to compare multiple candidates
-- generate_interview_questions: User wants interview questions generated
-- shortlist_candidates: User wants to create a shortlist
-- candidate_scorecard: User wants to score/rate a candidate
-- faq: General questions`;
-
-    const intentList = role === 'recruiter' ? recruiterIntents : candidateIntents;
-    const roleContext = role === 'recruiter' 
-      ? 'You are helping a recruiter with hiring tasks.'
-      : 'You are helping a job seeker with career-related tasks.';
-
-    const systemPrompt = `You are an intent classifier for a career assistant AI system.
-${roleContext}
-
-Analyze the user's message and classify it into one of these intents:
-${intentList}
-
-Also extract relevant entities like: job titles, skills, companies, locations, etc.
-
-Return JSON with: { intent, entities: {}, confidence: 0.0-1.0, requiresClarification: boolean }`;
+    const intentList = this.promptService.getIntentList(role);
+    const systemPrompt = this.promptService.getIntentDetectionSystemPrompt(
+      role,
+      intentList,
+    );
 
     const historyContext = conversationHistory
       .slice(-5)
       .map((msg) => `${msg.role}: ${msg.content}`)
       .join('\n');
 
-    const prompt = `User message: "${message}"
-${historyContext ? `\nRecent conversation:\n${historyContext}` : ''}
-${userContext ? `\nUser context: ${JSON.stringify(userContext)}` : ''}
-
-Classify the intent and extract entities.`;
+    const prompt = this.promptService.getIntentDetectionUserPrompt(
+      message,
+      historyContext,
+      userContext,
+    );
 
     const response = await this.aiService.chat({
       messages: [
@@ -249,7 +216,10 @@ Classify the intent and extract entities.`;
     });
 
     try {
-      const result = JSON.parse(response.content);
+      const cleanedContent = this.promptService.cleanJsonResponse(
+        response.content,
+      );
+      const result = JSON.parse(cleanedContent);
       return {
         intent: result.intent || Intent.FAQ,
         entities: result.entities || {},
@@ -258,7 +228,9 @@ Classify the intent and extract entities.`;
         alternativeIntents: result.alternativeIntents,
       };
     } catch (parseError) {
-      this.logger.warn('Failed to parse LLM intent response, using fallback');
+      this.logger.warn(
+        `Failed to parse LLM intent response: ${parseError instanceof Error ? parseError.message : String(parseError)}. Using fallback.`,
+      );
       return {
         intent: Intent.FAQ,
         entities: {},

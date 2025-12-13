@@ -287,7 +287,7 @@ Always explain what you're doing and why.`;
             // Start LangSmith trace if enabled
             if (this.langsmithEnabled && this.langsmithClient) {
               try {
-                const trace = await this.langsmithClient.createRun({
+                const trace = (await this.langsmithClient.createRun({
                   name: options?.runName || `${agent.name}_execution`,
                   run_type: 'chain',
                   inputs: {
@@ -298,11 +298,13 @@ Always explain what you're doing and why.`;
                     ...options?.metadata,
                   },
                   project_name: this.langsmithProject,
-                });
-                traceId = typeof trace === 'string' ? trace : (trace as any).id;
+                })) as { id?: string } | undefined;
+
+                // Safely extract trace ID
+                traceId = trace?.id;
               } catch (traceError) {
                 this.logger.warn(
-                  `Failed to create LangSmith trace: ${traceError}`,
+                  `Failed to create LangSmith trace: ${traceError instanceof Error ? traceError.message : String(traceError)}`,
                 );
               }
             }
@@ -405,7 +407,7 @@ Always explain what you're doing and why.`;
           // Start LangSmith trace if enabled
           if (this.langsmithEnabled && this.langsmithClient) {
             try {
-              const trace = await this.langsmithClient.createRun({
+              const trace = (await this.langsmithClient.createRun({
                 name: options?.runName || 'simple_chain',
                 run_type: 'chain',
                 inputs: {
@@ -413,11 +415,13 @@ Always explain what you're doing and why.`;
                   ...options?.metadata,
                 },
                 project_name: this.langsmithProject,
-              });
-              traceId = typeof trace === 'string' ? trace : (trace as any).id;
+              })) as { id?: string } | undefined;
+
+              // Safely extract trace ID
+              traceId = trace?.id;
             } catch (traceError) {
               this.logger.warn(
-                `Failed to create LangSmith trace: ${traceError}`,
+                `Failed to create LangSmith trace: ${traceError instanceof Error ? traceError.message : String(traceError)}`,
               );
             }
           }
@@ -603,7 +607,7 @@ Question: {question}`;
           // Start LangSmith trace if enabled
           if (this.langsmithEnabled && this.langsmithClient) {
             try {
-              const trace = await this.langsmithClient.createRun({
+              const trace = (await this.langsmithClient.createRun({
                 name: options?.runName || 'rag_chain',
                 run_type: 'chain',
                 inputs: {
@@ -612,11 +616,13 @@ Question: {question}`;
                   ...options?.metadata,
                 },
                 project_name: this.langsmithProject,
-              });
-              traceId = typeof trace === 'string' ? trace : (trace as any).id;
+              })) as { id?: string } | undefined;
+
+              // Safely extract trace ID
+              traceId = trace?.id;
             } catch (traceError) {
               this.logger.warn(
-                `Failed to create LangSmith trace: ${traceError}`,
+                `Failed to create LangSmith trace: ${traceError instanceof Error ? traceError.message : String(traceError)}`,
               );
             }
           }

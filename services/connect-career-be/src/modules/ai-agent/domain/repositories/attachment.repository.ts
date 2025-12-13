@@ -17,7 +17,9 @@ export class AttachmentRepository implements IAttachmentRepository {
     private readonly repository: Repository<AttachmentEntity>,
   ) {}
 
-  async create(attachment: Partial<AttachmentEntity>): Promise<AttachmentEntity> {
+  async create(
+    attachment: Partial<AttachmentEntity>,
+  ): Promise<AttachmentEntity> {
     const entity = this.repository.create(attachment);
     return await this.repository.save(entity);
   }
@@ -40,4 +42,3 @@ export class AttachmentRepository implements IAttachmentRepository {
     await this.repository.delete(id);
   }
 }
-

@@ -42,4 +42,5 @@ export interface AIProvider {
   chat(request: AIChatRequest): Promise<AIChatResponse>;
   generate(request: AIGenerateRequest): Promise<AIGenerateResponse>;
   chatStream?(request: AIChatRequest): AsyncGenerator<string, void, unknown>;
+  embed?(request: AIVectorizeRequest): Promise<AIVectorizeResponse>;
 }

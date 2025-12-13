@@ -2,12 +2,16 @@ import { Injectable, Logger } from '@nestjs/common';
 import { AIService } from 'src/shared/infrastructure/external-services/ai/services/ai.service';
 import { AgentResult } from '../../domain/types/agent.types';
 import { ExecutionContext } from './execution-context';
+import { PromptService } from '../prompts/prompt.service';
 
 @Injectable()
 export class ResponseSynthesizerService {
   private readonly logger = new Logger(ResponseSynthesizerService.name);
 
-  constructor(private readonly aiService: AIService) {}
+  constructor(
+    private readonly aiService: AIService,
+    private readonly promptService: PromptService,
+  ) {}
 
   async synthesize(
     agentResults: AgentResult[],
@@ -43,8 +47,7 @@ export class ResponseSynthesizerService {
       return this.formatErrorResponse(failedResults);
     }
 
-    const systemPrompt = `You are a helpful career assistant. Synthesize multiple agent results into a coherent, natural response for the user.
-Be concise, clear, and helpful. Maintain a friendly, professional tone.`;
+    const systemPrompt = this.promptService.getResponseSynthesisSystemPrompt();
 
     const resultsSummary = successfulResults
       .map((result, index) => {
@@ -59,15 +62,12 @@ ${result.nextSteps ? `Next steps: ${result.nextSteps.join(', ')}` : ''}`;
       .map((msg) => `${msg.role}: ${msg.content}`)
       .join('\n');
 
-    const prompt = `User's original request context:
-${conversationContext}
-
-Agent results to synthesize:
-${resultsSummary}
-
-${failedResults.length > 0 ? `\nNote: Some operations failed: ${failedResults.map((r) => r.agentName).join(', ')}` : ''}
-
-Provide a natural, helpful response that combines these results.`;
+    const originalRequest = conversationContext || 'User request';
+    const prompt = this.promptService.getResponseSynthesisUserPrompt(
+      originalRequest,
+      resultsSummary,
+      conversationContext,
+    );
 
     try {
       const response = await this.aiService.chat({
@@ -167,8 +167,7 @@ Provide a natural, helpful response that combines these results.`;
       return;
     }
 
-    const systemPrompt = `You are a helpful career assistant. Synthesize multiple agent results into a coherent, natural response for the user.
-Be concise, clear, and helpful. Maintain a friendly, professional tone.`;
+    const systemPrompt = this.promptService.getResponseSynthesisSystemPrompt();
 
     const resultsSummary = successfulResults
       .map((result, index) => {
@@ -183,15 +182,12 @@ ${result.nextSteps ? `Next steps: ${result.nextSteps.join(', ')}` : ''}`;
       .map((msg) => `${msg.role}: ${msg.content}`)
       .join('\n');
 
-    const prompt = `User's original request context:
-${conversationContext}
-
-Agent results to synthesize:
-${resultsSummary}
-
-${failedResults.length > 0 ? `\nNote: Some operations failed: ${failedResults.map((r) => r.agentName).join(', ')}` : ''}
-
-Provide a natural, helpful response that combines these results.`;
+    const originalRequest = conversationContext || 'User request';
+    const prompt = this.promptService.getResponseSynthesisUserPrompt(
+      originalRequest,
+      resultsSummary,
+      conversationContext,
+    );
 
     try {
       const stream = this.aiService.chatStream({

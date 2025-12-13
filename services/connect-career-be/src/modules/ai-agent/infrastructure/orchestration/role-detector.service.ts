@@ -1,6 +1,7 @@
 import { Injectable, Logger } from '@nestjs/common';
 import { AIService } from 'src/shared/infrastructure/external-services/ai/services/ai.service';
 import { UserRole } from '../../domain/types/agent-state.type';
+import { PromptService } from '../prompts/prompt.service';
 
 export interface RoleDetectionResult {
   role: UserRole;
@@ -12,7 +13,10 @@ export interface RoleDetectionResult {
 export class RoleDetectorService {
   private readonly logger = new Logger(RoleDetectorService.name);
 
-  constructor(private readonly aiService: AIService) {}
+  constructor(
+    private readonly aiService: AIService,
+    private readonly promptService: PromptService,
+  ) {}
 
   async detectRole(
     message: string,
@@ -104,22 +108,17 @@ export class RoleDetectorService {
     message: string,
     conversationHistory: Array<{ role: string; content: string }>,
   ): Promise<RoleDetectionResult> {
-    const systemPrompt = `You are a role classifier for a career assistant AI system.
-Analyze the user's message and determine if they are a:
-- candidate: Someone looking for jobs, career advice, or job-related help
-- recruiter: Someone hiring, managing job postings, or screening candidates
-
-Return JSON with: { role: "candidate" | "recruiter", confidence: 0.0-1.0, reasoning: "brief explanation" }`;
+    const systemPrompt = this.promptService.getRoleDetectionSystemPrompt();
 
     const historyContext = conversationHistory
       .slice(-3)
       .map((msg) => `${msg.role}: ${msg.content}`)
       .join('\n');
 
-    const prompt = `User message: "${message}"
-${historyContext ? `\nRecent conversation:\n${historyContext}` : ''}
-
-Classify the user's role.`;
+    const prompt = this.promptService.getRoleDetectionUserPrompt(
+      message,
+      historyContext,
+    );
 
     try {
       const response = await this.aiService.chat({
@@ -131,14 +130,19 @@ Classify the user's role.`;
         maxOutputTokens: 256,
       });
 
-      const result = JSON.parse(response.content);
+      const cleanedContent = this.promptService.cleanJsonResponse(
+        response.content,
+      );
+      const result = JSON.parse(cleanedContent);
       return {
         role: result.role || 'candidate',
         confidence: result.confidence || 0.7,
         reasoning: result.reasoning,
       };
     } catch (error) {
-      this.logger.warn('Failed to parse LLM role response, using default');
+      this.logger.warn(
+        `Failed to parse LLM role response: ${error instanceof Error ? error.message : String(error)}. Using default.`,
+      );
       return {
         role: 'candidate', // Default to candidate
         confidence: 0.5,
@@ -146,4 +150,3 @@ Classify the user's role.`;
     }
   }
 }
-

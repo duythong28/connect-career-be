@@ -64,6 +64,11 @@ import { AgentMonitoringService } from './infrastructure/monitoring/agent-monito
 import { AnalyticsService } from './infrastructure/monitoring/analytics.service';
 import { ExecutionLoggerService } from './infrastructure/monitoring/execution-log.service';
 import { LangSmithService } from './application/langsmith.service';
+
+// Infrastructure Layer - Prompts
+import { PromptService } from './infrastructure/prompts/prompt.service';
+import { User } from '../identity/domain/entities';
+import { CandidateProfile } from '../profile/domain/entities/candidate-profile.entity';
 @Module({
   imports: [
     ConfigModule,
@@ -75,6 +80,8 @@ import { LangSmithService } from './application/langsmith.service';
       SessionEntity,
       MessageEntity,
       AttachmentEntity,
+      User,
+      CandidateProfile,
     ]),
   ],
   controllers: [AiAgentController],
@@ -114,6 +121,9 @@ import { LangSmithService } from './application/langsmith.service';
     AgentMonitoringService,
     AnalyticsService,
     ExecutionLoggerService,
+
+    // Infrastructure Services - Prompts
+    PromptService,
 
     // Domain Repositories
     AgentExecutionRepository,

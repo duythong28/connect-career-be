@@ -239,7 +239,6 @@ export class AiAgentController {
     };
   }
 
-  // 6. POST /sessions/:sessionId/stream - Stream chat
   @Post('/sessions/:sessionId/stream')
   @HttpCode(HttpStatus.OK)
   @ApiOperation({ summary: 'Stream chat response (SSE)' })
@@ -250,13 +249,11 @@ export class AiAgentController {
     @decorators.CurrentUser() user: decorators.CurrentUserPayload,
     @Res() res: Response,
   ): Promise<void> {
-    // Verify session exists
     const session = await this.sessionRepository.findById(sessionId);
     if (!session || session.userId !== user.sub) {
       throw new NotFoundException('Session not found or unauthorized');
     }
 
-    // Set SSE headers
     res.setHeader('Content-Type', 'text/event-stream');
     res.setHeader('Cache-Control', 'no-cache, no-transform');
     res.setHeader('Connection', 'keep-alive');
@@ -305,7 +302,6 @@ export class AiAgentController {
     }
   }
 
-  // 7. GET /sessions/:sessionId/messages/:messageId/speech - Get message speech
   @Get('/sessions/:sessionId/messages/:messageId/speech')
   @HttpCode(HttpStatus.OK)
   @ApiOperation({ summary: 'Get speech audio for a message' })
@@ -329,7 +325,6 @@ export class AiAgentController {
       throw new NotFoundException('Message not found');
     }
 
-    // TODO: Implement text-to-speech conversion
     res.setHeader('Content-Type', 'audio/mpeg');
     res.setHeader(
       'Content-Disposition',
@@ -337,11 +332,9 @@ export class AiAgentController {
     );
     res.setHeader('Cache-Control', 'no-cache');
 
-    // Placeholder - implement actual TTS service
     res.end();
   }
 
-  // 8. DELETE /sessions/:sessionId - Delete session
   @Delete('/sessions/:sessionId')
   @HttpCode(HttpStatus.OK)
   @ApiOperation({ summary: 'Delete a chat session' })
@@ -366,7 +359,6 @@ export class AiAgentController {
     };
   }
 
-  // 10. GET /prompt-suggestions - Get prompt suggestions
   @Get('/prompt-suggestions')
   @HttpCode(HttpStatus.OK)
   @ApiOperation({ summary: 'Get prompt suggestions' })
@@ -378,7 +370,6 @@ export class AiAgentController {
     message: string;
     data: { suggestions: string[] };
   }> {
-    // Get suggestions from suggestion service
     const suggestions = await this.suggestionService.getSuggestions(
       user.sub,
       '',

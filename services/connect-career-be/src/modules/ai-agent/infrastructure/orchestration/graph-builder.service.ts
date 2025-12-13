@@ -7,6 +7,7 @@ import { IntentDetectorService } from './intent-detector.service';
 import { AgentRouterService } from './agent-router.service';
 import { ChainsService } from '../llm/chains.service';
 import { AgentContext } from '../../domain/types/agent.types';
+import { PromptService } from '../prompts/prompt.service';
 
 /**
  * Simplified graph builder that avoids strict LangGraph typings.
@@ -22,6 +23,7 @@ export class GraphBuilderService {
     private readonly intentDetector: IntentDetectorService,
     private readonly agentRouter: AgentRouterService,
     private readonly chainsService: ChainsService,
+    private readonly promptService: PromptService,
   ) {}
 
   buildGraph(_checkpointer: PostgresSaver) {
@@ -61,7 +63,9 @@ export class GraphBuilderService {
 
         // Choose subgraph
         const subgraphName =
-          roleResult.role === 'recruiter' ? 'RECRUITER_SUBGRAPH' : 'CANDIDATE_SUBGRAPH';
+          roleResult.role === 'recruiter'
+            ? 'RECRUITER_SUBGRAPH'
+            : 'CANDIDATE_SUBGRAPH';
         yield { event: 'on_chain_start', name: subgraphName };
 
         // Build agent context and execute
@@ -90,24 +94,80 @@ export class GraphBuilderService {
         // CONTEXT_BUILDER
         yield { event: 'on_chain_start', name: 'CONTEXT_BUILDER' };
 
-        // ANSWER
+        // ANSWER - Use agent chain with tools instead of simple chain
         yield { event: 'on_chain_start', name: 'ANSWER' };
-        const systemPrompt = `You are a helpful career assistant.
-${roleResult.role === 'recruiter'
-  ? 'You help recruiters with hiring tasks, candidate screening, and job posting.'
-  : 'You help job seekers find jobs, improve their CVs, and advance their careers.'}
-
-Generate a helpful, natural response based on the context provided.`;
+        const systemPrompt = self.promptService.getGraphBuilderSystemPrompt(
+          roleResult.role || 'candidate',
+        );
 
         const contextInfo = agentResult?.data
-          ? `\n\nContext:\n${JSON.stringify(agentResult.data, null, 2)}`
-          : '';
-        const prompt = `User: ${userText}${contextInfo}\n\nGenerate a helpful response.`;
-        const chain = self.chainsService.createSimpleChain(systemPrompt, {
-          temperature: 0.7,
-          maxOutputTokens: 2048,
-        });
-        const answer = await chain.execute(prompt);
+          ? JSON.stringify(agentResult.data, null, 2)
+          : undefined;
+        
+        // Include user profile and conversation history in the prompt
+        const userProfileInfo = initialState?.user_profile
+          ? JSON.stringify(initialState.user_profile, null, 2)
+          : undefined;
+        
+        // Format conversation history for the prompt (last 10 messages for context)
+        const recentHistory = messages
+          .slice(-10)
+          .map((m) => {
+            const role = m instanceof HumanMessage ? 'user' : 'assistant';
+            const content = m.content?.toString() || '';
+            return `${role}: ${content}`;
+          })
+          .join('\n');
+        
+        // Build user prompt
+        const userPrompt = self.promptService.getGraphBuilderUserPrompt(
+          userText,
+          contextInfo,
+          userProfileInfo,
+          recentHistory,
+        );
+
+        // Get agent's tools for tool calling
+        const agentTools = agent.getTools();
+        
+        let answer: string;
+        
+        // If agent has tools, use agent chain (allows LLM to call tools)
+        if (agentTools.length > 0) {
+          self.logger.log(`Using agent chain with ${agentTools.length} tools for ${agent.name}`);
+          
+          const agentChain = await self.chainsService.createAgentChain(
+            agent,
+            agentTools,
+            {
+              temperature: 0.7,
+              maxIterations: 5,
+              chatHistory: messages.slice(-10),
+              runName: `answer_${agent.name}`,
+              metadata: {
+                intent: intentResult.intent,
+                thread_id: initialState?.thread_id,
+              },
+            },
+          );
+          
+          // Execute with the user prompt
+          const chainResult = await agentChain.executor.invoke({
+            input: userPrompt,
+            chat_history: messages.slice(-10),
+          });
+          
+          answer = typeof chainResult.output === 'string' 
+            ? chainResult.output 
+            : JSON.stringify(chainResult.output);
+        } else {
+          // Fallback to simple chain if no tools
+          const chain = self.chainsService.createSimpleChain(systemPrompt, {
+            temperature: 0.7,
+            maxOutputTokens: 4096,
+          });
+          answer = await chain.execute(userPrompt);
+        }
 
         yield {
           event: 'on_chat_model_stream',
@@ -128,12 +188,14 @@ Generate a helpful, natural response based on the context provided.`;
   async getCheckpointer(): Promise<PostgresSaver> {
     const host = this.configService.get<string>('DATABASE_HOST') || 'localhost';
     const port = this.configService.get<string>('DATABASE_PORT') || '5432';
-    const username = this.configService.get<string>('DATABASE_USERNAME') || 'postgres';
-    const password = this.configService.get<string>('DATABASE_PASSWORD') || 'postgres';
-    const database = this.configService.get<string>('DATABASE_NAME') || 'connect_career';
+    const username =
+      this.configService.get<string>('DATABASE_USERNAME') || 'postgres';
+    const password =
+      this.configService.get<string>('DATABASE_PASSWORD') || 'postgres';
+    const database =
+      this.configService.get<string>('DATABASE_NAME') || 'connect_career';
 
     const connectionString = `postgresql://${username}:${password}@${host}:${port}/${database}`;
     return await PostgresSaver.fromConnString(connectionString);
   }
 }
-

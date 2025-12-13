@@ -15,8 +15,7 @@ from .services.embedding_service import embedding_service
 from .database import db
 import sys
 import os
-sys.path.insert(0, os.path.join(os.path.dirname(__file__), '..'))
-from utils.embedding_builders import build_job_text, build_user_text
+from .utils.embedding_builders import build_job_text, build_user_text
 # Setup logging
 logging.basicConfig(
     level=getattr(logging, settings.log_level),

@@ -16,4 +16,4 @@ services:
       - name: ai-service-route
         paths:
           - /ai
-        strip_path: false
+        strip_path: true

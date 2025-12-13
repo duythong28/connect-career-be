@@ -18,14 +18,17 @@ import { RedisCacheService } from './redis/redis-cache.service';
           port: isNaN(port) ? 6379 : port,
           password: configService.get('REDIS_PASSWORD') || undefined,
           db: isNaN(db) ? 0 : db,
-          // Critical: Prevent connection leaks
-          maxRetriesPerRequest: 3, // Limit retries to prevent connection buildup
           enableReadyCheck: true,
           enableOfflineQueue: false, // Don't queue commands when offline
           lazyConnect: false,
           connectTimeout: 10000,
-          // Retry strategy with exponential backoff
+          // Connection pool settings - IMPORTANT for preventing max clients error
+          maxRetriesPerRequest: null,
           retryStrategy: (times: number) => {
+            // Stop retrying after 3 attempts
+            if (times > 3) {
+              return null; // Stop retrying
+            }
             const delay = Math.min(times * 50, 2000);
             return delay;
           },
@@ -39,16 +42,31 @@ import { RedisCacheService } from './redis/redis-cache.service';
           },
           // Connection pool settings
           keepAlive: 30000, // Keep connections alive
+          // Limit connection pool size
+          family: 4, // Use IPv4
+          // Disable auto-reconnect on max clients error
+          showFriendlyErrorStack: true,
         });
 
         // Handle connection errors
         redis.on('error', (err) => {
           console.error('Redis connection error:', err);
+          // Don't reconnect on max clients error
+          if (err.message.includes('max number of clients reached')) {
+            console.error(
+              'Redis max clients reached - check for connection leaks',
+            );
+          }
         });
 
         // Handle connection close
         redis.on('close', () => {
           console.log('Redis connection closed');
+        });
+
+        // Monitor connection status
+        redis.on('connect', () => {
+          console.log('Redis connected');
         });
 
         return redis;

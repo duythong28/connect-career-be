@@ -693,7 +693,7 @@ export class JobService {
     if (!ids || ids.length === 0) {
       return [];
     }
-  
+
     return this.jobRepository.find({
       where: ids.map((id) => ({ id })),
       relations: [

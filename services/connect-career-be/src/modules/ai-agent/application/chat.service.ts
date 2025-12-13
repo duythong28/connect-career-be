@@ -12,13 +12,102 @@ import { MessageRepository } from '../domain/repositories/message.repository';
 import { AttachmentRepository } from '../domain/repositories/attachment.repository';
 import { LangSmithService } from './langsmith.service';
 import { MediaService, MediaProcessingResult } from './media.service';
-import {
-  MediaAttachmentDto,
-} from '../apis/dtos/media-attachment.dto';
+import { MediaAttachmentDto } from '../apis/dtos/media-attachment.dto';
 import { EventType } from '../domain/enums/event-type.enum';
 import { GraphBuilderService } from '../infrastructure/orchestration/graph-builder.service';
 import { AgentState } from '../domain/types/agent-state.type';
 import { HumanMessage, AIMessage } from '@langchain/core/messages';
+import { ChatMessage, ErrorType } from '../apis/dtos/stream-chat-response.dto';
+import { Repository } from 'typeorm';
+import { CandidateProfile } from 'src/modules/profile/domain/entities/candidate-profile.entity';
+import { InjectRepository } from '@nestjs/typeorm';
+import { User } from 'src/modules/identity/domain/entities/user.entity';
+
+/**
+ * LangGraph event structure (simplified)
+ */
+interface LangGraphEvent {
+  event?: string;
+  name?: string;
+  data?: {
+    chunk?: {
+      content?: string;
+    };
+    output?: AgentState;
+  };
+}
+
+/**
+ * Dual Message Handler for streaming vs persistence
+ * Implements the dual message pattern from architecture:
+ * - Streaming messages prioritize responsiveness (replace semantics)
+ * - Internal messages guarantee consistency (append semantics)
+ */
+class DualMessageHandler {
+  private yieldThinkMessage: ChatMessage | null = null;
+  private thinkMessage: ChatMessage | null = null;
+  private yieldAnswerMessage: ChatMessage | null = null;
+  private answerMessage: ChatMessage | null = null;
+  private processedNodes = new Set<string>();
+
+  updateStreamingThinkMessage(content: string, nodeName: string) {
+    // Only emit once per node to avoid redundancy
+    if (!this.processedNodes.has(nodeName)) {
+      this.yieldThinkMessage = {
+        role: 'assistant',
+        content,
+        metadata: { isThinking: true, nodeName },
+      };
+      this.processedNodes.add(nodeName);
+    }
+  }
+
+  updatePersistedThinkMessage(content: string) {
+    this.thinkMessage = {
+      role: 'assistant',
+      content: (this.thinkMessage?.content || '') + content,
+      metadata: { ...this.thinkMessage?.metadata, isThinking: true },
+    };
+  }
+
+  updateStreamingAnswerMessage(content: string) {
+    // Replace content for real-time streaming
+    this.yieldAnswerMessage = {
+      role: 'assistant',
+      content,
+      metadata: { isThinking: false },
+    };
+  }
+
+  updatePersistedAnswerMessage(content: string) {
+    // Append content for final state
+    this.answerMessage = {
+      role: 'assistant',
+      content: (this.answerMessage?.content || '') + content,
+      metadata: { ...this.answerMessage?.metadata, isThinking: false },
+    };
+  }
+
+  getStreamingMessages(): ChatMessage[] {
+    const messages: ChatMessage[] = [];
+    if (this.yieldThinkMessage) messages.push(this.yieldThinkMessage);
+    if (this.yieldAnswerMessage) messages.push(this.yieldAnswerMessage);
+    return messages;
+  }
+
+  getPersistedMessages(): ChatMessage[] {
+    const messages: ChatMessage[] = [];
+    if (this.thinkMessage) messages.push(this.thinkMessage);
+    if (this.answerMessage) messages.push(this.answerMessage);
+    return messages;
+  }
+
+  getFinalAnswer(): string {
+    return (
+      this.answerMessage?.content || this.yieldAnswerMessage?.content || ''
+    );
+  }
+}
 
 @Injectable()
 export class ChatService {
@@ -37,6 +126,10 @@ export class ChatService {
     private readonly langSmithService: LangSmithService,
     private readonly mediaService: MediaService,
     private readonly graphBuilder: GraphBuilderService,
+    @InjectRepository(User)
+    private readonly userRepository: Repository<User>,
+    @InjectRepository(CandidateProfile)
+    private readonly candidateProfileRepository: Repository<CandidateProfile>,
   ) {}
 
   async createChat(userId: string): Promise<{ sessionId: string }> {
@@ -285,14 +378,29 @@ export class ChatService {
     sessionId: string,
     message: string,
     metadata?: Record<string, any>,
+    manualRetryAttempts: number = 0,
+    retriedMessageId?: string,
   ): AsyncGenerator<{ type: string; data: any }, void, unknown> {
     const startTime = Date.now();
     let isError = false;
     let userMessage: { id: string } | null = null;
-    let fullResponse = '';
+    let assistantMessageId: string | null = null;
+    const dualMessageHandler = new DualMessageHandler();
+    const maxRetries = 3;
+
+    // Node name to progress message mapping
+    const nodeProgressMessages: Record<string, string> = {
+      INTENT_DETECTOR: 'Understanding your request...',
+      ROLE_DETECTOR: 'Detecting user role...',
+      AGENT_ROUTER: 'Routing to appropriate agent...',
+      CONTEXT_BUILDER: 'Building context...',
+      ANSWER: 'Generating response...',
+    };
 
     try {
-      // Verify session
+      // ========================================================================
+      // Phase 1: Initialization
+      // ========================================================================
       const session = await this.sessionRepository.findById(sessionId);
       if (!session || session.userId !== userId) {
         throw new NotFoundException('Session not found or unauthorized');
@@ -343,7 +451,11 @@ export class ChatService {
         attachments: metadata?.attachments as unknown,
         mediaResults,
         hasMedia: mediaResults.length > 0,
+        manualRetryAttempts,
+        retriedMessageId,
       };
+
+      this.logSummary('Enriched message:', enrichedMessage);
 
       // Store user message
       await this.episodicMemory.storeEvent(userId, {
@@ -370,12 +482,48 @@ export class ChatService {
         );
       }
 
+      // ========================================================================
+      // Phase 2: Immediate Feedback
+      // ========================================================================
+      // Stream immediate thinking message for responsiveness
+      yield {
+        type: 'thinking',
+        data: {
+          messages: {
+            role: 'assistant',
+            content: 'Analyzing your request...',
+            metadata: { isThinking: true },
+          },
+          isDone: false,
+          isError: false,
+        },
+      };
+
+      // ========================================================================
+      // Phase 3: Agent State Setup
+      // ========================================================================
       // Load conversation history
       const messages = await this.messageRepository.findBySessionId(sessionId);
-      const conversationHistory = messages.map((msg) => new (msg.role === 'user' ? HumanMessage : AIMessage)(msg.content));
+      const conversationHistory = messages.map((msg) =>
+        msg.role === 'user'
+          ? new HumanMessage(msg.content)
+          : new AIMessage(msg.content),
+      );
+
+      this.logSummary(
+        'Conversation history',
+        conversationHistory.length > 0
+          ? {
+              count: conversationHistory.length,
+              lastMessage: conversationHistory[conversationHistory.length - 1],
+            }
+          : 'empty',
+      );
 
       // Get user profile (if available)
       const userProfile = await this.getUserProfile(userId);
+
+      this.logSummary('User profile', userProfile);
 
       // Initialize agent state
       const initialState: Partial<AgentState> = {
@@ -385,9 +533,18 @@ export class ChatService {
         context_data: enrichedMetadata,
       };
 
+      this.logSummary('Initial state', {
+        messageCount: initialState.messages?.length || 0,
+        threadId: initialState.thread_id,
+        hasUserProfile: !!initialState.user_profile,
+        contextKeys: Object.keys(initialState.context_data || {}),
+      });
+
       // Get checkpointer and build graph
       const checkpointer = await this.graphBuilder.getCheckpointer();
-      const graph = await this.graphBuilder.buildGraph(checkpointer);
+
+      this.logger.log('Checkpointer: initialized');
+      const graph = this.graphBuilder.buildGraph(checkpointer);
 
       // Stream events from LangGraph
       const config = {
@@ -401,40 +558,167 @@ export class ChatService {
         },
       };
 
-      // Stream events (simplified handling)
+      // ========================================================================
+      // Phase 4: LangGraph Event Streaming
+      // ========================================================================
+      let suggestions: string[] = [];
+      let analysisResult: any = null;
+      let intent: string | undefined;
+      let entities: Record<string, any> | undefined;
+
       try {
-        const stream = graph.streamEvents(initialState as any, { version: 'v2', ...config });
+        const stream = graph.streamEvents(initialState as any, {
+          version: 'v2',
+          ...config,
+        });
+
         for await (const event of stream) {
-          const eventType = (event as any).event;
-          const eventName = (event as any).name;
+          const langGraphEvent = event as LangGraphEvent;
+          const eventType = langGraphEvent.event;
+          const eventName = langGraphEvent.name;
 
-          // Emit basic thinking signals
-          if (eventType === 'on_chain_start') {
-            yield { type: 'chunk', data: { content: '', isThinking: eventName !== 'ANSWER' } };
-          }
+          // ====================================================================
+          // 7.1 Node Lifecycle Events (Reasoning Updates)
+          // ====================================================================
+          if (eventType === 'on_chain_start' && eventName) {
+            this.logger.log('Node lifecycle event:', eventName);
+            const progressMessage =
+              nodeProgressMessages[eventName] || `Processing ${eventName}...`;
 
-          // Handle streaming LLM responses
-          if (
-            eventName === 'ANSWER' &&
-            eventType === 'on_chat_model_stream' &&
-            (event as any).data?.chunk
-          ) {
-            const chunk = (event as any).data.chunk;
-            if (chunk.content) {
-              fullResponse += chunk.content;
-              yield { type: 'chunk', data: { content: chunk.content, isThinking: false } };
+            dualMessageHandler.updateStreamingThinkMessage(
+              progressMessage,
+              eventName,
+            );
+            dualMessageHandler.updatePersistedThinkMessage(progressMessage);
+
+            // Stream thinking update
+            const streamingMessages = dualMessageHandler.getStreamingMessages();
+            if (streamingMessages.length > 0) {
+              yield {
+                type: 'chunk',
+                data: {
+                  messages: streamingMessages,
+                  isDone: false,
+                  isError: false,
+                },
+              };
             }
           }
 
-          // Handle final state
+          // ====================================================================
+          // 7.2 AI Response Streaming
+          // ====================================================================
+          if (
+            eventName === 'ANSWER' &&
+            eventType === 'on_chat_model_stream' &&
+            langGraphEvent.data?.chunk
+          ) {
+            this.logger.log('AI response streaming event:', eventName);
+            const chunk = langGraphEvent.data.chunk;
+            if (chunk.content) {
+              // Update streaming message (replace for real-time)
+              const currentContent = dualMessageHandler.getFinalAnswer();
+              dualMessageHandler.updateStreamingAnswerMessage(
+                currentContent + chunk.content,
+              );
+              // Update persisted message (append for final state)
+              dualMessageHandler.updatePersistedAnswerMessage(chunk.content);
+
+              // Stream token chunk
+              yield {
+                type: 'chunk',
+                data: {
+                  messages: dualMessageHandler.getStreamingMessages(),
+                  isDone: false,
+                  isError: false,
+                },
+              };
+            }
+          }
+
+          // ====================================================================
+          // Handle Tool Calls (Suggestions)
+          // ====================================================================
+          if (eventType === 'on_tool_start' || eventType === 'on_tool_end') {
+            this.logger.log('Tool call event:', eventName);
+            if (
+              eventName === 'suggest_prompts' &&
+              eventType === 'on_tool_end'
+            ) {
+              try {
+                const toolResult = langGraphEvent.data?.output;
+                if (toolResult) {
+                  suggestions = Array.isArray(toolResult)
+                    ? toolResult
+                    : typeof toolResult === 'string'
+                      ? this.parseSuggestionsFromText(toolResult)
+                      : [];
+
+                  // Stream suggestions immediately
+                  yield {
+                    type: 'suggestions',
+                    data: {
+                      messages: {
+                        role: 'assistant',
+                        content: '',
+                        metadata: {
+                          suggestions,
+                          groupSuggestionId: `suggestions_${sessionId}_${Date.now()}`,
+                        },
+                      },
+                      isDone: false,
+                      isError: false,
+                    },
+                  };
+                }
+              } catch (error) {
+                this.logger.warn(
+                  'Failed to parse suggestions from tool call',
+                  error,
+                );
+              }
+            }
+          }
+
+          // ====================================================================
+          // Handle Final State
+          // ====================================================================
           if (eventType === 'on_chain_end' && eventName === 'LangGraph') {
-            const finalState = (event as any).data?.output as AgentState;
+            const finalState = langGraphEvent.data?.output as AgentState;
+            this.logSummary('Final state', {
+              messageCount: finalState?.messages?.length || 0,
+              lastMessage:
+                finalState?.messages?.[finalState.messages.length - 1],
+              threadId: finalState?.thread_id,
+            });
+
             if (finalState?.messages && finalState.messages.length > 0) {
-              const lastMessage = finalState.messages[finalState.messages.length - 1];
+              const lastMessage =
+                finalState.messages[finalState.messages.length - 1];
               if (lastMessage instanceof AIMessage) {
                 const content = lastMessage.content;
-                fullResponse = typeof content === 'string' ? content : JSON.stringify(content) || fullResponse;
+                const finalContent =
+                  typeof content === 'string'
+                    ? content
+                    : JSON.stringify(content) || '';
+
+                // Ensure final content is set
+                if (finalContent && !dualMessageHandler.getFinalAnswer()) {
+                  dualMessageHandler.updatePersistedAnswerMessage(finalContent);
+                }
               }
+            }
+
+            // Extract analysis results
+            if (finalState?.analysis_result) {
+              analysisResult = finalState.analysis_result;
+            }
+            if (finalState?.intent) {
+              intent = finalState.intent;
+            }
+            // Extract entities from state if available
+            if (finalState?.context_data?.entities) {
+              entities = finalState.context_data.entities;
             }
           }
         }
@@ -444,37 +728,65 @@ export class ChatService {
       }
 
       const executionTime = Date.now() - startTime;
+      const finalResponse = dualMessageHandler.getFinalAnswer();
 
-      // Store assistant message
+      // ========================================================================
+      // Phase 5: Persistence (Asynchronous, Non-blocking)
+      // ========================================================================
+      // Store assistant message in episodic memory
       await this.episodicMemory.storeEvent(userId, {
         type: EventType.ASSISTANT_MESSAGE,
         sessionId,
-        content: fullResponse,
+        content: finalResponse,
         timestamp: new Date(),
       });
 
-      await this.messageRepository.create({
+      // Persist assistant message with all metadata
+      const assistantMessage = await this.messageRepository.create({
         sessionId,
-        content: fullResponse,
+        content: finalResponse,
         role: 'assistant',
         metadata: {
           executionTime,
+          intent,
+          entities,
+          analysisResult,
+          suggestions: suggestions.length > 0 ? suggestions : undefined,
+          groupSuggestionId:
+            suggestions.length > 0
+              ? `suggestions_${sessionId}_${Date.now()}`
+              : undefined,
           ...enrichedMetadata,
         },
       });
 
+      assistantMessageId = assistantMessage.id;
+
+      // Update session
       await this.sessionRepository.update(sessionId, {
         updatedAt: new Date(),
       });
 
-      // Send completion event
+      // ========================================================================
+      // Send Completion Event
+      // ========================================================================
       yield {
         type: 'complete',
         data: {
-          metadata: {
-            ...enrichedMetadata,
-            executionTime,
+          messages: {
+            role: 'assistant',
+            content: finalResponse,
+            metadata: {
+              intent,
+              entities,
+              suggestions: suggestions.length > 0 ? suggestions : undefined,
+              executionTime,
+            },
           },
+          isDone: true,
+          isError: false,
+          messageId: assistantMessageId,
+          completedAt: new Date(),
         },
       };
     } catch (error) {
@@ -484,14 +796,41 @@ export class ChatService {
         error instanceof Error ? error.stack : undefined,
       );
 
+      // ========================================================================
+      // Error Handling & Retry Control
+      // ========================================================================
+      const errorType = this.classifyError(error as Error);
+      const needsRetry =
+        errorType === ErrorType.SYSTEM_ERROR &&
+        manualRetryAttempts < maxRetries;
+      const reachRetryAttemptLimit = manualRetryAttempts >= maxRetries;
+
       yield {
         type: 'error',
         data: {
-          error: error instanceof Error ? error.message : String(error),
+          messages: {
+            role: 'assistant',
+            content: this.getErrorMessage(
+              error as Error,
+              reachRetryAttemptLimit,
+            ),
+            metadata: {
+              errorType,
+              needsRetry,
+              reachRetryAttemptLimit,
+            },
+          },
+          isDone: true,
+          isError: true,
+          needsRetry,
+          errorType,
+          reachRetryAttemptLimit,
         },
       };
     } finally {
-      // Cleanup: persist user message even on error
+      // ========================================================================
+      // Cleanup: Persist user message even on error
+      // ========================================================================
       if (isError && userMessage) {
         this.logger.warn(
           `Persisting user message with error metadata for failed chat in session ${sessionId}`,
@@ -500,10 +839,181 @@ export class ChatService {
     }
   }
 
-  private getUserProfile(userId: string): Promise<Record<string, any>> {
-    // TODO: Implement user profile retrieval
-    // This should fetch user profile from your user/profile service
-    return Promise.resolve({ userId });
+  // ========================================================================
+  // Helper Methods for Error Handling
+  // ========================================================================
+
+  private classifyError(error: Error): ErrorType {
+    const message = error.message.toLowerCase();
+    if (message.includes('timeout')) return ErrorType.TIMEOUT;
+    if (message.includes('model') || message.includes('llm')) {
+      return ErrorType.MODEL_FAILURE;
+    }
+    if (
+      message.includes('invalid') ||
+      message.includes('filter') ||
+      message.includes('not found')
+    ) {
+      return ErrorType.DOMAIN_ERROR;
+    }
+    return ErrorType.SYSTEM_ERROR;
+  }
+
+  private getErrorMessage(
+    error: Error,
+    reachRetryAttemptLimit: boolean,
+  ): string {
+    if (reachRetryAttemptLimit) {
+      return "I'm sorry, I've reached the maximum retry attempts. Please try again later or contact support if the issue persists.";
+    }
+
+    const errorType = this.classifyError(error);
+    switch (errorType) {
+      case ErrorType.TIMEOUT:
+        return "I'm sorry, the request timed out. Please try again.";
+      case ErrorType.MODEL_FAILURE:
+        return "I'm experiencing technical difficulties. Please try again in a moment.";
+      case ErrorType.DOMAIN_ERROR:
+        return `I couldn't process your request: ${error.message}`;
+      default:
+        return 'I encountered an unexpected error. Please try again.';
+    }
+  }
+
+  private parseSuggestionsFromText(text: string): string[] {
+    // Fallback: parse suggestions from plain text
+    const lines = text.split('\n');
+    const suggestions: string[] = [];
+
+    for (const line of lines) {
+      const trimmed = line.trim();
+      // Match numbered or bulleted items
+      const match = trimmed.match(/^[•\-*\d+.]\s*(.+)$/);
+      if (match && match[1]) {
+        suggestions.push(match[1]);
+      }
+    }
+
+    return suggestions.length > 0 ? suggestions : [];
+  }
+
+  private async getUserProfile(userId: string): Promise<Record<string, any>> {
+    try {
+      // Fetch basic user info
+      const user = await this.userRepository.findOne({
+        where: { id: userId },
+        select: ['id', 'firstName', 'lastName', 'fullName'],
+      });
+
+      if (!user) {
+        this.logger.warn(`User not found: ${userId}`);
+        return { userId };
+      }
+
+      // Build basic profile
+      const profile: Record<string, any> = {
+        userId: user.id,
+        name: user.fullName || `${user.firstName || ''} ${user.lastName || ''}`.trim() || undefined,
+      };
+
+      // Try to fetch candidate profile (always try, don't check role)
+      try {
+        // Remove 'select' when using 'relations' - TypeORM has issues with column aliases
+        const candidateProfile: CandidateProfile | null = await this.candidateProfileRepository.findOne({
+          where: { userId },
+          relations: [
+            'primaryIndustry',
+            'workExperiences',
+            'workExperiences.organization',
+            'educations',
+          ],
+          // Remove the select array - it conflicts with relations
+        });
+
+        if (!candidateProfile) {
+          this.logger.debug(`No candidate profile found for user: ${userId}`);
+          return profile; // Return early if no candidate profile
+        }
+
+        // Skills
+        if (candidateProfile.skills && candidateProfile.skills.length > 0) {
+          profile.skills = candidateProfile.skills;
+        }
+
+        // Location
+        if (candidateProfile.city || candidateProfile.country) {
+          profile.location = candidateProfile.city
+            ? `${candidateProfile.city}${candidateProfile.country ? `, ${candidateProfile.country}` : ''}`
+            : candidateProfile.country;
+        }
+
+        // Industry
+        if (candidateProfile.primaryIndustry) {
+          profile.industry = candidateProfile.primaryIndustry.name;
+        }
+
+        // Work Experience
+        if (candidateProfile.workExperiences && candidateProfile.workExperiences.length > 0) {
+          profile.experience = candidateProfile.workExperiences
+            .map((exp) => ({
+              jobTitle: exp.jobTitle,
+              company: exp.organization?.name || 'Unknown',
+              startDate: exp.startDate,
+              endDate: exp.endDate,
+              isCurrent: exp.isCurrent,
+              skills: exp.skills && exp.skills.length > 0 ? exp.skills : undefined,
+            }))
+            .sort((a, b) => {
+              const dateA = a.isCurrent ? new Date() : (a.endDate ? new Date(a.endDate) : new Date(0));
+              const dateB = b.isCurrent ? new Date() : (b.endDate ? new Date(b.endDate) : new Date(0));
+              return dateB.getTime() - dateA.getTime();
+            });
+
+          // Current job title
+          const currentJob = candidateProfile.workExperiences.find((exp) => exp.isCurrent);
+          if (currentJob) {
+            profile.currentJobTitle = currentJob.jobTitle;
+          }
+        }
+
+        // Education
+        if (candidateProfile.educations && candidateProfile.educations.length > 0) {
+          profile.education = candidateProfile.educations
+            .map((edu) => ({
+              degree: edu.degreeType,
+              field: edu.fieldOfStudy,
+              institution: edu.institutionName,
+              graduationDate: edu.graduationDate,
+              isCurrent: edu.isCurrent,
+            }))
+            .sort((a, b) => {
+              const dateA = a.graduationDate ? new Date(a.graduationDate) : new Date(0);
+              const dateB = b.graduationDate ? new Date(b.graduationDate) : new Date(0);
+              return dateB.getTime() - dateA.getTime();
+            });
+        }
+
+        this.logger.debug(`Candidate profile loaded for user ${userId}: ${JSON.stringify({
+          hasSkills: !!profile.skills,
+          hasLocation: !!profile.location,
+          hasIndustry: !!profile.industry,
+          experienceCount: profile.experience?.length || 0,
+          educationCount: profile.education?.length || 0,
+        })}`);
+      } catch (error) {
+        // Log the actual error to see what's happening
+        this.logger.warn(
+          `Failed to fetch candidate profile for user ${userId}: ${error instanceof Error ? error.message : String(error)}`,
+        );
+      }
+
+      return profile;
+    } catch (error) {
+      this.logger.error(
+        `Failed to fetch user profile for ${userId}: ${error instanceof Error ? error.message : String(error)}`,
+      );
+      return { userId };
+    }
   }
 
   private async processAttachment(
@@ -677,5 +1187,97 @@ export class ChatService {
         createdAt: msg.createdAt,
         metadata: msg.metadata,
       }));
+  }
+
+  private logSummary(label: string, data: any, maxLength: number = 200): void {
+    if (!data) {
+      this.logger.log(`${label}: null/undefined`);
+      return;
+    }
+
+    if (Array.isArray(data)) {
+      this.logger.log(`${label}: Array[${data.length}]`);
+      if (data.length > 0 && data.length <= 3) {
+        // Log first few items if array is small
+        data.slice(0, 3).forEach((item, idx) => {
+          const summary = this.summarizeObject(item, maxLength);
+          this.logger.debug(`${label}[${idx}]: ${summary}`);
+        });
+      }
+      return;
+    }
+
+    if (typeof data === 'object') {
+      const summary = this.summarizeObject(data, maxLength);
+      this.logger.log(`${label}: ${summary}`);
+      return;
+    }
+
+    // For primitives, truncate if too long
+    const str = String(data);
+    const truncated =
+      str.length > maxLength ? str.substring(0, maxLength) + '...' : str;
+    this.logger.log(`${label}: ${truncated}`);
+  }
+
+  private summarizeObject(obj: any, maxLength: number = 200): string {
+    if (!obj || typeof obj !== 'object') {
+      return String(obj);
+    }
+
+    // Handle special cases
+    if (obj.constructor?.name) {
+      const className = obj.constructor.name;
+
+      // For messages, just show role and content preview
+      if (className.includes('Message')) {
+        const role =
+          obj.role ||
+          (obj.constructor.name.includes('Human') ? 'user' : 'assistant');
+        const content =
+          typeof obj.content === 'string'
+            ? obj.content.length > 100
+              ? obj.content.substring(0, 100) + '...'
+              : obj.content
+            : '[non-string content]';
+        return `${role}: ${content}`;
+      }
+
+      // For checkpointer, just show it's initialized
+      if (
+        className.includes('PostgresSaver') ||
+        className.includes('Checkpointer')
+      ) {
+        return `${className} (initialized)`;
+      }
+    }
+
+    // For regular objects, show key fields only
+    const keys = Object.keys(obj);
+    if (keys.length === 0) return '{}';
+
+    const summary: Record<string, any> = {};
+    for (const key of keys.slice(0, 5)) {
+      // Only first 5 keys
+      const value = obj[key];
+      if (Array.isArray(value)) {
+        summary[key] = `Array[${value.length}]`;
+      } else if (typeof value === 'object' && value !== null) {
+        summary[key] = `Object(${Object.keys(value).length} keys)`;
+      } else if (typeof value === 'string' && value.length > 50) {
+        summary[key] = value.substring(0, 50) + '...';
+      } else {
+        summary[key] = value;
+      }
+    }
+
+    if (keys.length > 5) {
+      summary['...'] = `${keys.length - 5} more keys`;
+    }
+
+    const jsonStr = JSON.stringify(summary);
+    return jsonStr.length > maxLength
+      ? jsonStr.substring(0, maxLength) + '...'
+      : jsonStr;
   }
 }

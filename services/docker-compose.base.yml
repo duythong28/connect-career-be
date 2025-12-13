@@ -18,8 +18,16 @@ services:
     image: connect-career-be:${CC_BE_TAG:-latest}
     env_file:
       - ./connect-career-be/.env
+    volumes:
+      - ${GOOGLE_CREDENTIALS_PATH:-../connect-career-be/src/credentials/scientific-host-472000-u8-ac884452d866.json}:/app/credentials.json:ro
+    environment:
+      - GOOGLE_APPLICATION_CREDENTIALS=/app/credentials.json
 
   ai-service:
     image: ai-service:${AI_SERVICE_TAG:-latest}
     env_file:
       - ./ai-service/.env
+    volumes:
+      - ${GOOGLE_CREDENTIALS_PATH:-../connect-career-be/src/credentials/scientific-host-472000-u8-ac884452d866.json}:/app/credentials.json:ro
+    environment:
+      - GOOGLE_APPLICATION_CREDENTIALS=/app/credentials.json

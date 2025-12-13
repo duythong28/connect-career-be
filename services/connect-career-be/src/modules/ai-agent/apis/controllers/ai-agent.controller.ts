@@ -274,6 +274,8 @@ export class AiAgentController {
           clicked_suggestion_id: chatRequest.clicked_suggestion_id,
           manual_retry_attempts: chatRequest.manual_retry_attempts,
         },
+        chatRequest.manual_retry_attempts || 0,
+        chatRequest.retried_message_id,
       );
 
       for await (const event of stream) {

@@ -17,4 +17,3 @@ export interface AgentState {
   analysis_result?: any;
   context_data?: Record<string, any>;
 }
-

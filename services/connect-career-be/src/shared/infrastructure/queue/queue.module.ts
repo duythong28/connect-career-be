@@ -1,7 +1,8 @@
-import { Module } from '@nestjs/common';
+import { Module, forwardRef } from '@nestjs/common';
 import { BullModule } from '@nestjs/bullmq';
 import { ConfigModule, ConfigService } from '@nestjs/config';
 import { HttpModule } from '@nestjs/axios';
+import { Redis } from 'ioredis';
 import {
   JobEmbeddingProcessor,
   UserEmbeddingProcessor,
@@ -10,30 +11,68 @@ import {
 } from './processors/embedding.processor';
 import { QueueService } from './queue.service';
 import { QueueOptions } from 'bullmq';
+import { CacheModule } from '../cache/cache.module';
 
 @Module({
   imports: [
     HttpModule,
+    forwardRef(() => CacheModule),
     BullModule.forRootAsync({
-      imports: [ConfigModule],
-      useFactory: (configService: ConfigService): QueueOptions => ({
-        connection: {
-          host: configService.get<string>('REDIS_HOST') || 'localhost',
-          port: parseInt(configService.get<string>('REDIS_PORT') || '6379', 10),
-          password: configService.get<string>('REDIS_PASSWORD'),
-          enableReadyCheck: true,
-          enableOfflineQueue: true,
-          connectTimeout: 10000,
-          lazyConnect: false,
-        },
-      }),
-      inject: [ConfigService],
+      imports: [ConfigModule, CacheModule],
+      useFactory: (
+        configService: ConfigService,
+        redis: Redis,
+      ): QueueOptions => {
+        return {
+          connection: redis,
+          // Add connection options to handle Redis failures gracefully
+          defaultJobOptions: {
+            removeOnComplete: {
+              age: 3600, // 1 hour
+              count: 1000,
+            },
+            removeOnFail: {
+              age: 86400, // 24 hours
+            },
+            attempts: 3,
+            backoff: {
+              type: 'exponential',
+              delay: 2000,
+            },
+          },
+        };
+      },
+      inject: [ConfigService, Redis],
     }),
     BullModule.registerQueue(
-      { name: 'embedding-jobs' },
-      { name: 'embedding-users' },
-      { name: 'batch-embeddings' },
-      { name: 'cf-training' },
+      { 
+        name: 'embedding-jobs',
+        defaultJobOptions: {
+          removeOnComplete: { age: 3600, count: 1000 },
+          removeOnFail: { age: 86400 },
+        },
+      },
+      { 
+        name: 'embedding-users',
+        defaultJobOptions: {
+          removeOnComplete: { age: 3600, count: 1000 },
+          removeOnFail: { age: 86400 },
+        },
+      },
+      { 
+        name: 'batch-embeddings',
+        defaultJobOptions: {
+          removeOnComplete: { age: 3600, count: 1000 },
+          removeOnFail: { age: 86400 },
+        },
+      },
+      { 
+        name: 'cf-training',
+        defaultJobOptions: {
+          removeOnComplete: { age: 3600, count: 1000 },
+          removeOnFail: { age: 86400 },
+        },
+      },
     ),
   ],
   providers: [

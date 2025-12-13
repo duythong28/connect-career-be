@@ -43,4 +43,13 @@ export class AIService {
       }
     }
   }
+
+  async embed(
+    req: aiProviderInterface.AIVectorizeRequest,
+  ): Promise<aiProviderInterface.AIVectorizeResponse> {
+    if (this.provider.embed) {
+      return this.provider.embed(req);
+    }
+    throw new Error('Embedding not supported by current AI provider');
+  }
 }

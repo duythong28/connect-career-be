@@ -22,7 +22,7 @@ export class MediaAttachmentDto {
   type: string;
 
   @IsOptional()
-  sourceType?: MediaSourceType = MediaSourceType.URL;  
+  sourceType?: MediaSourceType = MediaSourceType.URL;
 
   @ApiProperty({
     description: 'Public URL to the media (required if sourceType=url)',

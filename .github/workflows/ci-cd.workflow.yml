@@ -161,31 +161,58 @@ jobs:
         run: |
           echo "Begin deployment to DEV GCP VM"
 
-          # Create services directory on VM if it doesn't exist
-          gcloud compute ssh ${VM_INSTANCE} \
+          # Debug: Check user and home directory
+          echo "Checking VM user and paths..."
+          gcloud compute ssh ${VM_USER}@${VM_INSTANCE} \
             --zone=${GCP_ZONE} \
             --project=${GCP_PROJECT} \
-            --command="mkdir -p ~/connect-career-be/services"
+            --command="
+            echo 'Current user: ' \$(whoami)
+            echo 'Home directory: ' \$HOME
+            echo 'Full path: ' \$HOME/connect-career-be/services/api-gateway
+            ls -la \$HOME/connect-career-be/services/ 2>&1 || echo 'Directory does not exist'
+            "
+
+          # Create services directory structure on VM if it doesn't exist
+          gcloud compute ssh ${VM_USER}@${VM_INSTANCE} \
+            --zone=${GCP_ZONE} \
+            --project=${GCP_PROJECT} \
+            --command="mkdir -p ~/connect-career-be/services/api-gateway && echo 'Directory created/verified: ' && ls -la ~/connect-career-be/services/api-gateway"
 
           # Copy compose files to VM services directory
-          gcloud compute scp docker-compose.base.yml ${VM_INSTANCE}:~/connect-career-be/services/docker-compose.base.yml \
+          gcloud compute scp docker-compose.base.yml ${VM_USER}@${VM_INSTANCE}:~/connect-career-be/services/docker-compose.base.yml \
             --zone=${GCP_ZONE} \
             --project=${GCP_PROJECT}
 
-          gcloud compute scp docker-compose.dev.yml ${VM_INSTANCE}:~/connect-career-be/services/docker-compose.dev.yml \
+          gcloud compute scp docker-compose.dev.yml ${VM_USER}@${VM_INSTANCE}:~/connect-career-be/services/docker-compose.override.yml \
             --zone=${GCP_ZONE} \
             --project=${GCP_PROJECT}
 
-          gcloud compute scp api-gateway/kong.yml ${VM_INSTANCE}:~/connect-career-be/services/api-gateway/kong.yml \
+          # Verify directory exists before copying kong.yml
+          echo "Verifying api-gateway directory exists..."
+          gcloud compute ssh ${VM_USER}@${VM_INSTANCE} \
+            --zone=${GCP_ZONE} \
+            --project=${GCP_PROJECT} \
+            --command="test -d ~/connect-career-be/services/api-gateway && echo 'Directory exists' || (echo 'Directory missing, creating...' && mkdir -p ~/connect-career-be/services/api-gateway)"
+
+          gcloud compute scp api-gateway/kong.yml ${VM_USER}@${VM_INSTANCE}:~/connect-career-be/services/api-gateway/kong.yml \
             --zone=${GCP_ZONE} \
             --project=${GCP_PROJECT}
+
+          # Verify file was copied successfully
+          echo "Verifying kong.yml was copied..."
+          gcloud compute ssh ${VM_USER}@${VM_INSTANCE} \
+            --zone=${GCP_ZONE} \
+            --project=${GCP_PROJECT} \
+            --command="ls -la ~/connect-career-be/services/api-gateway/kong.yml && echo 'File verified successfully'"
 
           # Execute deployment commands on VM
-          gcloud compute ssh ${VM_INSTANCE} \
+          gcloud compute ssh ${VM_USER}@${VM_INSTANCE} \
             --zone=${GCP_ZONE} \
             --project=${GCP_PROJECT} \
             --command="
             cd ~/connect-career-be/services
+            echo 'Working directory: ' \$(pwd)
             export DOCKER_HUB_USERNAME=${DOCKER_HUB_USERNAME}
             export CC_BE_TAG=${BACKEND_TAG}
             export AI_SERVICE_TAG=${AI_SERVICE_TAG}
@@ -248,31 +275,39 @@ jobs:
         run: |
           echo "Begin deployment to STAGING GCP VM"
 
-          # Create services directory on VM if it doesn't exist
-          gcloud compute ssh ${VM_INSTANCE} \
+          # Create services directory structure on VM if it doesn't exist
+          gcloud compute ssh ${VM_USER}@${VM_INSTANCE} \
             --zone=${GCP_ZONE} \
             --project=${GCP_PROJECT} \
-            --command="mkdir -p ~/connect-career-be/services"
+            --command="mkdir -p ~/connect-career-be/services/api-gateway"
 
           # Copy compose files to VM services directory
-          gcloud compute scp docker-compose.base.yml ${VM_INSTANCE}:~/connect-career-be/services/docker-compose.base.yml \
+          gcloud compute scp docker-compose.base.yml ${VM_USER}@${VM_INSTANCE}:~/connect-career-be/services/docker-compose.base.yml \
             --zone=${GCP_ZONE} \
             --project=${GCP_PROJECT}
 
-          gcloud compute scp docker-compose.stg.yml ${VM_INSTANCE}:~/connect-career-be/services/docker-compose.override.yml \
+          gcloud compute scp docker-compose.stg.yml ${VM_USER}@${VM_INSTANCE}:~/connect-career-be/services/docker-compose.override.yml \
             --zone=${GCP_ZONE} \
             --project=${GCP_PROJECT}
 
-          gcloud compute scp api-gateway/kong.yml ${VM_INSTANCE}:~/connect-career-be/services/api-gateway/kong.yml \
+          # Verify directory exists before copying kong.yml
+          echo "Verifying api-gateway directory exists..."
+          gcloud compute ssh ${VM_USER}@${VM_INSTANCE} \
+            --zone=${GCP_ZONE} \
+            --project=${GCP_PROJECT} \
+            --command="test -d ~/connect-career-be/services/api-gateway && echo 'Directory exists' || (echo 'Directory missing, creating...' && mkdir -p ~/connect-career-be/services/api-gateway)"
+
+          gcloud compute scp api-gateway/kong.yml ${VM_USER}@${VM_INSTANCE}:~/connect-career-be/services/api-gateway/kong.yml \
             --zone=${GCP_ZONE} \
             --project=${GCP_PROJECT}
 
           # Execute deployment commands on VM
-          gcloud compute ssh ${VM_INSTANCE} \
+          gcloud compute ssh ${VM_USER}@${VM_INSTANCE} \
             --zone=${GCP_ZONE} \
             --project=${GCP_PROJECT} \
             --command="
             cd ~/connect-career-be/services
+            echo 'Working directory: ' \$(pwd)
             export DOCKER_HUB_USERNAME=${DOCKER_HUB_USERNAME}
             export CC_BE_TAG=${BACKEND_TAG}
             export AI_SERVICE_TAG=${AI_SERVICE_TAG}
@@ -335,31 +370,39 @@ jobs:
         run: |
           echo "Begin deployment to PRODUCTION GCP VM"
 
-          # Create services directory on VM if it doesn't exist
-          gcloud compute ssh ${VM_INSTANCE} \
+          # Create services directory structure on VM if it doesn't exist
+          gcloud compute ssh ${VM_USER}@${VM_INSTANCE} \
             --zone=${GCP_ZONE} \
             --project=${GCP_PROJECT} \
-            --command="mkdir -p ~/connect-career-be/services"
+            --command="mkdir -p ~/connect-career-be/services/api-gateway"
 
           # Copy compose files to VM services directory
-          gcloud compute scp docker-compose.base.yml ${VM_INSTANCE}:~/connect-career-be/services/docker-compose.base.yml \
+          gcloud compute scp docker-compose.base.yml ${VM_USER}@${VM_INSTANCE}:~/connect-career-be/services/docker-compose.base.yml \
             --zone=${GCP_ZONE} \
             --project=${GCP_PROJECT}
 
-          gcloud compute scp docker-compose.prod.yml ${VM_INSTANCE}:~/connect-career-be/services/docker-compose.override.yml \
+          gcloud compute scp docker-compose.prod.yml ${VM_USER}@${VM_INSTANCE}:~/connect-career-be/services/docker-compose.override.yml \
             --zone=${GCP_ZONE} \
             --project=${GCP_PROJECT}
 
-          gcloud compute scp api-gateway/kong.yml ${VM_INSTANCE}:~/connect-career-be/services/api-gateway/kong.yml \
+          # Verify directory exists before copying kong.yml
+          echo "Verifying api-gateway directory exists..."
+          gcloud compute ssh ${VM_USER}@${VM_INSTANCE} \
+            --zone=${GCP_ZONE} \
+            --project=${GCP_PROJECT} \
+            --command="test -d ~/connect-career-be/services/api-gateway && echo 'Directory exists' || (echo 'Directory missing, creating...' && mkdir -p ~/connect-career-be/services/api-gateway)"
+
+          gcloud compute scp api-gateway/kong.yml ${VM_USER}@${VM_INSTANCE}:~/connect-career-be/services/api-gateway/kong.yml \
             --zone=${GCP_ZONE} \
             --project=${GCP_PROJECT}
 
           # Execute deployment commands on VM
-          gcloud compute ssh ${VM_INSTANCE} \
+          gcloud compute ssh ${VM_USER}@${VM_INSTANCE} \
             --zone=${GCP_ZONE} \
             --project=${GCP_PROJECT} \
             --command="
             cd ~/connect-career-be/services
+            echo 'Working directory: ' \$(pwd)
             export DOCKER_HUB_USERNAME=${DOCKER_HUB_USERNAME}
             export CC_BE_TAG=${BACKEND_TAG}
             export AI_SERVICE_TAG=${AI_SERVICE_TAG}

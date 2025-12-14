@@ -150,16 +150,21 @@ export class GraphBuilderService {
               },
             },
           );
+          const allMessages = [
+            ...messages.slice(-10),
+            new HumanMessage(userPrompt),
+          ];
           
           // Execute with the user prompt
           const chainResult = await agentChain.executor.invoke({
-            input: userPrompt,
-            chat_history: messages.slice(-10),
+            messages: allMessages,
           });
           
-          answer = typeof chainResult.output === 'string' 
-            ? chainResult.output 
-            : JSON.stringify(chainResult.output);
+          const finalMessages = chainResult.messages || [];
+          const lastMessage = finalMessages[finalMessages.length - 1];
+          answer = typeof lastMessage?.content === 'string' 
+            ? lastMessage.content 
+            : JSON.stringify(lastMessage?.content || chainResult);
         } else {
           // Fallback to simple chain if no tools
           const chain = self.chainsService.createSimpleChain(systemPrompt, {

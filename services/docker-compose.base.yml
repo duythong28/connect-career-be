@@ -10,7 +10,7 @@ services:
       KONG_ADMIN_LISTEN: "0.0.0.0:8001"
       KONG_SSL_CERT: /etc/ssl/certs/fullchain.pem
       KONG_SSL_CERT_KEY: /etc/ssl/certs/privkey.pem
-      KONG_PLUGINS: bundled,redirect
+      KONG_PLUGINS: bundled
     volumes:
       - ./api-gateway/kong.yml:/kong/declarative/kong.yml:ro
       - /opt/kong-ssl/${DOMAIN}/fullchain.pem:/etc/ssl/certs/fullchain.pem:ro

@@ -83,6 +83,11 @@ class CustomLLMAdapter extends BaseChatModel {
         maxOutputTokens: DEFAULT_MAX_OUTPUT_TOKENS,
       });
 
+      if (!response.content || response.content.trim().length === 0) {
+        this.logger.warn('Received empty response from AI service, using fallback message');
+        throw new Error('Received empty response from chat model call');
+      }
+
       const message = new AIMessage(response.content);
 
       return {
@@ -108,10 +113,14 @@ class CustomLLMAdapter extends BaseChatModel {
     _options?: this['ParsedCallOptions'],
     _runManager?: CallbackManagerForLLMRun,
   ): AsyncGenerator<any> {
-    throw new Error('Streaming is not supported by this LLM adapter');
+    // Return empty async generator instead of throwing
+    // LangChain will fall back to _generate if streaming is not supported
+    return (async function* () {
+      // Empty generator - streaming not supported
+    })();
   }
   
-  bindTools(): Runnable<any, any> {
+  bindTools(tools: StructuredToolInterface[]): Runnable<any, any> {
     // Return a new instance with tools bound
     return new CustomLLMAdapter(this.aiService) as any;
   }
@@ -362,9 +371,7 @@ Always explain what you're doing and why.`;
       if (!prompt) {
         prompt = ChatPromptTemplate.fromMessages([
           ['system', systemPrompt],
-          new MessagesPlaceholder('chat_history'),
-          ['human', '{input}'],
-          new MessagesPlaceholder('agent_scratchpad'),
+          new MessagesPlaceholder('messages'),
         ]);
         this.promptCache.set(cacheKey, prompt);
       }
@@ -374,7 +381,7 @@ Always explain what you're doing and why.`;
       const agentGraph = createReactAgent({
         llm: this.llmAdapter,
         tools: langChainTools,
-        messageModifier: prompt,
+        systemMessage: systemPrompt,
       });
 
       return {
@@ -541,18 +548,24 @@ Always explain what you're doing and why.`;
 
           this.logger.debug(`Simple chain completed in ${executionTime}ms`);
 
+          const content = result.content as string;
+          if (!content || content.trim().length === 0) {
+            this.logger.warn('Simple chain returned empty content, using fallback');
+            throw new Error('Received empty response from chat model call');
+          }
+
           // Update LangSmith trace
           if (traceId) {
             await this.updateLangSmithTrace(traceId, {
               outputs: {
-                output: result.content,
+                output: content,
                 executionTime,
               },
               end_time: Date.now(),
             });
           }
 
-          return result.content as string;
+          return content;
         } catch (error) {
           const executionTime = Date.now() - startTime;
           const errorMessage = error instanceof Error ? error.message : String(error);

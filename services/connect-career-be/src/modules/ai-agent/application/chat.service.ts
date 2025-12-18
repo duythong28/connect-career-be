@@ -566,6 +566,20 @@ export class ChatService {
       let intent: string | undefined;
       let entities: Record<string, any> | undefined;
 
+      const nodeProgressMessages: Record<string, string> = {
+        role_detector: 'Detecting user role...',
+        intent_router: 'Understanding your intent...',
+        context_builder: 'Building context...',
+        agent_executor: 'Executing agent...',
+        answer_generator: 'Generating response...',
+        // Legacy names for compatibility
+        ROLE_DETECTOR: 'Detecting user role...',
+        INTENT_ROUTER: 'Understanding your intent...',
+        CONTEXT_BUILDER: 'Building context...',
+        AGENT_EXECUTOR: 'Executing agent...',
+        ANSWER: 'Generating response...',
+      };
+
       try {
         const stream = graph.streamEvents(initialState as any, {
           version: 'v2',
@@ -609,7 +623,7 @@ export class ChatService {
           // 7.2 AI Response Streaming
           // ====================================================================
           if (
-            eventName === 'ANSWER' &&
+            (eventName === 'ANSWER' || eventName === 'answer_generator') &&
             eventType === 'on_chat_model_stream' &&
             langGraphEvent.data?.chunk
           ) {
@@ -634,6 +648,34 @@ export class ChatService {
                 },
               };
             }
+          }
+
+          // ====================================================================
+          // 7.3 Error Handling - Handle LangGraph error events
+          // ====================================================================
+          if (eventType === 'on_chain_error') {
+            this.logger.error('LangGraph error event:', eventName, langGraphEvent.data);
+            
+            // Safely extract error message
+            const errorData = langGraphEvent.data;
+            const errorMessage = (errorData?.output as unknown as Error)?.message 
+              || (errorData?.output as unknown as string)
+              || (typeof errorData === 'string' ? errorData : 'An error occurred during processing');
+            
+            dualMessageHandler.updateStreamingAnswerMessage(
+              `I apologize, but I encountered an error: ${errorMessage}`,
+            );
+            
+            yield {
+              type: 'chunk',
+              data: {
+                messages: dualMessageHandler.getStreamingMessages(),
+                isDone: true,
+                isError: true,
+              },
+            };
+            
+            // Don't throw here - let the stream complete and handle in outer catch
           }
 
           // ====================================================================

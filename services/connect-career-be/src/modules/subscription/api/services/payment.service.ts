@@ -403,17 +403,6 @@ export class PaymentService {
       return;
     }
 
-    // Prevent duplicate processing
-    if (
-      transaction.status === PaymentStatus.COMPLETED &&
-      webhookEvent.type === 'payment.succeeded'
-    ) {
-      this.logger.warn(
-        `Payment ${transaction.id} already completed, ignoring duplicate webhook`,
-      );
-      return;
-    }
-
     try {
       // Update transaction status based on webhook event
       if (webhookEvent.type === 'payment.succeeded') {

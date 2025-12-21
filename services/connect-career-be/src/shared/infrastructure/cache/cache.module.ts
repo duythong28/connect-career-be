@@ -19,7 +19,7 @@ import { RedisCacheService } from './redis/redis-cache.service';
           password: configService.get('REDIS_PASSWORD') || undefined,
           db: isNaN(db) ? 0 : db,
           enableReadyCheck: true,
-          enableOfflineQueue: true, 
+          enableOfflineQueue: true,
           lazyConnect: false,
           connectTimeout: 10000,
           // Connection pool settings - IMPORTANT for preventing max clients error
@@ -35,8 +35,13 @@ import { RedisCacheService } from './redis/redis-cache.service';
           // Reconnect on connection errors
           reconnectOnError: (err: Error) => {
             // Reconnect on various connection errors
-            const targetErrors = ['READONLY', 'ECONNREFUSED', 'ETIMEDOUT', 'ENOTFOUND'];
-            if (targetErrors.some(error => err.message.includes(error))) {
+            const targetErrors = [
+              'READONLY',
+              'ECONNREFUSED',
+              'ETIMEDOUT',
+              'ENOTFOUND',
+            ];
+            if (targetErrors.some((error) => err.message.includes(error))) {
               return true;
             }
             // Don't reconnect on max clients error

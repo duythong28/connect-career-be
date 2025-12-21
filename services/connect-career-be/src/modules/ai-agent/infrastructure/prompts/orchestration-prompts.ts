@@ -109,7 +109,6 @@ IMPORTANT:
 
 Generate a helpful, natural response based on the context provided.`,
 
-
   user: (
     userText: string,
     contextInfo?: string,
@@ -117,21 +116,21 @@ Generate a helpful, natural response based on the context provided.`,
     conversationHistory?: string,
   ) => {
     let prompt = `User: ${userText}\n`;
-    
+
     if (userProfileInfo) {
       prompt += `\nUser Profile:\n${userProfileInfo}\n`;
     }
-    
+
     if (conversationHistory) {
       prompt += `\nRecent Conversation History:\n${conversationHistory}\n`;
     }
-    
+
     if (contextInfo) {
       prompt += `\nContext:\n${contextInfo}\n`;
     }
-    
+
     prompt += `\nGenerate a helpful response that considers the user's profile and conversation history.`;
-    
+
     return prompt;
   },
 };

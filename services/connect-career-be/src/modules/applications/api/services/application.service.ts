@@ -28,7 +28,10 @@ import { CV } from 'src/modules/cv-maker/domain/entities/cv.entity';
 import { EventBus } from '@nestjs/cqrs';
 import { ApplicationCreatedEvent } from '../../domain/events/application-created.event';
 import { ApplicationStatusChangedEvent } from '../../domain/events/application-status-changed.event';
-import { JobInteraction, JobInteractionType } from 'src/modules/recommendations/domain/entities/job-interaction.entity';
+import {
+  JobInteraction,
+  JobInteractionType,
+} from 'src/modules/recommendations/domain/entities/job-interaction.entity';
 
 export class CreateApplicationDto {
   @IsString()
@@ -112,7 +115,7 @@ export class ApplicationService {
     @InjectRepository(CV)
     private readonly cvRepository: Repository<CV>,
     @InjectRepository(JobInteraction)
-    private readonly jobInteractionRepository: Repository<JobInteraction>,   
+    private readonly jobInteractionRepository: Repository<JobInteraction>,
     private readonly jobStatusService: JobStatusService,
     private readonly eventBus: EventBus,
   ) {}

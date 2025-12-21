@@ -45,28 +45,28 @@ import { CacheModule } from '../cache/cache.module';
       inject: [ConfigService, Redis],
     }),
     BullModule.registerQueue(
-      { 
+      {
         name: 'embedding-jobs',
         defaultJobOptions: {
           removeOnComplete: { age: 3600, count: 1000 },
           removeOnFail: { age: 86400 },
         },
       },
-      { 
+      {
         name: 'embedding-users',
         defaultJobOptions: {
           removeOnComplete: { age: 3600, count: 1000 },
           removeOnFail: { age: 86400 },
         },
       },
-      { 
+      {
         name: 'batch-embeddings',
         defaultJobOptions: {
           removeOnComplete: { age: 3600, count: 1000 },
           removeOnFail: { age: 86400 },
         },
       },
-      { 
+      {
         name: 'cf-training',
         defaultJobOptions: {
           removeOnComplete: { age: 3600, count: 1000 },

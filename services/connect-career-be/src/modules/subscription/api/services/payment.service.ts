@@ -89,7 +89,10 @@ export class PaymentService {
       provider === 'momo' || provider === 'zalopay' ? 'VND' : currency;
 
     if (
-      !this.paymentProviderFactory.validateProviderCurrency(provider, transactionCurrency)
+      !this.paymentProviderFactory.validateProviderCurrency(
+        provider,
+        transactionCurrency,
+      )
     ) {
       const supportedCurrencies = paymentProvider.supportedCurrencies;
       throw new BadRequestException(
@@ -133,7 +136,11 @@ export class PaymentService {
       };
 
       const intentResult: PaymentIntentResult =
-        await paymentProvider.createPaymentIntent(amount, transactionCurrency, metadata);
+        await paymentProvider.createPaymentIntent(
+          amount,
+          transactionCurrency,
+          metadata,
+        );
 
       // Update transaction with provider payment ID
       transaction.providerPaymentId = intentResult.paymentId;
@@ -152,7 +159,6 @@ export class PaymentService {
       );
 
       return intentResult;
-
     } catch (error) {
       this.logger.error(
         `Failed to create payment intent for transaction ${transaction.id}`,
@@ -401,13 +407,14 @@ export class PaymentService {
     if (provider === 'stripe' && webhookEvent.type === 'payment.refunded') {
       // For Stripe refunds, try multiple ways to find the transaction
       const refundData = webhookEvent.data as any;
-      
+
       // Try 1: Find by providerTransactionId (charge ID from refund)
       if (refundData?.charge) {
-        const chargeId = typeof refundData.charge === 'string' 
-          ? refundData.charge 
-          : refundData.charge.id;
-        
+        const chargeId =
+          typeof refundData.charge === 'string'
+            ? refundData.charge
+            : refundData.charge.id;
+
         transaction = await this.paymentTransactionRepository.findOne({
           where: {
             providerTransactionId: chargeId,
@@ -419,15 +426,17 @@ export class PaymentService {
 
       // Try 2: Find by payment intent ID from charge
       if (!transaction && refundData?.charge) {
-        const chargeId = typeof refundData.charge === 'string' 
-          ? refundData.charge 
-          : refundData.charge.id;
-        
+        const chargeId =
+          typeof refundData.charge === 'string'
+            ? refundData.charge
+            : refundData.charge.id;
+
         try {
           // We need to get the charge to find payment intent
           // But we don't have Stripe instance here, so try finding by providerPaymentId
           // which might be the payment intent ID
-          const paymentProvider = this.paymentProviderFactory.getProvider(provider);
+          const paymentProvider =
+            this.paymentProviderFactory.getProvider(provider);
           if (paymentProvider && 'stripe' in paymentProvider) {
             // Search all completed transactions for this provider
             const transactions = await this.paymentTransactionRepository.find({
@@ -439,15 +448,20 @@ export class PaymentService {
             });
 
             // Check if any transaction has this charge ID in providerResponse
-            transaction = transactions.find(t => {
-              const response = t.providerResponse as any;
-              return response?.id === chargeId || 
-                     response?.charge?.id === chargeId ||
-                     t.providerTransactionId === chargeId;
-            }) || null;
+            transaction =
+              transactions.find((t) => {
+                const response = t.providerResponse as any;
+                return (
+                  response?.id === chargeId ||
+                  response?.charge?.id === chargeId ||
+                  t.providerTransactionId === chargeId
+                );
+              }) || null;
           }
         } catch (error) {
-          this.logger.warn(`Error finding transaction by charge: ${error.message}`);
+          this.logger.warn(
+            `Error finding transaction by charge: ${error.message}`,
+          );
         }
       }
 
@@ -573,8 +587,7 @@ export class PaymentService {
               originalAmount: transaction.amount,
               originalCurrency: transaction.currency,
               convertedAmount: amountToCredit,
-              exchangeRate:
-                amountToCredit / transaction.amount,
+              exchangeRate: amountToCredit / transaction.amount,
             },
           );
         }
@@ -585,7 +598,7 @@ export class PaymentService {
       } else if (webhookEvent.type === 'payment.refunded') {
         // Handle refund webhook
         const refundData = webhookEvent.data as any;
-        const refundAmount = refundData?.amount 
+        const refundAmount = refundData?.amount
           ? refundData.amount / 100 // Stripe amounts are in cents
           : transaction.amount; // Fallback to full amount
 
@@ -627,11 +640,11 @@ export class PaymentService {
           const wallet = await this.walletService.getOrCreateWallet(
             transaction.userId,
           );
-          
+
           if (wallet.id === transaction.walletId) {
             // Convert amount if needed (for VND to USD)
             let amountToDebit = refundAmount;
-            
+
             if (
               (provider === 'momo' || provider === 'zalopay') &&
               transaction.currency !== wallet.currency
@@ -642,7 +655,7 @@ export class PaymentService {
                   transaction.currency, // VND
                   wallet.currency, // USD
                 );
-                
+
                 this.logger.log(
                   `Converted refund ${refundAmount} ${transaction.currency} to ${amountToDebit} ${wallet.currency} for wallet debit`,
                 );
@@ -679,11 +692,13 @@ export class PaymentService {
           .where('refund.paymentTransactionId = :transactionId', {
             transactionId: transaction.id,
           })
-          .andWhere('refund.status = :status', { status: RefundStatus.PROCESSED })
+          .andWhere('refund.status = :status', {
+            status: RefundStatus.PROCESSED,
+          })
           .getRawOne();
 
         const totalRefundedAmount = parseFloat(totalRefunded?.total || '0');
-        
+
         if (totalRefundedAmount >= transaction.amount) {
           transaction.status = PaymentStatus.REFUNDED;
         }

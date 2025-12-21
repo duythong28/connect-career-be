@@ -17,7 +17,7 @@ export class UserRepository implements IUserRepository {
       relations: ['roles', 'roles.permissions', 'candidateProfile'],
     });
   }
-  
+
   async findByIds(ids: string[]): Promise<User[]> {
     return this.repository.find({
       where: { id: In(ids) },

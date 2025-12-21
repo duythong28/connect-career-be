@@ -10,7 +10,10 @@ import { FavoriteJob } from '../../domain/entities/favorite-job.entity';
 import { Job } from '../../domain/entities/job.entity';
 import { Application } from 'src/modules/applications/domain/entities/application.entity';
 import { PaginatedResult } from 'src/shared/domain/interfaces/base.repository';
-import { JobInteraction, JobInteractionType } from 'src/modules/recommendations/domain/entities/job-interaction.entity';
+import {
+  JobInteraction,
+  JobInteractionType,
+} from 'src/modules/recommendations/domain/entities/job-interaction.entity';
 
 @Injectable()
 export class SavedJobService {

@@ -103,12 +103,12 @@ export class GraphBuilderService {
         const contextInfo = agentResult?.data
           ? JSON.stringify(agentResult.data, null, 2)
           : undefined;
-        
+
         // Include user profile and conversation history in the prompt
         const userProfileInfo = initialState?.user_profile
           ? JSON.stringify(initialState.user_profile, null, 2)
           : undefined;
-        
+
         // Format conversation history for the prompt (last 10 messages for context)
         const recentHistory = messages
           .slice(-10)
@@ -118,7 +118,7 @@ export class GraphBuilderService {
             return `${role}: ${content}`;
           })
           .join('\n');
-        
+
         // Build user prompt
         const userPrompt = self.promptService.getGraphBuilderUserPrompt(
           userText,
@@ -129,13 +129,15 @@ export class GraphBuilderService {
 
         // Get agent's tools for tool calling
         const agentTools = agent.getTools();
-        
+
         let answer: string;
-        
+
         // If agent has tools, use agent chain (allows LLM to call tools)
         if (agentTools.length > 0) {
-          self.logger.log(`Using agent chain with ${agentTools.length} tools for ${agent.name}`);
-          
+          self.logger.log(
+            `Using agent chain with ${agentTools.length} tools for ${agent.name}`,
+          );
+
           const agentChain = await self.chainsService.createAgentChain(
             agent,
             agentTools,
@@ -154,17 +156,18 @@ export class GraphBuilderService {
             ...messages.slice(-10),
             new HumanMessage(userPrompt),
           ];
-          
+
           // Execute with the user prompt
           const chainResult = await agentChain.executor.invoke({
             messages: allMessages,
           });
-          
+
           const finalMessages = chainResult.messages || [];
           const lastMessage = finalMessages[finalMessages.length - 1];
-          answer = typeof lastMessage?.content === 'string' 
-            ? lastMessage.content 
-            : JSON.stringify(lastMessage?.content || chainResult);
+          answer =
+            typeof lastMessage?.content === 'string'
+              ? lastMessage.content
+              : JSON.stringify(lastMessage?.content || chainResult);
         } else {
           // Fallback to simple chain if no tools
           const chain = self.chainsService.createSimpleChain(systemPrompt, {

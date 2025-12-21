@@ -269,4 +269,49 @@ export class WalletService {
     };
   }
 
+  async debitWallet(
+    walletId: string,
+    amount: number,
+    description?: string,
+    metadata?: Record<string, any>,
+  ): Promise<WalletTransaction> {
+    const wallet = await this.walletRepository.findOne({
+      where: { id: walletId },
+    });
+    if (!wallet) {
+      throw new NotFoundException('Wallet not found');
+    }
+
+    const balanceBefore = parseFloat(String(wallet.creditBalance)) || 0;
+    const debitAmount = parseFloat(String(amount)) || 0;
+    if (isNaN(debitAmount) || debitAmount <= 0) {
+      throw new Error(`Invalid debit amount: ${amount}`);
+    }
+
+    if (balanceBefore < debitAmount) {
+      throw new Error(`Insufficient balance. Current: ${balanceBefore}, Required: ${debitAmount}`);
+    }
+
+    wallet.creditBalance = balanceBefore - debitAmount;
+    const balanceAfter = wallet.creditBalance;
+
+    await this.walletRepository.save(wallet);
+
+    const transaction = this.walletTransactionRepository.create({
+      walletId: wallet.id,
+      userId: wallet.userId,
+      type: TransactionType.DEBIT,
+      amount,
+      currency: wallet.currency,
+      balanceBefore,
+      balanceAfter,
+      status: TransactionStatus.COMPLETED,
+      description: description || 'Wallet debit',
+      relatedPaymentTransactionId: metadata?.paymentTransactionId as string,
+      relatedRefundId: metadata?.refundId as string,
+      metadata,
+    });
+
+    return this.walletTransactionRepository.save(transaction);
+  }
 }

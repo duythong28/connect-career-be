@@ -19,24 +19,29 @@ import { RedisCacheService } from './redis/redis-cache.service';
           password: configService.get('REDIS_PASSWORD') || undefined,
           db: isNaN(db) ? 0 : db,
           enableReadyCheck: true,
-          enableOfflineQueue: false, // Don't queue commands when offline
+          enableOfflineQueue: true, 
           lazyConnect: false,
           connectTimeout: 10000,
           // Connection pool settings - IMPORTANT for preventing max clients error
           maxRetriesPerRequest: null,
           retryStrategy: (times: number) => {
-            // Stop retrying after 3 attempts
-            if (times > 3) {
-              return null; // Stop retrying
+            // Exponential backoff with max delay
+            if (times > 10) {
+              return null; // Stop retrying after 10 attempts
             }
-            const delay = Math.min(times * 50, 2000);
+            const delay = Math.min(times * 100, 5000);
             return delay;
           },
-          // Reconnect on specific errors only
+          // Reconnect on connection errors
           reconnectOnError: (err: Error) => {
-            const targetError = 'READONLY';
-            if (err.message.includes(targetError)) {
+            // Reconnect on various connection errors
+            const targetErrors = ['READONLY', 'ECONNREFUSED', 'ETIMEDOUT', 'ENOTFOUND'];
+            if (targetErrors.some(error => err.message.includes(error))) {
               return true;
+            }
+            // Don't reconnect on max clients error
+            if (err.message.includes('max number of clients reached')) {
+              return false;
             }
             return false;
           },
@@ -44,7 +49,6 @@ import { RedisCacheService } from './redis/redis-cache.service';
           keepAlive: 30000, // Keep connections alive
           // Limit connection pool size
           family: 4, // Use IPv4
-          // Disable auto-reconnect on max clients error
           showFriendlyErrorStack: true,
         });
 
@@ -67,6 +71,10 @@ import { RedisCacheService } from './redis/redis-cache.service';
         // Monitor connection status
         redis.on('connect', () => {
           console.log('Redis connected');
+        });
+
+        redis.on('ready', () => {
+          console.log('Redis ready');
         });
 
         return redis;

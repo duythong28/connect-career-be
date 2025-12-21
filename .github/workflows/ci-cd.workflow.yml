@@ -218,24 +218,31 @@ jobs:
             export AI_SERVICE_TAG=${AI_SERVICE_TAG}
             export ENVIRONMENT=${ENVIRONMENT}
 
-            # Login to Docker Hub
-            echo '${DOCKER_HUB_ACCESS_TOKEN}' | docker login -u ${DOCKER_HUB_USERNAME} --password-stdin
-
-            # Check disk space before deployment
             echo 'Checking disk space...'
             AVAILABLE_SPACE=\$(df -BG / | awk 'NR==2 {print \$4}' | sed 's/G//')
-            MIN_REQUIRED=10
+            MIN_REQUIRED=5
+            echo \"Current available space: \${AVAILABLE_SPACE}GB\"
+
             if [ \"\$AVAILABLE_SPACE\" -lt \"\$MIN_REQUIRED\" ]; then
-              echo '⚠️  Low disk space (\${AVAILABLE_SPACE}GB available), cleaning up...'
+              echo \"⚠️  Low disk space (\${AVAILABLE_SPACE}GB available), cleaning up...\"
               docker system prune -af --volumes || true
               docker image prune -af || true
               AVAILABLE_SPACE=\$(df -BG / | awk 'NR==2 {print \$4}' | sed 's/G//')
+              echo \"After cleanup: \${AVAILABLE_SPACE}GB available\"
+              
               if [ \"\$AVAILABLE_SPACE\" -lt \"\$MIN_REQUIRED\" ]; then
-                echo '❌ ERROR: Insufficient disk space (\${AVAILABLE_SPACE}GB). Minimum required: \${MIN_REQUIRED}GB'
+                echo \"❌ ERROR: Insufficient disk space (\${AVAILABLE_SPACE}GB). Minimum required: \${MIN_REQUIRED}GB\"
                 exit 1
               fi
-              echo '✅ Cleanup completed. Available space: \${AVAILABLE_SPACE}GB'
+              echo \"✅ Cleanup completed. Available space: \${AVAILABLE_SPACE}GB\"
             fi
+
+            # Login to Docker Hub
+            echo 'Logging in to Docker Hub...'
+            echo '${DOCKER_HUB_ACCESS_TOKEN}' | docker login -u ${DOCKER_HUB_USERNAME} --password-stdin || {
+              echo '❌ ERROR: Failed to login to Docker Hub'
+              exit 1
+            }
 
             # Stop and remove old containers
             echo 'Stopping old containers...'
@@ -246,7 +253,7 @@ jobs:
             docker container prune -f || true
             docker image prune -af || true
 
-            # Remove old images (improved)
+            # Remove old images
             echo 'Removing old images...'
             docker rmi ${DOCKER_HUB_USERNAME}/connect-career-be:${BACKEND_TAG} -f || true
             docker rmi ${DOCKER_HUB_USERNAME}/ai-service:${AI_SERVICE_TAG} -f || true

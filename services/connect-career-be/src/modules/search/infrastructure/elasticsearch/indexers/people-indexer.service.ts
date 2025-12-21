@@ -85,7 +85,6 @@ export class PeopleIndexerService {
         )
         .leftJoinAndSelect('workExperiences.organization', 'organization')
         .leftJoinAndSelect('candidateProfile.educations', 'educations')
-        .where('candidateProfile.id IS NOT NULL')
         .take(batchSize)
         .skip(offset)
         .getMany();
@@ -93,8 +92,6 @@ export class PeopleIndexerService {
       if (users.length === 0) break;
 
       for (const user of users) {
-        if (!user.candidateProfile) continue;
-
         try {
           await this.elasticsearchService.indexPerson(user);
           indexed++;

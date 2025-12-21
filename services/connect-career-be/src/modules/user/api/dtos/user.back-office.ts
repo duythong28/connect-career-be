@@ -103,6 +103,9 @@ export class AdminUserResponseDto {
   @ApiProperty({ description: 'Last update date' })
   updatedAt: Date;
 
+  @ApiPropertyOptional({ description: 'Candidate profile ID' })
+  candidateProfileId?: string;
+
   @ApiProperty({ description: 'User roles', type: [Object] })
   roles: Array<{
     id: string;

@@ -19,7 +19,7 @@ export class UserDetailsService {
   async getUserDetails(userId: string) {
     const user = await this.userRepository.findOne({
       where: { id: userId },
-      relations: ['roles', 'roles.permissions'],
+      relations: ['roles', 'roles.permissions', 'candidateProfile'],
     });
 
     if (!user) {

@@ -10,6 +10,7 @@ import {
   UpdateUserRolesDto,
   UpdateUserStatusDto,
 } from '../dtos/user.back-office';
+import { SyncService } from 'src/modules/search/infrastructure/elasticsearch/sync/sync-service.service';
 
 export interface UserBackOfficeFilters {
   page?: number;
@@ -47,13 +48,15 @@ export class UserBackOfficeService {
     private readonly userRepository: Repository<User>,
     @InjectRepository(Role)
     private readonly roleRepository: Repository<Role>,
+    private readonly syncService: SyncService,
   ) {}
 
   async getUsers(filters: UserBackOfficeFilters): Promise<PaginatedUsers> {
     const queryBuilder = this.userRepository
       .createQueryBuilder('user')
       .leftJoinAndSelect('user.roles', 'roles')
-      .leftJoinAndSelect('roles.permissions', 'permissions');
+      .leftJoinAndSelect('roles.permissions', 'permissions')
+      .leftJoinAndSelect('user.candidateProfile', 'candidateProfile');
 
     if (filters.search) {
       queryBuilder.andWhere(
@@ -128,7 +131,7 @@ export class UserBackOfficeService {
   async getUserById(id: string): Promise<User> {
     const user = await this.userRepository.findOne({
       where: { id },
-      relations: ['roles'],
+      relations: ['roles', 'candidateProfile'],
     });
 
     if (!user) {
@@ -149,6 +152,12 @@ export class UserBackOfficeService {
 
     await this.userRepository.update(id, { status: updateStatusDto.status });
 
+    try {
+      await this.syncService.syncPerson(id);
+    } catch (error) {
+      console.error(`Failed to sync user ${id} to Elasticsearch:`, error);
+    }
+
     const updatedUser = await this.userRepository.findOne({
       where: { id },
       relations: ['roles'],
@@ -165,7 +174,7 @@ export class UserBackOfficeService {
     if (!user) {
       throw new NotFoundException('User not found');
     }
-
+ 
     // Validate that all role IDs exist
     const roles = await this.roleRepository.findByIds(updateRolesDto.roleIds);
     if (roles.length !== updateRolesDto.roleIds.length) {
@@ -181,6 +190,12 @@ export class UserBackOfficeService {
       relations: ['roles', 'roles.permissions'],
     });
 
+    try {
+      await this.syncService.syncPerson(id);
+    } catch (error) {
+      console.error(`Failed to sync user ${id} to Elasticsearch:`, error);
+    }
+
     return updatedUser;
   }
 
@@ -192,6 +207,11 @@ export class UserBackOfficeService {
 
     // Soft delete by setting status to inactive
     await this.userRepository.update(id, { status: UserStatus.INACTIVE });
+    try {
+      await this.syncService.syncPerson(id);
+    } catch (error) {
+      console.error(`Failed to sync user ${id} to Elasticsearch:`, error);
+    }
   }
 
   async getUserSessions(id: string): Promise<any> {

@@ -36,6 +36,8 @@ import { NotificationQueueService } from 'src/shared/infrastructure/queue/servic
 import { jwtConfig } from '../identity/infrastructure/config/jwt.config';
 import { User } from '../identity/domain/entities';
 import { PasswordResetRequestedHandler } from './application/handlers/password-reset-requested.handler';
+import { JobPublishedHandler } from '../jobs/api/event-handlers/job-published.handler';
+import { HttpModule } from '@nestjs/axios';
 
 const Handlers = [
   SendNotificationHandler,
@@ -50,11 +52,13 @@ const Handlers = [
   OfferAcceptedHandler,
   OfferRejectedHandler,
   PasswordResetRequestedHandler,
+  JobPublishedHandler
 ];
 
 @Module({
   imports: [
     CqrsModule,
+    HttpModule,
     TypeOrmModule.forFeature([
       NotificationEntity,
       UserNotificationPreferences,

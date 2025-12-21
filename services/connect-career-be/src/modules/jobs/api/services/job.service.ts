@@ -12,6 +12,8 @@ import { JobStateMachineFactory } from '../../domain/state-machine/job-state-mac
 import { JobTransitionContext } from './job-state-machine.interface';
 import { HiringPipeline } from 'src/modules/hiring-pipeline/domain/entities/hiring-pipeline.entity';
 import { QueueService } from 'src/shared/infrastructure/queue/queue.service';
+import { EventBus } from '@nestjs/cqrs';
+import { JobPublishedEvent } from '../../domain/events/job-published.event';
 
 @Injectable()
 export class JobService {
@@ -24,6 +26,7 @@ export class JobService {
     private readonly organizationRepository: Repository<Organization>,
     private readonly stateMachineFactory: JobStateMachineFactory,
     private readonly queueService: QueueService,
+    private readonly eventBus: EventBus,
   ) {}
 
   async searchJobs(searchJobs: JobSearchDto): Promise<PaginatedResult<Job>> {
@@ -555,8 +558,23 @@ export class JobService {
     const oldStatus = job.status;
     job.status = status;
 
-    if (status === JobStatus.ACTIVE && oldStatus !== JobStatus.ACTIVE) {
+    if (
+      status === JobStatus.ACTIVE &&
+      oldStatus !== JobStatus.ACTIVE &&
+      !job.postedDate
+    ) {
       job.postedDate = new Date();
+      
+      // Publish JobPublishedEvent when job becomes ACTIVE
+      this.eventBus.publish(
+        new JobPublishedEvent(
+          job.id,
+          job.title,
+          job.organizationId,
+          job.userId,
+          JobStatus.ACTIVE,
+        ),
+      );
     }
 
     if (status === JobStatus.CLOSED && oldStatus !== JobStatus.CLOSED) {

@@ -4,8 +4,8 @@ import { ProviderFactory } from '../../infrastructure/providers/common/provider.
 import { NotificationChannel } from '../../domain/entities/notification.entity';
 import { ConfigService } from '@nestjs/config';
 import { render } from '@react-email/render';
-import { PasswordResetRequestedEvent } from 'src/modules/identity/domain/events/password-reset-requested.event';
 import PasswordResetEmail from '../../infrastructure/providers/common/template/password-reset-email';
+import { PasswordResetRequestedEvent } from 'src/modules/identity/domain/events/password-reset-requested.event';
 
 @Injectable()
 @EventsHandler(PasswordResetRequestedEvent)

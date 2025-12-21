@@ -5,6 +5,8 @@ import {
   MinLength,
   MaxLength,
   IsEnum,
+  ArrayMaxSize,
+  IsArray,
 } from 'class-validator';
 import { ApiProperty, ApiPropertyOptional } from '@nestjs/swagger';
 import { MfaDeviceType } from '../../domain/entities';
@@ -190,4 +192,14 @@ export class UserProfileDto {
     type: [RoleResponseDto],
   })
   roles?: RoleWithPermissionsDto[];
+}
+
+export class GetUsersByIdsDto {
+  @ApiProperty({
+    description: 'Array of user IDs',
+    type: [String],
+  })
+  @IsArray()
+  @IsString({ each: true })
+  ids: string[];
 }

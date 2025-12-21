@@ -9,6 +9,10 @@ from .models.schemas import (
     RecommendationRequest,
     RecommendationResponse,
     HealthResponse,
+    SimilarJobsRequest,
+    SimilarJobsResponse,
+    CandidateRecommendationRequest,
+    CandidateRecommendationResponse,
 )
 from .services.recommendation_service import recommendation_service
 from .services.embedding_service import embedding_service
@@ -392,7 +396,55 @@ async def generate_user_embedding_by_id(user_id: str):
     except Exception as e:
         logger.error(f"Error generating user embedding for {user_id}: {e}", exc_info=True)
         raise HTTPException(status_code=500, detail=str(e))
+
+@v1_router.post("/jobs/{job_id}/similar", response_model=SimilarJobsResponse)
+async def get_similar_jobs(job_id: str, request: SimilarJobsRequest = None):
+    """Get similar jobs based on a job ID"""
+    try:
+        loop = asyncio.get_event_loop()
+        job_ids, scores = await loop.run_in_executor(
+            executor,
+            recommendation_service.get_similar_jobs,
+            job_id,
+            request.limit,
+            request.excludeJobId
+        )
+        return SimilarJobsResponse(jobIds=job_ids, scores=scores)
+    except Exception as e:
+        logger.error(f"Error getting similar jobs: {e}", exc_info=True)
+        raise HTTPException(status_code=500, detail=str(e))
     
+@v1_router.post("/jobs/{job_id}/candidates", response_model=CandidateRecommendationResponse)
+async def get_candidate_recommendations(
+    job_id: str,
+    request: CandidateRecommendationRequest = None
+):
+    """Get candidate recommendations for a job (recruiter side)"""
+    try:
+        # If request body is provided, use it; otherwise use defaults
+        if request is None:
+            limit = 20
+            exclude_applied = True
+            min_score = None
+        else:
+            limit = request.limit
+            exclude_applied = request.excludeApplied
+            min_score = request.minScore
+        
+        # Run CPU-intensive computation in thread pool
+        loop = asyncio.get_event_loop()
+        user_ids, scores = await loop.run_in_executor(
+            executor,
+            recommendation_service.get_candidate_recommendations,
+            job_id,
+            limit,
+            exclude_applied,
+            min_score
+        )
+        return CandidateRecommendationResponse(userIds=user_ids, scores=scores)
+    except Exception as e:
+        logger.error(f"Error getting candidate recommendations: {e}", exc_info=True)
+        raise HTTPException(status_code=500, detail=str(e))
 # Register routers
 api_router.include_router(v1_router)
 app.include_router(api_router)

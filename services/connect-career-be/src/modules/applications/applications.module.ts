@@ -20,7 +20,8 @@ import { ApplicationRecruiterController } from './api/controller/application.rec
 import { JobStatusService } from '../jobs/api/services/job-status.service';
 import { JobsModule } from '../jobs/jobs.module';
 import { ApplicationSeeder } from './infrastructure/seeders/application.seeder';
-import { CqrsModule, EventBus } from '@nestjs/cqrs';
+import { CqrsModule } from '@nestjs/cqrs';
+import { JobInteraction } from '../recommendations/domain/entities/job-interaction.entity';
 
 @Module({
   imports: [
@@ -35,6 +36,7 @@ import { CqrsModule, EventBus } from '@nestjs/cqrs';
       HiringPipeline,
       PipelineStage,
       PipelineTransition,
+      JobInteraction,
     ]),
     JobsModule,
     CqrsModule,

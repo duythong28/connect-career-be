@@ -150,7 +150,6 @@ export class MockInterviewService {
     session.jobDescription = dto.jobDescription;
     session.configuration = this.buildConfiguration(dto);
     session.status = InterviewSessionStatus.CREATED;
-    await this.sessionRepository.save(session);
     try {
       const baseCompletion = await this.openai.chat.completions.create({
         model: 'gemini-2.5-flash-lite',

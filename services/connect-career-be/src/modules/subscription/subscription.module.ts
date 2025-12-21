@@ -26,6 +26,7 @@ import { IdentityModule } from '../identity/identity.module';
 import { BillableActionsSeeder } from './infrastructure/seeders/billable-actions.seeder';
 import { BillableActionsService } from './api/services/billable-action.service';
 import { BillableActionsController } from './api/controllers/billable-action.controller';
+import { CurrencyConversionService } from './api/services/currency-conversion.service';
 
 @Module({
   imports: [
@@ -61,6 +62,7 @@ import { BillableActionsController } from './api/controllers/billable-action.con
     RefundBackofficeService,
     BillableActionsService,
     BillableActionsSeeder,
+    CurrencyConversionService,
   ],
   exports: [WalletService, PaymentService, BillableActionsService],
 })

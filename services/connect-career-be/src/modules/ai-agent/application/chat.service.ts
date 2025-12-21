@@ -913,22 +913,26 @@ export class ChatService {
       // Build basic profile
       const profile: Record<string, any> = {
         userId: user.id,
-        name: user.fullName || `${user.firstName || ''} ${user.lastName || ''}`.trim() || undefined,
+        name:
+          user.fullName ||
+          `${user.firstName || ''} ${user.lastName || ''}`.trim() ||
+          undefined,
       };
 
       // Try to fetch candidate profile (always try, don't check role)
       try {
         // Remove 'select' when using 'relations' - TypeORM has issues with column aliases
-        const candidateProfile: CandidateProfile | null = await this.candidateProfileRepository.findOne({
-          where: { userId },
-          relations: [
-            'primaryIndustry',
-            'workExperiences',
-            'workExperiences.organization',
-            'educations',
-          ],
-          // Remove the select array - it conflicts with relations
-        });
+        const candidateProfile: CandidateProfile | null =
+          await this.candidateProfileRepository.findOne({
+            where: { userId },
+            relations: [
+              'primaryIndustry',
+              'workExperiences',
+              'workExperiences.organization',
+              'educations',
+            ],
+            // Remove the select array - it conflicts with relations
+          });
 
         if (!candidateProfile) {
           this.logger.debug(`No candidate profile found for user: ${userId}`);
@@ -953,7 +957,10 @@ export class ChatService {
         }
 
         // Work Experience
-        if (candidateProfile.workExperiences && candidateProfile.workExperiences.length > 0) {
+        if (
+          candidateProfile.workExperiences &&
+          candidateProfile.workExperiences.length > 0
+        ) {
           profile.experience = candidateProfile.workExperiences
             .map((exp) => ({
               jobTitle: exp.jobTitle,
@@ -961,23 +968,37 @@ export class ChatService {
               startDate: exp.startDate,
               endDate: exp.endDate,
               isCurrent: exp.isCurrent,
-              skills: exp.skills && exp.skills.length > 0 ? exp.skills : undefined,
+              skills:
+                exp.skills && exp.skills.length > 0 ? exp.skills : undefined,
             }))
             .sort((a, b) => {
-              const dateA = a.isCurrent ? new Date() : (a.endDate ? new Date(a.endDate) : new Date(0));
-              const dateB = b.isCurrent ? new Date() : (b.endDate ? new Date(b.endDate) : new Date(0));
+              const dateA = a.isCurrent
+                ? new Date()
+                : a.endDate
+                  ? new Date(a.endDate)
+                  : new Date(0);
+              const dateB = b.isCurrent
+                ? new Date()
+                : b.endDate
+                  ? new Date(b.endDate)
+                  : new Date(0);
               return dateB.getTime() - dateA.getTime();
             });
 
           // Current job title
-          const currentJob = candidateProfile.workExperiences.find((exp) => exp.isCurrent);
+          const currentJob = candidateProfile.workExperiences.find(
+            (exp) => exp.isCurrent,
+          );
           if (currentJob) {
             profile.currentJobTitle = currentJob.jobTitle;
           }
         }
 
         // Education
-        if (candidateProfile.educations && candidateProfile.educations.length > 0) {
+        if (
+          candidateProfile.educations &&
+          candidateProfile.educations.length > 0
+        ) {
           profile.education = candidateProfile.educations
             .map((edu) => ({
               degree: edu.degreeType,
@@ -987,19 +1008,25 @@ export class ChatService {
               isCurrent: edu.isCurrent,
             }))
             .sort((a, b) => {
-              const dateA = a.graduationDate ? new Date(a.graduationDate) : new Date(0);
-              const dateB = b.graduationDate ? new Date(b.graduationDate) : new Date(0);
+              const dateA = a.graduationDate
+                ? new Date(a.graduationDate)
+                : new Date(0);
+              const dateB = b.graduationDate
+                ? new Date(b.graduationDate)
+                : new Date(0);
               return dateB.getTime() - dateA.getTime();
             });
         }
 
-        this.logger.debug(`Candidate profile loaded for user ${userId}: ${JSON.stringify({
-          hasSkills: !!profile.skills,
-          hasLocation: !!profile.location,
-          hasIndustry: !!profile.industry,
-          experienceCount: profile.experience?.length || 0,
-          educationCount: profile.education?.length || 0,
-        })}`);
+        this.logger.debug(
+          `Candidate profile loaded for user ${userId}: ${JSON.stringify({
+            hasSkills: !!profile.skills,
+            hasLocation: !!profile.location,
+            hasIndustry: !!profile.industry,
+            experienceCount: profile.experience?.length || 0,
+            educationCount: profile.education?.length || 0,
+          })}`,
+        );
       } catch (error) {
         // Log the actual error to see what's happening
         this.logger.warn(

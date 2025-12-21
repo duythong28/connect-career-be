@@ -79,12 +79,17 @@ export class PromptService {
   }
 
   getGraphBuilderUserPrompt(
-    userText: string, 
+    userText: string,
     contextInfo?: string,
     userProfileInfo?: string,
     conversationHistory?: string,
   ): string {
-    return GraphBuilderPrompts.user(userText, contextInfo, userProfileInfo, conversationHistory);
+    return GraphBuilderPrompts.user(
+      userText,
+      contextInfo,
+      userProfileInfo,
+      conversationHistory,
+    );
   }
 
   // Agent Prompts

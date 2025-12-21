@@ -204,13 +204,13 @@ export class WalletService {
     }
     return action.actionName;
   }
-  
+
   async getRecentTransactions(
     userId: string,
     limit: number = 10,
   ): Promise<WalletTransaction[]> {
     const wallet = await this.getOrCreateWallet(userId);
-    
+
     return this.walletTransactionRepository.find({
       where: { walletId: wallet.id },
       order: { createdAt: 'DESC' },
@@ -238,29 +238,36 @@ export class WalletService {
     const wallet = await this.getOrCreateWallet(userId);
 
     // Get total credits
-    const totalCreditsResult: number | undefined = await this.walletTransactionRepository
-      .createQueryBuilder('transaction')
-      .select('SUM(transaction.amount)', 'total')
-      .where('transaction.walletId = :walletId', { walletId: wallet.id })
-      .andWhere('transaction.type = :type', { type: TransactionType.CREDIT })
-      .andWhere('transaction.status = :status', { status: TransactionStatus.COMPLETED })
-      .getRawOne();
+    const totalCreditsResult: number | undefined =
+      await this.walletTransactionRepository
+        .createQueryBuilder('transaction')
+        .select('SUM(transaction.amount)', 'total')
+        .where('transaction.walletId = :walletId', { walletId: wallet.id })
+        .andWhere('transaction.type = :type', { type: TransactionType.CREDIT })
+        .andWhere('transaction.status = :status', {
+          status: TransactionStatus.COMPLETED,
+        })
+        .getRawOne();
 
     // Get total debits
-    const totalDebitsResult: number | undefined = await this.walletTransactionRepository
-      .createQueryBuilder('transaction')
-      .select('SUM(transaction.amount)', 'total')
-      .where('transaction.walletId = :walletId', { walletId: wallet.id })
-      .andWhere('transaction.type = :type', { type: TransactionType.DEBIT })
-      .andWhere('transaction.status = :status', { status: TransactionStatus.COMPLETED })
-      .getRawOne()
+    const totalDebitsResult: number | undefined =
+      await this.walletTransactionRepository
+        .createQueryBuilder('transaction')
+        .select('SUM(transaction.amount)', 'total')
+        .where('transaction.walletId = :walletId', { walletId: wallet.id })
+        .andWhere('transaction.type = :type', { type: TransactionType.DEBIT })
+        .andWhere('transaction.status = :status', {
+          status: TransactionStatus.COMPLETED,
+        })
+        .getRawOne();
 
     // Get total spent on billable actions
-    const totalSpentResult: number | undefined = await this.usageLedgerRepository
-      .createQueryBuilder('usage')
-      .select('SUM(usage.amountDeducted)', 'total')
-      .where('usage.userId = :userId', { userId })
-      .getRawOne()
+    const totalSpentResult: number | undefined =
+      await this.usageLedgerRepository
+        .createQueryBuilder('usage')
+        .select('SUM(usage.amountDeducted)', 'total')
+        .where('usage.userId = :userId', { userId })
+        .getRawOne();
 
     return {
       totalCredits: totalCreditsResult || 0,
@@ -289,7 +296,9 @@ export class WalletService {
     }
 
     if (balanceBefore < debitAmount) {
-      throw new Error(`Insufficient balance. Current: ${balanceBefore}, Required: ${debitAmount}`);
+      throw new Error(
+        `Insufficient balance. Current: ${balanceBefore}, Required: ${debitAmount}`,
+      );
     }
 
     wallet.creditBalance = balanceBefore - debitAmount;

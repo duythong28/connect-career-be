@@ -5,7 +5,10 @@ import axios from 'axios';
 @Injectable()
 export class CurrencyConversionService {
   private readonly logger = new Logger(CurrencyConversionService.name);
-  private readonly exchangeRateCache: Map<string, { rate: number; timestamp: number }> = new Map();
+  private readonly exchangeRateCache: Map<
+    string,
+    { rate: number; timestamp: number }
+  > = new Map();
   private readonly CACHE_TTL = 60 * 60 * 1000; // 1 hour
 
   constructor(private readonly configService: ConfigService) {}
@@ -48,14 +51,19 @@ export class CurrencyConversionService {
 
     // Return cached rate if still valid
     if (cached && Date.now() - cached.timestamp < this.CACHE_TTL) {
-      this.logger.debug(`Using cached exchange rate for ${cacheKey}: ${cached.rate}`);
+      this.logger.debug(
+        `Using cached exchange rate for ${cacheKey}: ${cached.rate}`,
+      );
       return cached.rate;
     }
 
     try {
       // Option 1: Use free API (ExchangeRate-API or similar)
-      const rate = await this.fetchExchangeRateFromAPI(fromCurrency, toCurrency);
-      
+      const rate = await this.fetchExchangeRateFromAPI(
+        fromCurrency,
+        toCurrency,
+      );
+
       // Cache the rate
       this.exchangeRateCache.set(cacheKey, {
         rate,
@@ -65,11 +73,13 @@ export class CurrencyConversionService {
       return rate;
     } catch (error) {
       this.logger.error(`Failed to fetch exchange rate: ${error.message}`);
-      
+
       // Fallback to hardcoded rate if API fails
       const fallbackRate = this.getFallbackRate(fromCurrency, toCurrency);
       if (fallbackRate) {
-        this.logger.warn(`Using fallback exchange rate for ${cacheKey}: ${fallbackRate}`);
+        this.logger.warn(
+          `Using fallback exchange rate for ${cacheKey}: ${fallbackRate}`,
+        );
         return fallbackRate;
       }
 
@@ -78,7 +88,6 @@ export class CurrencyConversionService {
       );
     }
   }
-
 
   private async fetchExchangeRateFromAPI(
     fromCurrency: string,
@@ -97,8 +106,10 @@ export class CurrencyConversionService {
 
       return rate;
     } catch (error) {
-      this.logger.warn(`Primary exchange rate API failed, trying alternative...`);
-      
+      this.logger.warn(
+        `Primary exchange rate API failed, trying alternative...`,
+      );
+
       if (fromCurrency === 'VND' && toCurrency === 'USD') {
         return 1 / 24000; // Convert VND to USD
       }

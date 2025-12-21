@@ -197,7 +197,7 @@ export class IdentityController {
     @Body() forgotPasswordDto: ForgotPasswordDto,
   ): Promise<{ message: string }> {
     await this.authService.requestPasswordReset(forgotPasswordDto.email);
-  
+
     // Always return success message for security
     return {
       message: 'If the email exists, a password reset link has been sent',
@@ -217,7 +217,7 @@ export class IdentityController {
       resetPasswordDto.token,
       resetPasswordDto.newPassword,
     );
-  
+
     return { message: 'Password reset successfully' };
   }
 
@@ -319,7 +319,7 @@ export class IdentityController {
     if (!dto.ids || dto.ids.length === 0) {
       return [];
     }
-    
+
     const users = await this.authService.getUsersByIds(dto.ids);
     return users;
   }

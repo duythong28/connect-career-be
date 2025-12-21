@@ -391,16 +391,19 @@ export class StripeProvider extends BasePaymentProvider {
           eventType = 'payment.refunded';
           const refundUpdate = event.data.object as Stripe.Refund;
           if (refundUpdate.charge) {
-            const chargeId = typeof refundUpdate.charge === 'string' 
-              ? refundUpdate.charge 
-              : refundUpdate.charge.id;
+            const chargeId =
+              typeof refundUpdate.charge === 'string'
+                ? refundUpdate.charge
+                : refundUpdate.charge.id;
             try {
               const chargeObj = await this.stripe.charges.retrieve(chargeId);
               if (chargeObj.payment_intent) {
-                const intentId = typeof chargeObj.payment_intent === 'string'
-                  ? chargeObj.payment_intent
-                  : chargeObj.payment_intent.id;
-                const intent = await this.stripe.paymentIntents.retrieve(intentId);
+                const intentId =
+                  typeof chargeObj.payment_intent === 'string'
+                    ? chargeObj.payment_intent
+                    : chargeObj.payment_intent.id;
+                const intent =
+                  await this.stripe.paymentIntents.retrieve(intentId);
                 paymentId = intent.metadata?.paymentTransactionId || intentId;
               } else {
                 paymentId = chargeId;

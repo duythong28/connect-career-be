@@ -9,7 +9,10 @@ import {
   ChatPromptTemplate,
   MessagesPlaceholder,
 } from '@langchain/core/prompts';
-import { DynamicStructuredTool, StructuredToolInterface } from '@langchain/core/tools';
+import {
+  DynamicStructuredTool,
+  StructuredToolInterface,
+} from '@langchain/core/tools';
 import { z } from 'zod';
 import { Runnable, RunnableSequence } from '@langchain/core/runnables';
 import {
@@ -79,7 +82,9 @@ class CustomLLMAdapter extends BaseChatModel {
 
       const response = await this.aiService.chat({
         messages: formattedMessages,
-        temperature: (options as unknown as { temperature?: number })?.temperature || DEFAULT_TEMPERATURE,
+        temperature:
+          (options as unknown as { temperature?: number })?.temperature ||
+          DEFAULT_TEMPERATURE,
         maxOutputTokens: DEFAULT_MAX_OUTPUT_TOKENS,
       });
 
@@ -110,7 +115,7 @@ class CustomLLMAdapter extends BaseChatModel {
   ): AsyncGenerator<any> {
     throw new Error('Streaming is not supported by this LLM adapter');
   }
-  
+
   bindTools(): Runnable<any, any> {
     // Return a new instance with tools bound
     return new CustomLLMAdapter(this.aiService) as any;
@@ -221,7 +226,9 @@ export class ChainsService implements OnModuleDestroy {
           zodType = z.array(z.any()).describe(param.description || '');
           break;
         case 'object':
-          zodType = z.record(z.string(), z.any()).describe(param.description || '');
+          zodType = z
+            .record(z.string(), z.any())
+            .describe(param.description || '');
           break;
         default:
           zodType = z.any().describe(param.description || '');
@@ -244,7 +251,7 @@ export class ChainsService implements OnModuleDestroy {
         try {
           // Validate parameters before execution
           const validated = zodSchema.parse(params);
-          
+
           this.logger.debug(
             `Executing tool: ${tool.name} with params: ${JSON.stringify(validated)}`,
           );
@@ -252,7 +259,8 @@ export class ChainsService implements OnModuleDestroy {
           const result: any = await tool.execute(validated);
           return typeof result === 'string' ? result : JSON.stringify(result);
         } catch (error) {
-          const errorMessage = error instanceof Error ? error.message : String(error);
+          const errorMessage =
+            error instanceof Error ? error.message : String(error);
           this.logger.error(
             `Tool ${tool.name} execution failed: ${errorMessage}`,
             error instanceof Error ? error.stack : undefined,
@@ -284,11 +292,11 @@ export class ChainsService implements OnModuleDestroy {
 
       // Safely extract trace ID
       const traceId = (run as unknown as LangSmithRun)?.id;
-      
+
       if (traceId) {
         this.logger.debug(`Created LangSmith trace: ${traceId}`);
       }
-      
+
       return traceId;
     } catch (error) {
       this.logger.warn(
@@ -358,7 +366,7 @@ Always explain what you're doing and why.`;
       // Create prompt template (cache it)
       const cacheKey = `agent_${agent.name}`;
       let prompt = this.promptCache.get(cacheKey);
-      
+
       if (!prompt) {
         prompt = ChatPromptTemplate.fromMessages([
           ['system', systemPrompt],
@@ -411,15 +419,13 @@ Always explain what you're doing and why.`;
             // Prepare input for LangGraph
             // createReactAgent expects messages array in the state
             const graphInput = {
-              messages: [
-                ...chatHistory,
-                new HumanMessage(input),
-              ],
+              messages: [...chatHistory, new HumanMessage(input)],
             };
 
             // Execute with max iterations
-            const maxIterations = options?.maxIterations || DEFAULT_MAX_ITERATIONS;
-            
+            const maxIterations =
+              options?.maxIterations || DEFAULT_MAX_ITERATIONS;
+
             // LangGraph execution with recursion limit
             const config = {
               recursionLimit: maxIterations,
@@ -460,7 +466,8 @@ Always explain what you're doing and why.`;
             };
           } catch (error) {
             const executionTime = Date.now() - startTime;
-            const errorMessage = error instanceof Error ? error.message : String(error);
+            const errorMessage =
+              error instanceof Error ? error.message : String(error);
 
             this.logger.error(
               `Agent ${agent.name} execution failed after ${executionTime}ms: ${errorMessage}`,
@@ -484,7 +491,8 @@ Always explain what you're doing and why.`;
         },
       };
     } catch (error) {
-      const errorMessage = error instanceof Error ? error.message : String(error);
+      const errorMessage =
+        error instanceof Error ? error.message : String(error);
       this.logger.error(
         `Failed to create agent chain: ${errorMessage}`,
         error instanceof Error ? error.stack : undefined,
@@ -508,7 +516,7 @@ Always explain what you're doing and why.`;
     // Cache prompt template
     const cacheKey = `simple_${systemPrompt.substring(0, 50)}`;
     let prompt = this.promptCache.get(cacheKey);
-    
+
     if (!prompt) {
       prompt = ChatPromptTemplate.fromMessages([
         ['system', systemPrompt],
@@ -534,7 +542,9 @@ Always explain what you're doing and why.`;
             },
           );
 
-          this.logger.debug(`Executing simple chain with input length: ${input.length}`);
+          this.logger.debug(
+            `Executing simple chain with input length: ${input.length}`,
+          );
 
           const result = await chain.invoke({ input });
           const executionTime = Date.now() - startTime;
@@ -555,7 +565,8 @@ Always explain what you're doing and why.`;
           return result.content as string;
         } catch (error) {
           const executionTime = Date.now() - startTime;
-          const errorMessage = error instanceof Error ? error.message : String(error);
+          const errorMessage =
+            error instanceof Error ? error.message : String(error);
 
           this.logger.error(
             `Simple chain execution failed after ${executionTime}ms: ${errorMessage}`,
@@ -630,7 +641,9 @@ Question: {question}`;
             },
           );
 
-          this.logger.debug(`Executing RAG chain with question: ${question.substring(0, 100)}`);
+          this.logger.debug(
+            `Executing RAG chain with question: ${question.substring(0, 100)}`,
+          );
 
           const result = await chain.invoke({ question });
           const executionTime = Date.now() - startTime;
@@ -651,7 +664,8 @@ Question: {question}`;
           return result.content as string;
         } catch (error) {
           const executionTime = Date.now() - startTime;
-          const errorMessage = error instanceof Error ? error.message : String(error);
+          const errorMessage =
+            error instanceof Error ? error.message : String(error);
 
           this.logger.error(
             `RAG chain execution failed after ${executionTime}ms: ${errorMessage}`,

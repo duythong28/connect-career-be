@@ -485,20 +485,23 @@ export class AuthenticationService {
     if (!user) {
       return;
     }
-  
+
     const resetToken = uuidv4();
     const expiresAt = new Date(
       Date.now() +
-        this.configService.get<number>('identity.security.passwordResetExpiry', 60) *
+        this.configService.get<number>(
+          'identity.security.passwordResetExpiry',
+          60,
+        ) *
           60 *
           1000,
     );
-  
+
     // Update user with reset token
     user.passwordResetToken = resetToken;
     user.passwordResetExpires = expiresAt;
     await this.userRepository.update(user.id, user);
-  
+
     this.eventBus.publish(
       new PasswordResetRequestedEvent(
         user.firstName || user.fullName || 'User',
@@ -512,7 +515,7 @@ export class AuthenticationService {
 
   async resetPassword(token: string, newPassword: string): Promise<void> {
     const user = await this.userRepository.findByPasswordResetToken(token);
-  
+
     if (
       !user ||
       !user.passwordResetExpires ||
@@ -520,16 +523,16 @@ export class AuthenticationService {
     ) {
       throw new BadRequestException('Invalid or expired reset token');
     }
-  
+
     // Hash new password
     const passwordHash = await this.hashPassword(newPassword);
-  
+
     // Update user password and clear reset token
     user.passwordHash = passwordHash;
     user.passwordResetToken = undefined;
     user.passwordResetExpires = undefined;
     user.resetFailedLoginAttempts(); // Reset failed attempts on password reset
-  
+
     await this.userRepository.update(user.id, user);
   }
   async getUsersByIds(userIds: string[]): Promise<User[]> {

@@ -23,9 +23,11 @@ import { ArchivedStateStrategy } from './domain/state-machine/strategies/archive
 import { HiringPipeline } from '../hiring-pipeline/domain/entities/hiring-pipeline.entity';
 import { QueueModule } from 'src/shared/infrastructure/queue/queue.module';
 import { JobInteraction } from '../recommendations/domain/entities/job-interaction.entity';
+import { CqrsModule } from '@nestjs/cqrs';
 
 @Module({
   imports: [
+    CqrsModule,
     TypeOrmModule.forFeature([
       Job,
       SavedJob,

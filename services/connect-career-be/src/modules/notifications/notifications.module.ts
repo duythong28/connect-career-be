@@ -35,6 +35,7 @@ import { ScheduledNotificationScheduler } from 'src/shared/infrastructure/queue/
 import { NotificationQueueService } from 'src/shared/infrastructure/queue/services/notification-queue.service';
 import { jwtConfig } from '../identity/infrastructure/config/jwt.config';
 import { User } from '../identity/domain/entities';
+import { PasswordResetRequestedHandler } from './application/handlers/password-reset-requested.handler';
 
 const Handlers = [
   SendNotificationHandler,
@@ -48,6 +49,7 @@ const Handlers = [
   OfferSentHandler,
   OfferAcceptedHandler,
   OfferRejectedHandler,
+  PasswordResetRequestedHandler,
 ];
 
 @Module({

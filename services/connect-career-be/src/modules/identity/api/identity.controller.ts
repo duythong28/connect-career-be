@@ -195,13 +195,8 @@ export class IdentityController {
   async forgotPassword(
     @Body() forgotPasswordDto: ForgotPasswordDto,
   ): Promise<{ message: string }> {
-    const user = await this.userRepository.findByEmail(forgotPasswordDto.email);
-
-    if (user) {
-      // Generate reset token and send email (implementation needed)
-      // await this.authService.sendPasswordResetEmail(user);
-    }
-
+    await this.authService.requestPasswordReset(forgotPasswordDto.email);
+  
     // Always return success message for security
     return {
       message: 'If the email exists, a password reset link has been sent',
@@ -217,21 +212,11 @@ export class IdentityController {
   async resetPassword(
     @Body() resetPasswordDto: ResetPasswordDto,
   ): Promise<{ message: string }> {
-    const user = await this.userRepository.findByPasswordResetToken(
+    await this.authService.resetPassword(
       resetPasswordDto.token,
+      resetPasswordDto.newPassword,
     );
-
-    if (
-      !user ||
-      !user.passwordResetExpires ||
-      user.passwordResetExpires < new Date()
-    ) {
-      throw new BadRequestException('Invalid or expired reset token');
-    }
-
-    // Reset password (implementation needed)
-    // await this.authService.resetPassword(user.id, resetPasswordDto.password);
-
+  
     return { message: 'Password reset successfully' };
   }
 

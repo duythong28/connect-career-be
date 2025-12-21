@@ -5,6 +5,7 @@ import {
   Inject,
   Logger,
 } from '@nestjs/common';
+
 import { JwtService } from '@nestjs/jwt';
 import { ConfigService } from '@nestjs/config';
 import * as bcrypt from 'bcrypt';
@@ -21,6 +22,7 @@ import {
 } from '../../domain/entities';
 import { EventBus } from '@nestjs/cqrs';
 import { UserRegisteredEvent } from '../../domain/events/user-register.event';
+import { PasswordResetRequestedEvent } from '../../domain/events/password-reset-requested.event';
 
 export interface LoginCredentials {
   identifier: string; // email or username
@@ -476,5 +478,58 @@ export class AuthenticationService {
           : undefined,
       });
     }
+  }
+
+  async requestPasswordReset(email: string): Promise<void> {
+    const user = await this.userRepository.findByEmail(email);
+    if (!user) {
+      return;
+    }
+  
+    const resetToken = uuidv4();
+    const expiresAt = new Date(
+      Date.now() +
+        this.configService.get<number>('identity.security.passwordResetExpiry', 60) *
+          60 *
+          1000,
+    );
+  
+    // Update user with reset token
+    user.passwordResetToken = resetToken;
+    user.passwordResetExpires = expiresAt;
+    await this.userRepository.update(user.id, user);
+  
+    this.eventBus.publish(
+      new PasswordResetRequestedEvent(
+        user.firstName || user.fullName || 'User',
+        user.id,
+        user.email,
+        resetToken,
+        expiresAt,
+      ),
+    );
+  }
+
+  async resetPassword(token: string, newPassword: string): Promise<void> {
+    const user = await this.userRepository.findByPasswordResetToken(token);
+  
+    if (
+      !user ||
+      !user.passwordResetExpires ||
+      user.passwordResetExpires < new Date()
+    ) {
+      throw new BadRequestException('Invalid or expired reset token');
+    }
+  
+    // Hash new password
+    const passwordHash = await this.hashPassword(newPassword);
+  
+    // Update user password and clear reset token
+    user.passwordHash = passwordHash;
+    user.passwordResetToken = undefined;
+    user.passwordResetExpires = undefined;
+    user.resetFailedLoginAttempts(); // Reset failed attempts on password reset
+  
+    await this.userRepository.update(user.id, user);
   }
 }

@@ -90,7 +90,6 @@ export class ResetPasswordDto {
   @MaxLength(128)
   newPassword: string;
 }
-
 export class ChangePasswordDto {
   @ApiProperty({ description: 'Current password' })
   @IsString()

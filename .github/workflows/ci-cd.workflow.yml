@@ -217,30 +217,91 @@ jobs:
             export CC_BE_TAG=${BACKEND_TAG}
             export AI_SERVICE_TAG=${AI_SERVICE_TAG}
             export ENVIRONMENT=${ENVIRONMENT}
-            
+
             # Login to Docker Hub
             echo '${DOCKER_HUB_ACCESS_TOKEN}' | docker login -u ${DOCKER_HUB_USERNAME} --password-stdin
-            
+
+            # Check disk space before deployment
+            echo 'Checking disk space...'
+            AVAILABLE_SPACE=\$(df -BG / | awk 'NR==2 {print \$4}' | sed 's/G//')
+            MIN_REQUIRED=10
+            if [ \"\$AVAILABLE_SPACE\" -lt \"\$MIN_REQUIRED\" ]; then
+              echo '⚠️  Low disk space (\${AVAILABLE_SPACE}GB available), cleaning up...'
+              docker system prune -af --volumes || true
+              docker image prune -af || true
+              AVAILABLE_SPACE=\$(df -BG / | awk 'NR==2 {print \$4}' | sed 's/G//')
+              if [ \"\$AVAILABLE_SPACE\" -lt \"\$MIN_REQUIRED\" ]; then
+                echo '❌ ERROR: Insufficient disk space (\${AVAILABLE_SPACE}GB). Minimum required: \${MIN_REQUIRED}GB'
+                exit 1
+              fi
+              echo '✅ Cleanup completed. Available space: \${AVAILABLE_SPACE}GB'
+            fi
+
             # Stop and remove old containers
+            echo 'Stopping old containers...'
             docker compose -f docker-compose.base.yml -f docker-compose.override.yml down || true
-            
-            # Remove old images
+
+            # Cleanup unused Docker resources
+            echo 'Cleaning up unused Docker resources...'
+            docker container prune -f || true
+            docker image prune -af || true
+
+            # Remove old images (improved)
+            echo 'Removing old images...'
             docker rmi ${DOCKER_HUB_USERNAME}/connect-career-be:${BACKEND_TAG} -f || true
             docker rmi ${DOCKER_HUB_USERNAME}/ai-service:${AI_SERVICE_TAG} -f || true
-            
-            # Pull new images
-            docker pull ${DOCKER_HUB_USERNAME}/connect-career-be:${BACKEND_TAG}
-            docker pull ${DOCKER_HUB_USERNAME}/ai-service:${AI_SERVICE_TAG}
-            
+
+            # Pull new images with error handling
+            echo 'Pulling connect-career-be:${BACKEND_TAG}...'
+            if ! docker pull ${DOCKER_HUB_USERNAME}/connect-career-be:${BACKEND_TAG}; then
+              echo '❌ ERROR: Failed to pull connect-career-be image'
+              exit 1
+            fi
+
+            echo 'Pulling ai-service:${AI_SERVICE_TAG}...'
+            if ! docker pull ${DOCKER_HUB_USERNAME}/ai-service:${AI_SERVICE_TAG}; then
+              echo '❌ ERROR: Failed to pull ai-service image'
+              exit 1
+            fi
+
+            # Verify images exist
+            if ! docker image inspect ${DOCKER_HUB_USERNAME}/connect-career-be:${BACKEND_TAG} > /dev/null 2>&1; then
+              echo '❌ ERROR: connect-career-be image not found after pull'
+              exit 1
+            fi
+
+            if ! docker image inspect ${DOCKER_HUB_USERNAME}/ai-service:${AI_SERVICE_TAG} > /dev/null 2>&1; then
+              echo '❌ ERROR: ai-service image not found after pull'
+              exit 1
+            fi
+
             # Tag images for local use
+            echo 'Tagging images...'
             docker tag ${DOCKER_HUB_USERNAME}/connect-career-be:${BACKEND_TAG} connect-career-be:${BACKEND_TAG}
             docker tag ${DOCKER_HUB_USERNAME}/ai-service:${AI_SERVICE_TAG} ai-service:${AI_SERVICE_TAG}
-            
-            # Start services
-            docker compose -f docker-compose.base.yml -f docker-compose.override.yml up -d
-            "
 
-          echo "Finish deployment to DEV GCP VM"
+            # Start services
+            echo 'Starting services...'
+            docker compose -f docker-compose.base.yml -f docker-compose.override.yml up -d
+
+            # Wait for services to initialize
+            echo 'Waiting for services to start...'
+            sleep 10
+
+            # Verify deployment
+            echo 'Verifying deployment...'
+            if ! docker compose -f docker-compose.base.yml -f docker-compose.override.yml ps | grep -q 'Up'; then
+              echo '❌ ERROR: Some containers failed to start'
+              echo 'Container status:'
+              docker compose -f docker-compose.base.yml -f docker-compose.override.yml ps
+              echo 'Recent logs:'
+              docker compose -f docker-compose.base.yml -f docker-compose.override.yml logs --tail=50
+              exit 1
+            fi
+
+            echo '✅ Deployment successful!'
+            docker compose -f docker-compose.base.yml -f docker-compose.override.yml ps
+            "
 
   deploy-staging:
     needs: [determine-environment, build-backend, build-ai-service]
@@ -312,30 +373,91 @@ jobs:
             export CC_BE_TAG=${BACKEND_TAG}
             export AI_SERVICE_TAG=${AI_SERVICE_TAG}
             export ENVIRONMENT=${ENVIRONMENT}
-            
+
             # Login to Docker Hub
             echo '${DOCKER_HUB_ACCESS_TOKEN}' | docker login -u ${DOCKER_HUB_USERNAME} --password-stdin
-            
+
+            # Check disk space before deployment
+            echo 'Checking disk space...'
+            AVAILABLE_SPACE=\$(df -BG / | awk 'NR==2 {print \$4}' | sed 's/G//')
+            MIN_REQUIRED=10
+            if [ \"\$AVAILABLE_SPACE\" -lt \"\$MIN_REQUIRED\" ]; then
+              echo '⚠️  Low disk space (\${AVAILABLE_SPACE}GB available), cleaning up...'
+              docker system prune -af --volumes || true
+              docker image prune -af || true
+              AVAILABLE_SPACE=\$(df -BG / | awk 'NR==2 {print \$4}' | sed 's/G//')
+              if [ \"\$AVAILABLE_SPACE\" -lt \"\$MIN_REQUIRED\" ]; then
+                echo '❌ ERROR: Insufficient disk space (\${AVAILABLE_SPACE}GB). Minimum required: \${MIN_REQUIRED}GB'
+                exit 1
+              fi
+              echo '✅ Cleanup completed. Available space: \${AVAILABLE_SPACE}GB'
+            fi
+
             # Stop and remove old containers
+            echo 'Stopping old containers...'
             docker compose -f docker-compose.base.yml -f docker-compose.override.yml down || true
-            
-            # Remove old images
+
+            # Cleanup unused Docker resources
+            echo 'Cleaning up unused Docker resources...'
+            docker container prune -f || true
+            docker image prune -af || true
+
+            # Remove old images (improved)
+            echo 'Removing old images...'
             docker rmi ${DOCKER_HUB_USERNAME}/connect-career-be:${BACKEND_TAG} -f || true
             docker rmi ${DOCKER_HUB_USERNAME}/ai-service:${AI_SERVICE_TAG} -f || true
-            
-            # Pull new images
-            docker pull ${DOCKER_HUB_USERNAME}/connect-career-be:${BACKEND_TAG}
-            docker pull ${DOCKER_HUB_USERNAME}/ai-service:${AI_SERVICE_TAG}
-            
+
+            # Pull new images with error handling
+            echo 'Pulling connect-career-be:${BACKEND_TAG}...'
+            if ! docker pull ${DOCKER_HUB_USERNAME}/connect-career-be:${BACKEND_TAG}; then
+              echo '❌ ERROR: Failed to pull connect-career-be image'
+              exit 1
+            fi
+
+            echo 'Pulling ai-service:${AI_SERVICE_TAG}...'
+            if ! docker pull ${DOCKER_HUB_USERNAME}/ai-service:${AI_SERVICE_TAG}; then
+              echo '❌ ERROR: Failed to pull ai-service image'
+              exit 1
+            fi
+
+            # Verify images exist
+            if ! docker image inspect ${DOCKER_HUB_USERNAME}/connect-career-be:${BACKEND_TAG} > /dev/null 2>&1; then
+              echo '❌ ERROR: connect-career-be image not found after pull'
+              exit 1
+            fi
+
+            if ! docker image inspect ${DOCKER_HUB_USERNAME}/ai-service:${AI_SERVICE_TAG} > /dev/null 2>&1; then
+              echo '❌ ERROR: ai-service image not found after pull'
+              exit 1
+            fi
+
             # Tag images for local use
+            echo 'Tagging images...'
             docker tag ${DOCKER_HUB_USERNAME}/connect-career-be:${BACKEND_TAG} connect-career-be:${BACKEND_TAG}
             docker tag ${DOCKER_HUB_USERNAME}/ai-service:${AI_SERVICE_TAG} ai-service:${AI_SERVICE_TAG}
-            
-            # Start services
-            docker compose -f docker-compose.base.yml -f docker-compose.override.yml up -d
-            "
 
-          echo "Finish deployment to STAGING GCP VM"
+            # Start services
+            echo 'Starting services...'
+            docker compose -f docker-compose.base.yml -f docker-compose.override.yml up -d
+
+            # Wait for services to initialize
+            echo 'Waiting for services to start...'
+            sleep 10
+
+            # Verify deployment
+            echo 'Verifying deployment...'
+            if ! docker compose -f docker-compose.base.yml -f docker-compose.override.yml ps | grep -q 'Up'; then
+              echo '❌ ERROR: Some containers failed to start'
+              echo 'Container status:'
+              docker compose -f docker-compose.base.yml -f docker-compose.override.yml ps
+              echo 'Recent logs:'
+              docker compose -f docker-compose.base.yml -f docker-compose.override.yml logs --tail=50
+              exit 1
+            fi
+
+            echo '✅ Deployment successful!'
+            docker compose -f docker-compose.base.yml -f docker-compose.override.yml ps
+            "
 
   deploy-prod:
     needs: [determine-environment, build-backend, build-ai-service]
@@ -407,27 +529,88 @@ jobs:
             export CC_BE_TAG=${BACKEND_TAG}
             export AI_SERVICE_TAG=${AI_SERVICE_TAG}
             export ENVIRONMENT=${ENVIRONMENT}
-            
+
             # Login to Docker Hub
             echo '${DOCKER_HUB_ACCESS_TOKEN}' | docker login -u ${DOCKER_HUB_USERNAME} --password-stdin
-            
+
+            # Check disk space before deployment
+            echo 'Checking disk space...'
+            AVAILABLE_SPACE=\$(df -BG / | awk 'NR==2 {print \$4}' | sed 's/G//')
+            MIN_REQUIRED=10
+            if [ \"\$AVAILABLE_SPACE\" -lt \"\$MIN_REQUIRED\" ]; then
+              echo '⚠️  Low disk space (\${AVAILABLE_SPACE}GB available), cleaning up...'
+              docker system prune -af --volumes || true
+              docker image prune -af || true
+              AVAILABLE_SPACE=\$(df -BG / | awk 'NR==2 {print \$4}' | sed 's/G//')
+              if [ \"\$AVAILABLE_SPACE\" -lt \"\$MIN_REQUIRED\" ]; then
+                echo '❌ ERROR: Insufficient disk space (\${AVAILABLE_SPACE}GB). Minimum required: \${MIN_REQUIRED}GB'
+                exit 1
+              fi
+              echo '✅ Cleanup completed. Available space: \${AVAILABLE_SPACE}GB'
+            fi
+
             # Stop and remove old containers
+            echo 'Stopping old containers...'
             docker compose -f docker-compose.base.yml -f docker-compose.override.yml down || true
-            
-            # Remove old images
+
+            # Cleanup unused Docker resources
+            echo 'Cleaning up unused Docker resources...'
+            docker container prune -f || true
+            docker image prune -af || true
+
+            # Remove old images (improved)
+            echo 'Removing old images...'
             docker rmi ${DOCKER_HUB_USERNAME}/connect-career-be:${BACKEND_TAG} -f || true
             docker rmi ${DOCKER_HUB_USERNAME}/ai-service:${AI_SERVICE_TAG} -f || true
-            
-            # Pull new images
-            docker pull ${DOCKER_HUB_USERNAME}/connect-career-be:${BACKEND_TAG}
-            docker pull ${DOCKER_HUB_USERNAME}/ai-service:${AI_SERVICE_TAG}
-            
+
+            # Pull new images with error handling
+            echo 'Pulling connect-career-be:${BACKEND_TAG}...'
+            if ! docker pull ${DOCKER_HUB_USERNAME}/connect-career-be:${BACKEND_TAG}; then
+              echo '❌ ERROR: Failed to pull connect-career-be image'
+              exit 1
+            fi
+
+            echo 'Pulling ai-service:${AI_SERVICE_TAG}...'
+            if ! docker pull ${DOCKER_HUB_USERNAME}/ai-service:${AI_SERVICE_TAG}; then
+              echo '❌ ERROR: Failed to pull ai-service image'
+              exit 1
+            fi
+
+            # Verify images exist
+            if ! docker image inspect ${DOCKER_HUB_USERNAME}/connect-career-be:${BACKEND_TAG} > /dev/null 2>&1; then
+              echo '❌ ERROR: connect-career-be image not found after pull'
+              exit 1
+            fi
+
+            if ! docker image inspect ${DOCKER_HUB_USERNAME}/ai-service:${AI_SERVICE_TAG} > /dev/null 2>&1; then
+              echo '❌ ERROR: ai-service image not found after pull'
+              exit 1
+            fi
+
             # Tag images for local use
+            echo 'Tagging images...'
             docker tag ${DOCKER_HUB_USERNAME}/connect-career-be:${BACKEND_TAG} connect-career-be:${BACKEND_TAG}
             docker tag ${DOCKER_HUB_USERNAME}/ai-service:${AI_SERVICE_TAG} ai-service:${AI_SERVICE_TAG}
-            
-            # Start services
-            docker compose -f docker-compose.base.yml -f docker-compose.override.yml up -d
-            "
 
-          echo "Finish deployment to PRODUCTION GCP VM"
+            # Start services
+            echo 'Starting services...'
+            docker compose -f docker-compose.base.yml -f docker-compose.override.yml up -d
+
+            # Wait for services to initialize
+            echo 'Waiting for services to start...'
+            sleep 10
+
+            # Verify deployment
+            echo 'Verifying deployment...'
+            if ! docker compose -f docker-compose.base.yml -f docker-compose.override.yml ps | grep -q 'Up'; then
+              echo '❌ ERROR: Some containers failed to start'
+              echo 'Container status:'
+              docker compose -f docker-compose.base.yml -f docker-compose.override.yml ps
+              echo 'Recent logs:'
+              docker compose -f docker-compose.base.yml -f docker-compose.override.yml logs --tail=50
+              exit 1
+            fi
+
+            echo '✅ Deployment successful!'
+            docker compose -f docker-compose.base.yml -f docker-compose.override.yml ps
+            "

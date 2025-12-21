@@ -242,14 +242,14 @@ export class JobCandidateController {
     return this.savedJobService.getUserJobStats(user.sub);
   }
 
-  @Get('by-ids')
+  @Post('by-ids')
   @decorators.Public()
   @ApiOperation({ summary: 'Get jobs by a list of job IDs' })
   @ApiResponse({
     status: 200,
     description: 'Jobs retrieved successfully',
   })
-  async getJobsByIds(@Query() dto: GetJobsByIdsDto) {
+  async getJobsByIds(@Body() dto: GetJobsByIdsDto) {
     if (!dto.ids || dto.ids.length === 0) {
       return [];
     }

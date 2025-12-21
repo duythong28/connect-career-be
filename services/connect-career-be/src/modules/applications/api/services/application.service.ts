@@ -28,6 +28,7 @@ import { CV } from 'src/modules/cv-maker/domain/entities/cv.entity';
 import { EventBus } from '@nestjs/cqrs';
 import { ApplicationCreatedEvent } from '../../domain/events/application-created.event';
 import { ApplicationStatusChangedEvent } from '../../domain/events/application-status-changed.event';
+import { JobInteraction, JobInteractionType } from 'src/modules/recommendations/domain/entities/job-interaction.entity';
 
 export class CreateApplicationDto {
   @IsString()
@@ -110,6 +111,8 @@ export class ApplicationService {
     private readonly offerRepository: Repository<Offer>,
     @InjectRepository(CV)
     private readonly cvRepository: Repository<CV>,
+    @InjectRepository(JobInteraction)
+    private readonly jobInteractionRepository: Repository<JobInteraction>,   
     private readonly jobStatusService: JobStatusService,
     private readonly eventBus: EventBus,
   ) {}
@@ -207,6 +210,22 @@ export class ApplicationService {
         job.userId,
       ),
     );
+    try {
+      const interaction = this.jobInteractionRepository.create({
+        userId: savedApplication.candidateId,
+        jobId: savedApplication.jobId,
+        type: JobInteractionType.APPLY,
+        weight: 5.0,
+      });
+      await this.jobInteractionRepository.save(interaction);
+      this.logger.log(
+        `Created job interaction for application ${savedApplication.id}`,
+      );
+    } catch (error) {
+      this.logger.error(
+        `Failed to create job interaction for application ${savedApplication.id}: ${error instanceof Error ? error.message : String(error)}`,
+      );
+    }
 
     return savedApplication;
   }

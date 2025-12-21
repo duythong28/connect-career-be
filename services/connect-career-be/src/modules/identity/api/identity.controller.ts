@@ -37,6 +37,7 @@ import {
   AuthTokensResponseDto,
   MfaSetupResponseDto,
   UserProfileDto,
+  GetUsersByIdsDto,
 } from './dtos';
 import { UserMapper } from './mappers/user.mapper';
 
@@ -302,5 +303,24 @@ export class IdentityController {
     await this.userRepository.update(user.sub, { mfaEnabled: false });
 
     return { message: 'MFA disabled successfully' };
+  }
+
+  @Post('users/by-ids')
+  @ApiBearerAuth()
+  @ApiOperation({ summary: 'Get users by a list of user IDs' })
+  @ApiResponse({
+    status: 200,
+    description: 'Users retrieved successfully',
+    type: [UserProfileDto],
+  })
+  async getUsersByIds(
+    @Body() dto: GetUsersByIdsDto,
+  ): Promise<UserProfileDto[]> {
+    if (!dto.ids || dto.ids.length === 0) {
+      return [];
+    }
+    
+    const users = await this.authService.getUsersByIds(dto.ids);
+    return users;
   }
 }

@@ -532,4 +532,10 @@ export class AuthenticationService {
   
     await this.userRepository.update(user.id, user);
   }
+  async getUsersByIds(userIds: string[]): Promise<User[]> {
+    if (!userIds || userIds.length === 0) {
+      return [];
+    }
+    return await this.userRepository.findByIds(userIds);
+  }
 }

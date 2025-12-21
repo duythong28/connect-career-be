@@ -39,3 +39,20 @@ class RecommendationResponse(BaseModel):
 class HealthResponse(BaseModel):
     status: str
     version: str
+    
+class SimilarJobsRequest(BaseModel):
+    limit: int = 10
+    excludeJobId: bool = True
+
+class SimilarJobsResponse(BaseModel):
+    jobIds: List[str]
+    scores: List[float]
+
+class CandidateRecommendationRequest(BaseModel):
+    limit: int = 20
+    excludeApplied: bool = True
+    minScore: Optional[float] = None
+
+class CandidateRecommendationResponse(BaseModel):
+    userIds: List[str]
+    scores: List[float]

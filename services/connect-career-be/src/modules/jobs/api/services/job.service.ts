@@ -712,7 +712,7 @@ export class JobService {
       return [];
     }
 
-    return this.jobRepository.find({
+    const jobs = await this.jobRepository.find({
       where: ids.map((id) => ({ id })),
       relations: [
         'organization',
@@ -720,7 +720,18 @@ export class JobService {
         'organization.industry',
         'user',
       ],
-      order: { postedDate: 'DESC' },
     });
-  }
+  
+    const jobMap = new Map(jobs.map((job) => [job.id, job]));
+  
+    const result: Job[] = [];
+    for (const id of ids) {
+      const job = jobMap.get(id);
+      if (job) {
+        result.push(job);
+      }
+    }
+  
+    return result;
+  }  
 }

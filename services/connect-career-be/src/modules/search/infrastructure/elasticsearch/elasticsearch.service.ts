@@ -550,6 +550,7 @@ export class ElasticsearchService implements OnModuleInit {
       experience,
       education,
       avatarUrl: user.avatarUrl,
+      candidateProfileId: profile?.id || null,
       createdAt: user.createdAt,
       updatedAt: user.updatedAt,
     };

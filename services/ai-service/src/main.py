@@ -17,7 +17,8 @@ from .models.schemas import (
 from .services.recommendation_service import recommendation_service
 from .services.embedding_service import embedding_service
 from .database import db
-import sys
+import sys, pathlib
+sys.path.append(str(pathlib.Path(__file__).parent.parent))
 import os
 from .utils.embedding_builders import build_job_text, build_user_text
 # Setup logging
@@ -175,8 +176,7 @@ async def generate_user_embedding(user_data: dict):
 @v1_router.post("/embeddings/batch")
 async def batch_generate_embeddings(request: dict):
     """Trigger batch embedding generation (calls existing training script logic)"""
-    from .scripts.train_embeddings import train_job_embeddings, train_user_embeddings
-    
+    from scripts.train_embeddings import train_job_embeddings, train_user_embeddings
     try:
         embed_type = request.get('type', 'jobs')
         

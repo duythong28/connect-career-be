@@ -14,6 +14,7 @@ import { HiringPipeline } from 'src/modules/hiring-pipeline/domain/entities/hiri
 import { QueueService } from 'src/shared/infrastructure/queue/queue.service';
 import { EventBus } from '@nestjs/cqrs';
 import { JobPublishedEvent } from '../../domain/events/job-published.event';
+import { OrganizationMembership } from 'src/modules/profile/domain/entities/organization-memberships.entity';
 
 @Injectable()
 export class JobService {
@@ -24,6 +25,8 @@ export class JobService {
     private readonly hiringPipelineRepository: Repository<HiringPipeline>,
     @InjectRepository(Organization)
     private readonly organizationRepository: Repository<Organization>,
+    @InjectRepository(OrganizationMembership)
+    private readonly organizationMemberRepository: Repository<OrganizationMembership>,
     private readonly stateMachineFactory: JobStateMachineFactory,
     private readonly queueService: QueueService,
     private readonly eventBus: EventBus,
@@ -431,12 +434,12 @@ export class JobService {
     if (!user) {
       throw new NotFoundException(`User with ID ${userId} not found`);
     }
-    const organization = await this.organizationRepository.findOne({
-      where: { userId },
+    const organizationMember = await this.organizationMemberRepository.findOne({
+      where: { userId, organizationId: createJobDto.organizationId },
     });
-    if (!organization) {
+    if (!organizationMember) {
       throw new NotFoundException(
-        `Organization with User ID ${userId} not found`,
+        `Organization member with User ID ${userId} and Organization ID ${createJobDto.organizationId} not found`,
       );
     }
     const hiringPipeline = await this.hiringPipelineRepository.findOne({
@@ -445,9 +448,9 @@ export class JobService {
     const jobDataForCreate: Partial<Job> = {
       ...createJobDto,
       userId,
-      organizationId: organization.id,
+      organizationId: createJobDto.organizationId,
       source: JobSource.INTERNAL,
-      status: JobStatus.DRAFT,
+      status: createJobDto.status,
       postedDate:
         createJobDto.status === JobStatus.ACTIVE ? new Date() : undefined,
     };
@@ -462,6 +465,21 @@ export class JobService {
     const job = this.jobRepository.create(jobDataForCreate);
     const savedJob = await this.jobRepository.save(job);
     if (savedJob.status === JobStatus.ACTIVE) {
+      if (!savedJob.postedDate) {
+        savedJob.postedDate = new Date();
+        await this.jobRepository.save(savedJob);
+      }
+    
+      this.eventBus.publish(
+        new JobPublishedEvent(
+          savedJob.id,
+          savedJob.title,
+          savedJob.organizationId,
+          savedJob.userId,
+          JobStatus.ACTIVE,
+        ),
+      );
+    
       await this.queueJobEmbedding(savedJob);
     }
 

@@ -34,7 +34,6 @@ export class OAuthController {
         profile,
         deviceInfo,
       );
-
       const frontendUrl = process.env.FRONTEND_URL || 'http://localhost:3000';
       const redirectUrl = `${frontendUrl}/auth/callback?token=${tokens.accessToken}&refresh=${tokens.refreshToken}`;
 

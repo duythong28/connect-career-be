@@ -344,7 +344,12 @@ export class AuthenticationService {
 
     // Update user login info
     user.updateLastLogin(deviceInfo?.ipAddress || '');
-    await this.userRepository.update(user.id, user);
+    await this.userRepository.update(user.id, {
+      lastLoginAt: user.lastLoginAt,
+      lastLoginIp: user.lastLoginIp,
+      failedLoginAttempts: user.failedLoginAttempts,
+      lockedUntil: user.lockedUntil,
+    });
 
     // Generate tokens and create session
     return this.createUserSession(user, deviceInfo || {});

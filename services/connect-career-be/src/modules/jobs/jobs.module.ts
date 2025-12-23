@@ -24,6 +24,7 @@ import { HiringPipeline } from '../hiring-pipeline/domain/entities/hiring-pipeli
 import { QueueModule } from 'src/shared/infrastructure/queue/queue.module';
 import { JobInteraction } from '../recommendations/domain/entities/job-interaction.entity';
 import { CqrsModule } from '@nestjs/cqrs';
+import { OrganizationMembership } from '../profile/domain/entities/organization-memberships.entity';
 
 @Module({
   imports: [
@@ -40,6 +41,7 @@ import { CqrsModule } from '@nestjs/cqrs';
       File,
       Application,
       JobInteraction,
+      OrganizationMembership,
     ]),
     QueueModule,
   ],

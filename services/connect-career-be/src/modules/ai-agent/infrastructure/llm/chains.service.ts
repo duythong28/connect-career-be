@@ -4,6 +4,7 @@ import { IAgent } from '../../domain/interfaces/agent.interface';
 import { ITool } from '../../domain/interfaces/tool.interface';
 import { AgentContext } from '../../domain/types/agent.types';
 import { ConfigService } from '@nestjs/config';
+import { createAgent } from "langchain";  
 
 import {
   ChatPromptTemplate,
@@ -27,9 +28,6 @@ import { CallbackManagerForLLMRun } from '@langchain/core/callbacks/manager';
 
 // LangSmith imports
 import { Client } from 'langsmith';
-
-// Modern LangGraph imports (v0.2+)
-import { createReactAgent } from '@langchain/langgraph/prebuilt';
 
 // Constants
 const MAX_CHAT_HISTORY_LENGTH = 20;
@@ -205,71 +203,203 @@ export class ChainsService implements OnModuleDestroy {
   /**
    * Convert ITool to LangChain DynamicStructuredTool with validation
    */
-  private convertToolToLangChain(tool: ITool): DynamicStructuredTool {
-    const schemaObject: Record<string, z.ZodTypeAny> = {};
+    /**
+   * Convert ITool to LangChain DynamicStructuredTool with validation
+   */
+    private convertToolToLangChain(tool: ITool): DynamicStructuredTool {
+      const schemaObject: Record<string, z.ZodTypeAny> = {};
+  
+      for (const param of tool.parameters) {
+        let zodType: z.ZodTypeAny;
+  
+        switch (param.type) {
+          case 'string':
+            zodType = z.string().describe(param.description || '');
+            break;
+          case 'number':
+            zodType = z.number().describe(param.description || '');
+            break;
+          case 'boolean':
+            zodType = z.boolean().describe(param.description || '');
+            break;
+          case 'array':
+            zodType = z.array(z.any()).describe(param.description || '');
+            break;
+          case 'object':
+            zodType = z
+              .record(z.string(), z.any())
+              .describe(param.description || '');
+            break;
+          default:
+            zodType = z.any().describe(param.description || '');
+        }
+  
+        if (param.required) {
+          schemaObject[param.name] = zodType;
+        } else {
+          schemaObject[param.name] = zodType.optional();
+        }
+      }
+  
+      const zodSchema = z.object(schemaObject);
+  
+      return new DynamicStructuredTool({
+        name: tool.name,
+        description: tool.description,
+        schema: zodSchema,
+        func: async (params: Record<string, any>) => {
+          try {
+            // Validate parameters before execution
+            const validated = zodSchema.parse(params);
+  
+            this.logger.debug(
+              `Executing tool: ${tool.name} with params: ${JSON.stringify(validated)}`,
+            );
+  
+            const result: any = await tool.execute(validated);
+            
+            // Format tool response for LLM readability
+            return this.formatToolResponse(result, tool.name);
+          } catch (error) {
+            const errorMessage =
+              error instanceof Error ? error.message : String(error);
+            this.logger.error(
+              `Tool ${tool.name} execution failed: ${errorMessage}`,
+              error instanceof Error ? error.stack : undefined,
+            );
+            throw new Error(`Tool execution failed: ${errorMessage}`);
+          }
+        },
+      });
+    }
+  
+      /**
+   * Format tool response for optimal LLM parsing
+   * Returns a readable string format that LLMs can easily understand
+   */
+  private formatToolResponse(result: any, toolName: string): string {
+    // If already a string, return as-is
+    if (typeof result === 'string') {
+      return result;
+    }
 
-    for (const param of tool.parameters) {
-      let zodType: z.ZodTypeAny;
+    // Handle null/undefined
+    if (result === null || result === undefined) {
+      return `Tool ${toolName} returned no result.`;
+    }
 
-      switch (param.type) {
-        case 'string':
-          zodType = z.string().describe(param.description || '');
-          break;
-        case 'number':
-          zodType = z.number().describe(param.description || '');
-          break;
-        case 'boolean':
-          zodType = z.boolean().describe(param.description || '');
-          break;
-        case 'array':
-          // Try to infer array item type if available
-          zodType = z.array(z.any()).describe(param.description || '');
-          break;
-        case 'object':
-          zodType = z
-            .record(z.string(), z.any())
-            .describe(param.description || '');
-          break;
-        default:
-          zodType = z.any().describe(param.description || '');
+    // Handle errors
+    if (result instanceof Error) {
+      return `Error from ${toolName}: ${result.message}`;
+    }
+
+    // Handle empty results
+    if (Array.isArray(result) && result.length === 0) {
+      return `No results found from ${toolName}.`;
+    }
+
+    if (typeof result === 'object') {
+      // Check if it's an empty object
+      if (Object.keys(result).length === 0) {
+        return `No data returned from ${toolName}.`;
       }
 
-      if (param.required) {
-        schemaObject[param.name] = zodType;
-      } else {
-        schemaObject[param.name] = zodType.optional();
+      // Special formatting for job search results
+      if (toolName === 'search_jobs' || toolName === 'filter_jobs') {
+        return this.formatJobSearchResponse(result, toolName);
+      }
+
+      // Format as readable JSON with indentation for LLM parsing
+      try {
+        const formatted = JSON.stringify(result, null, 2);
+        
+        // Add a summary header for better context
+        const summary = this.generateResultSummary(result, toolName);
+        return `${summary}\n\nResult:\n${formatted}`;
+      } catch (jsonError) {
+        // Fallback if JSON.stringify fails
+        return `Result from ${toolName}: ${String(result)}`;
       }
     }
 
-    const zodSchema = z.object(schemaObject);
-
-    return new DynamicStructuredTool({
-      name: tool.name,
-      description: tool.description,
-      schema: zodSchema,
-      func: async (params: Record<string, any>) => {
-        try {
-          // Validate parameters before execution
-          const validated = zodSchema.parse(params);
-
-          this.logger.debug(
-            `Executing tool: ${tool.name} with params: ${JSON.stringify(validated)}`,
-          );
-
-          const result: any = await tool.execute(validated);
-          return typeof result === 'string' ? result : JSON.stringify(result);
-        } catch (error) {
-          const errorMessage =
-            error instanceof Error ? error.message : String(error);
-          this.logger.error(
-            `Tool ${tool.name} execution failed: ${errorMessage}`,
-            error instanceof Error ? error.stack : undefined,
-          );
-          throw new Error(`Tool execution failed: ${errorMessage}`);
-        }
-      },
-    });
+    // For primitives, convert to string
+    return String(result);
   }
+
+  /**
+   * Format job search results in a natural language format
+   */
+  private formatJobSearchResponse(result: any, toolName: string): string {
+    if (!result.success) {
+      return `Job search failed: ${result.error || 'Unknown error'}`;
+    }
+
+    const jobs = result.jobs || [];
+    const total = result.total || 0;
+
+    if (jobs.length === 0) {
+      return `No jobs found matching your criteria. Total jobs searched: ${total}.`;
+    }
+
+    let response = `Found ${total} job(s) matching your search criteria. Here are ${jobs.length} result(s):\n\n`;
+
+    jobs.forEach((job: any, index: number) => {
+      response += `${index + 1}. **${job.title}** at ${job.company}\n`;
+      response += `   - Location: ${job.location}${job.country ? `, ${job.country}` : ''}\n`;
+      response += `   - Type: ${job.type || 'Not specified'}\n`;
+      if (job.seniorityLevel) {
+        response += `   - Level: ${job.seniorityLevel}\n`;
+      }
+      if (job.salaryRange) {
+        const { min, max, currency } = job.salaryRange;
+        response += `   - Salary: ${min}${max ? ` - ${max}` : ''} ${currency || 'USD'}\n`;
+      }
+      if (job.summary) {
+        response += `   - Summary: ${job.summary.substring(0, 150)}${job.summary.length > 150 ? '...' : ''}\n`;
+      }
+      if (job.skills && job.skills.length > 0) {
+        response += `   - Skills: ${job.skills.slice(0, 5).join(', ')}${job.skills.length > 5 ? '...' : ''}\n`;
+      }
+      response += `   - Job ID: ${job.id}\n\n`;
+    });
+
+    if (result.totalPages && result.totalPages > 1) {
+      response += `\nNote: Showing page ${result.page} of ${result.totalPages}. Use pageNumber parameter to see more results.`;
+    }
+
+    return response;
+  }
+  
+    /**
+     * Generate a human-readable summary of tool results
+     */
+    private generateResultSummary(result: any, toolName: string): string {
+      if (Array.isArray(result)) {
+        return `Found ${result.length} item(s) from ${toolName}.`;
+      }
+  
+      if (typeof result === 'object' && result !== null) {
+        const keys = Object.keys(result);
+        if (keys.length > 0) {
+          // Check for common result patterns
+          if ('jobs' in result && Array.isArray(result.jobs)) {
+            return `Found ${result.jobs.length} job(s) from ${toolName}.`;
+          }
+          if ('resources' in result && Array.isArray(result.resources)) {
+            return `Found ${result.resources.length} resource(s) from ${toolName}.`;
+          }
+          if ('skills' in result && Array.isArray(result.skills)) {
+            return `Extracted ${result.skills.length} skill(s) from ${toolName}.`;
+          }
+          if ('total' in result) {
+            return `Total: ${result.total} result(s) from ${toolName}.`;
+          }
+          return `Retrieved ${keys.length} field(s) from ${toolName}.`;
+        }
+      }
+  
+      return `Result from ${toolName}:`;
+    }
 
   /**
    * Create LangSmith trace
@@ -379,11 +509,12 @@ Always explain what you're doing and why.`;
 
       // Create agent using modern LangGraph ReactAgent
       // createReactAgent returns a compiled graph that can be invoked directly
-      const agentGraph = createReactAgent({
-        llm: this.llmAdapter,
+      const agentGraph = createAgent({
+        model: this.llmAdapter,
         tools: langChainTools,
-        messageModifier: prompt,
+        systemPrompt: systemPrompt, // Use the ChatPromptTemplate you created above
       });
+
 
       return {
         agent,
@@ -422,11 +553,9 @@ Always explain what you're doing and why.`;
               messages: [...chatHistory, new HumanMessage(input)],
             };
 
-            // Execute with max iterations
             const maxIterations =
               options?.maxIterations || DEFAULT_MAX_ITERATIONS;
 
-            // LangGraph execution with recursion limit
             const config = {
               recursionLimit: maxIterations,
             };

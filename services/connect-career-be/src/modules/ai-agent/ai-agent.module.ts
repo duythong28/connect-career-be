@@ -69,6 +69,10 @@ import { LangSmithService } from './application/langsmith.service';
 import { PromptService } from './infrastructure/prompts/prompt.service';
 import { User } from '../identity/domain/entities';
 import { CandidateProfile } from '../profile/domain/entities/candidate-profile.entity';
+import { LearningPlanAgent } from './domain/agents/learning-plans/learning-plan.agent';
+import { CvEnhancementAgent } from './domain/agents/cv-enhancement/cv-enhancement.agent';
+import { OrganizationCultureAgent } from './domain/agents/organization-culture/organization-culture.agent';
+import { JobsModule } from '../jobs/jobs.module';
 @Module({
   imports: [
     ConfigModule,
@@ -83,6 +87,7 @@ import { CandidateProfile } from '../profile/domain/entities/candidate-profile.e
       User,
       CandidateProfile,
     ]),
+    JobsModule
   ],
   controllers: [AiAgentController],
   providers: [
@@ -140,6 +145,9 @@ import { CandidateProfile } from '../profile/domain/entities/candidate-profile.e
     MatchingAgent,
     AnalysisAgent,
     InformationGatheringAgent,
+    LearningPlanAgent,
+    CvEnhancementAgent, 
+    OrganizationCultureAgent,
 
     // Agent registration - register agents after instantiation
     {
@@ -154,6 +162,9 @@ import { CandidateProfile } from '../profile/domain/entities/candidate-profile.e
         analysisAgent: AnalysisAgent,
         informationGatheringAgent: InformationGatheringAgent,
         toolRegistry: ToolRegistryService,
+        learningPlanAgent: LearningPlanAgent,
+        cvEnhancementAgent: CvEnhancementAgent,
+        organizationCultureAgent: OrganizationCultureAgent,
         jobTools: JobToolsService,
         cvTools: CvToolsService,
         learningTools: LearningToolsService,
@@ -181,6 +192,9 @@ import { CandidateProfile } from '../profile/domain/entities/candidate-profile.e
         agentRouter.registerAgent(matchingAgent);
         agentRouter.registerAgent(analysisAgent);
         agentRouter.registerAgent(informationGatheringAgent);
+        agentRouter.registerAgent(learningPlanAgent); 
+        agentRouter.registerAgent(cvEnhancementAgent);
+        agentRouter.registerAgent(organizationCultureAgent);
         return true;
       },
       inject: [
@@ -193,6 +207,9 @@ import { CandidateProfile } from '../profile/domain/entities/candidate-profile.e
         AnalysisAgent,
         InformationGatheringAgent,
         ToolRegistryService,
+        LearningPlanAgent,
+        CvEnhancementAgent,
+        OrganizationCultureAgent,
         JobToolsService,
         CvToolsService,
         LearningToolsService,

@@ -152,16 +152,9 @@ export class GraphBuilderService {
               },
             },
           );
-          const allMessages = [
-            ...messages.slice(-10),
-            new HumanMessage(userPrompt),
-          ];
 
-          // Execute with the user prompt
-          const chainResult = await agentChain.executor.invoke({
-            messages: allMessages,
-          });
-
+          // Use the execute method instead of executor.invoke
+          const chainResult = await agentChain.execute(userPrompt, context);
           const finalMessages = chainResult.messages || [];
           const lastMessage = finalMessages[finalMessages.length - 1];
           answer =

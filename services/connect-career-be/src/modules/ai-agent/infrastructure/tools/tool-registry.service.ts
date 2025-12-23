@@ -5,7 +5,7 @@ import { ITool } from '../../domain/interfaces/tool.interface';
 export class ToolRegistryService {
   private readonly logger = new Logger(ToolRegistryService.name);
   private readonly tools = new Map<string, ITool>();
-  private readonly agentTools = new Map<string, string[]>(); // agentName -> toolNames[]
+  private readonly agentTools = new Map<string, string[]>();
 
   registerTool(tool: ITool): void {
     this.tools.set(tool.name, tool);

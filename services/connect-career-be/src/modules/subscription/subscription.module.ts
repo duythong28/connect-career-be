@@ -27,6 +27,7 @@ import { BillableActionsSeeder } from './infrastructure/seeders/billable-actions
 import { BillableActionsService } from './api/services/billable-action.service';
 import { BillableActionsController } from './api/controllers/billable-action.controller';
 import { CurrencyConversionService } from './api/services/currency-conversion.service';
+import { UsageLedgerSeeder } from './infrastructure/seeders/usage-ledger.seeder';
 
 @Module({
   imports: [
@@ -62,6 +63,7 @@ import { CurrencyConversionService } from './api/services/currency-conversion.se
     RefundBackofficeService,
     BillableActionsService,
     BillableActionsSeeder,
+    UsageLedgerSeeder,
     CurrencyConversionService,
   ],
   exports: [WalletService, PaymentService, BillableActionsService],

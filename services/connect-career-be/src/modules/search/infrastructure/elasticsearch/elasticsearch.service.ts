@@ -196,6 +196,7 @@ export class ElasticsearchService implements OnModuleInit {
       mappings: {
         properties: {
           id: { type: 'keyword' },
+          profileId: { type: 'keyword' },
           name: {
             type: 'text',
             analyzer: 'people_analyzer',
@@ -543,6 +544,7 @@ export class ElasticsearchService implements OnModuleInit {
         `${user.firstName || ''} ${user.lastName || ''}`.trim(),
       firstName: user.firstName,
       lastName: user.lastName,
+      profileId: profile?.id || null,
       title: null,
       currentCompany,
       location,

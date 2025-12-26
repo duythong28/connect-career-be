@@ -18,10 +18,11 @@ class UserPreferences(BaseModel):
     skillsDislike: Optional[List[str]] = None
     preferredRoleTypes: Optional[List[str]] = None
     preferredLocations: Optional[List[str]] = None
-    preferredCompanySize: Optional[str] = None
+    preferredCompanySize: Optional[str] = None 
     wantsClearanceRoles: bool = False
     hiddenCompanyIds: Optional[List[str]] = None
-    minSalary: Optional[int] = None  # Added missing field
+    minSalary: Optional[int] = None
+
 
 
 class RecommendationRequest(BaseModel):
@@ -29,6 +30,7 @@ class RecommendationRequest(BaseModel):
     preferences: Optional[UserPreferences] = None
     recentInteractions: List[Interaction] = []
     limit: int = 20
+    searchTerm: Optional[str] = None
 
 
 class RecommendationResponse(BaseModel):

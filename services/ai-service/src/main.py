@@ -221,6 +221,21 @@ async def get_recommendations(request: RecommendationRequest):
     except Exception as e:
         logger.error(f"Error getting recommendations: {e}", exc_info=True)
         raise HTTPException(status_code=500, detail=str(e))
+    
+@v1_router.post("/search/recommendations/")
+async def get_search_recommendations(request: RecommendationRequest):
+    """Get job recommendations with user preferences and search term"""
+    try:
+        loop = asyncio.get_event_loop()
+        job_ids, scores = await loop.run_in_executor(
+            executor,
+            recommendation_service.get_search_recommendations,
+            request
+        )
+        return RecommendationResponse(jobIds=job_ids, scores=scores)
+    except Exception as e:
+        logger.error(f"Error getting search recommendations: {e}", exc_info=True)
+        raise HTTPException(status_code=500, detail=str(e))
 
 @v1_router.post("/embeddings/job/{job_id}")
 async def generate_job_embedding_by_id(job_id: str):

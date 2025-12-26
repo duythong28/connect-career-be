@@ -619,7 +619,6 @@ class RecommendationService:
             candidate_job_ids = self.get_candidate_jobs(
                 request.userId, 
                 request.preferences,
-                request.searchTerm
             )
             
             if not candidate_job_ids:
@@ -722,15 +721,7 @@ class RecommendationService:
             
             # Apply preference boosts (location, role type, company size, etc.)
             scored_jobs = self.apply_preference_boosts(scored_jobs, request.preferences)
-            
-            # Apply search term boost (jobs matching search term get extra boost)
-            if request.searchTerm:
-                scored_jobs = self._apply_search_term_boost(scored_jobs, request.searchTerm)
-            
-            # Apply skills boost (jobs with preferred skills get extra boost)
-            if request.preferences and request.preferences.skillsLike:
-                scored_jobs = self._apply_skills_boost(scored_jobs, request.preferences.skillsLike)
-            
+                                    
             # Sort by score (descending)
             scored_jobs.sort(key=lambda x: x[1], reverse=True)
             
@@ -832,7 +823,8 @@ class RecommendationService:
                     params.append(request.preferences.minSalary)
                 
                 if request.preferences.preferredRoleTypes:
-                    base_query += " AND j.type = ANY(%s)"
+                    # Cast enum to text for comparison
+                    base_query += " AND j.type::text = ANY(%s)"
                     params.append(request.preferences.preferredRoleTypes)
             
             # Limit for performance (get more candidates than needed for better results)

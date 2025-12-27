@@ -35,6 +35,9 @@ import { ScheduledNotificationScheduler } from 'src/shared/infrastructure/queue/
 import { NotificationQueueService } from 'src/shared/infrastructure/queue/services/notification-queue.service';
 import { jwtConfig } from '../identity/infrastructure/config/jwt.config';
 import { User } from '../identity/domain/entities';
+import { PasswordResetRequestedHandler } from './application/handlers/password-reset-requested.handler';
+import { JobPublishedHandler } from '../jobs/api/event-handlers/job-published.handler';
+import { HttpModule } from '@nestjs/axios';
 
 const Handlers = [
   SendNotificationHandler,
@@ -48,16 +51,19 @@ const Handlers = [
   OfferSentHandler,
   OfferAcceptedHandler,
   OfferRejectedHandler,
+  PasswordResetRequestedHandler,
+  JobPublishedHandler
 ];
 
 @Module({
   imports: [
     CqrsModule,
+    HttpModule,
     TypeOrmModule.forFeature([
       NotificationEntity,
       UserNotificationPreferences,
       PushNotificationToken,
-      User
+      User,
     ]),
     BullModule.registerQueue({
       name: 'notifications',
@@ -97,6 +103,11 @@ const Handlers = [
     },
     ProviderFactory,
   ],
-  exports: [...Handlers, NotificationService, NotificationOrchestratorService, NotificationQueueService],
+  exports: [
+    ...Handlers,
+    NotificationService,
+    NotificationOrchestratorService,
+    NotificationQueueService,
+  ],
 })
 export class NotificationsModule {}

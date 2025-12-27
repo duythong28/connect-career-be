@@ -6,9 +6,10 @@ import { UserRepository } from '../identity/infrastructure/repositories';
 import { UserBackOfficeController } from './api/controllers/user.back-office.controller';
 import { IdentityModule } from '../identity/identity.module';
 import { UserBackOfficeService } from './api/services/user.back-office.service';
+import { ElasticsearchModule } from '../search/infrastructure/elasticsearch/elasticsearch.module';
 
 @Module({
-  imports: [TypeOrmModule.forFeature([User, Role]), IdentityModule],
+  imports: [TypeOrmModule.forFeature([User, Role]), IdentityModule, ElasticsearchModule],
   controllers: [UserController, UserBackOfficeController],
   providers: [
     {

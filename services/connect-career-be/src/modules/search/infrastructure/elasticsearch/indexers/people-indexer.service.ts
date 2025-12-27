@@ -51,7 +51,9 @@ export class PeopleIndexerService {
 
     const failed = results.filter((r) => r.status === 'rejected');
     if (failed.length > 0) {
-      this.logger.warn(`Failed to index ${failed.length} out of ${userIds.length} people`);
+      this.logger.warn(
+        `Failed to index ${failed.length} out of ${userIds.length} people`,
+      );
     }
   }
 
@@ -77,10 +79,12 @@ export class PeopleIndexerService {
       const users = await this.userRepository
         .createQueryBuilder('user')
         .leftJoinAndSelect('user.candidateProfile', 'candidateProfile')
-        .leftJoinAndSelect('candidateProfile.workExperiences', 'workExperiences')
+        .leftJoinAndSelect(
+          'candidateProfile.workExperiences',
+          'workExperiences',
+        )
         .leftJoinAndSelect('workExperiences.organization', 'organization')
         .leftJoinAndSelect('candidateProfile.educations', 'educations')
-        .where('candidateProfile.id IS NOT NULL')
         .take(batchSize)
         .skip(offset)
         .getMany();
@@ -88,8 +92,6 @@ export class PeopleIndexerService {
       if (users.length === 0) break;
 
       for (const user of users) {
-        if (!user.candidateProfile) continue;
-
         try {
           await this.elasticsearchService.indexPerson(user);
           indexed++;
@@ -103,8 +105,9 @@ export class PeopleIndexerService {
       this.logger.log(`Indexed ${indexed} people, failed: ${failed}`);
     }
 
-    this.logger.log(`Reindexing complete. Indexed: ${indexed}, Failed: ${failed}`);
+    this.logger.log(
+      `Reindexing complete. Indexed: ${indexed}, Failed: ${failed}`,
+    );
     return { indexed, failed };
   }
 }
-

@@ -28,6 +28,11 @@ import { CV } from 'src/modules/cv-maker/domain/entities/cv.entity';
 import { EventBus } from '@nestjs/cqrs';
 import { ApplicationCreatedEvent } from '../../domain/events/application-created.event';
 import { ApplicationStatusChangedEvent } from '../../domain/events/application-status-changed.event';
+import { ApplicationMatchingScoreRequestedEvent } from '../../domain/events/application-matching-score-requested.event';
+import {
+  JobInteraction,
+  JobInteractionType,
+} from 'src/modules/recommendations/domain/entities/job-interaction.entity';
 
 export class CreateApplicationDto {
   @IsString()
@@ -110,6 +115,8 @@ export class ApplicationService {
     private readonly offerRepository: Repository<Offer>,
     @InjectRepository(CV)
     private readonly cvRepository: Repository<CV>,
+    @InjectRepository(JobInteraction)
+    private readonly jobInteractionRepository: Repository<JobInteraction>,
     private readonly jobStatusService: JobStatusService,
     private readonly eventBus: EventBus,
   ) {}
@@ -189,13 +196,32 @@ export class ApplicationService {
     if (candidateProfile) {
       application.candidateProfileId = candidateProfile.id;
     }
-    application.calculateMatcingScore(
-      job,
-      cv ?? undefined,
-      candidateProfile ?? undefined,
-    );
+  
+    // Set initial score to 0, will be updated by event handler
+    application.matchingScore = 0;
+    application.isAutoScored = false;
+    
     application.updateCalculatedFields();
     const savedApplication = await this.applicationRepository.save(application);
+
+    if (!job.appliedByUserIds) {
+      job.appliedByUserIds = [];
+    }
+    if (!job.appliedByUserIds.includes(savedApplication.candidateId)) {
+      job.appliedByUserIds.push(savedApplication.candidateId);
+      await this.jobRepository.save(job);
+    }    
+
+    // Publish event for AI-based matching score calculation (async, non-blocking)
+    this.eventBus.publish(
+      new ApplicationMatchingScoreRequestedEvent(
+        savedApplication.id,
+        job.id,
+        cv?.id,
+        candidateProfile?.id,
+        false, // not a forced recalculation
+      ),
+    );
 
     // Publish ApplicationCreatedEvent
     this.eventBus.publish(
@@ -207,6 +233,22 @@ export class ApplicationService {
         job.userId,
       ),
     );
+    try {
+      const interaction = this.jobInteractionRepository.create({
+        userId: savedApplication.candidateId,
+        jobId: savedApplication.jobId,
+        type: JobInteractionType.APPLY,
+        weight: 5.0,
+      });
+      await this.jobInteractionRepository.save(interaction);
+      this.logger.log(
+        `Created job interaction for application ${savedApplication.id}`,
+      );
+    } catch (error) {
+      this.logger.error(
+        `Failed to create job interaction for application ${savedApplication.id}: ${error instanceof Error ? error.message : String(error)}`,
+      );
+    }
 
     return savedApplication;
   }
@@ -799,5 +841,29 @@ export class ApplicationService {
     }
 
     return this.getApplicationById(applicationId);
+  }
+
+  async recalculateMatchingScore(applicationId: string): Promise<void> {
+    const application = await this.getApplicationById(applicationId);
+    
+    if (!application) {
+      throw new NotFoundException(`Application ${applicationId} not found`);
+    }
+
+    console.log('application', application);
+    // Publish event for AI-based matching score recalculation
+    this.eventBus.publish(
+      new ApplicationMatchingScoreRequestedEvent(
+        application.id,
+        application.jobId,
+        application.cvId,
+        application.candidateProfileId,
+        true,
+      ),
+    );
+
+    this.logger.log(
+      `Published matching score recalculation event for application ${applicationId}`,
+    );
   }
 }

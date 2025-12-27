@@ -15,6 +15,7 @@ import {
   UpdateUserDto,
   UpdateUserStatusDto,
 } from '../dtos/user-management.dto';
+import { SyncService } from 'src/modules/search/infrastructure/elasticsearch/sync/sync-service.service';
 
 @Injectable()
 export class UserManagementService {
@@ -23,6 +24,7 @@ export class UserManagementService {
     private readonly userRepository: Repository<User>,
     @InjectRepository(Role)
     private readonly roleRepository: Repository<Role>,
+    private readonly syncService: SyncService,
   ) {}
 
   async getUsers(query: UserListQueryDto) {
@@ -33,7 +35,8 @@ export class UserManagementService {
     const queryBuilder = this.userRepository
       .createQueryBuilder('user')
       .leftJoinAndSelect('user.roles', 'roles')
-      .leftJoinAndSelect('roles.permissions', 'permissions');
+      .leftJoinAndSelect('roles.permissions', 'permissions')
+      .leftJoinAndSelect('user.candidateProfile', 'candidateProfile');
 
     if (query.search) {
       queryBuilder.andWhere(
@@ -74,7 +77,7 @@ export class UserManagementService {
   async getUserById(userId: string): Promise<User> {
     const user = await this.userRepository.findOne({
       where: { id: userId },
-      relations: ['roles', 'roles.permissions'],
+      relations: ['roles', 'roles.permissions', 'candidateProfile'],
     });
 
     if (!user) {
@@ -83,6 +86,7 @@ export class UserManagementService {
 
     return user;
   }
+
 
   async updateUser(
     userId: string,
@@ -151,6 +155,12 @@ export class UserManagementService {
     }
 
     await this.userRepository.save(user);
+    try {
+      await this.syncService.syncPerson(userId);
+    } catch (error) {
+      // Log error but don't fail the request
+      console.error(`Failed to sync user ${userId} to Elasticsearch:`, error);
+    }
 
     // Return with relations
     return this.getUserById(userId);
@@ -177,6 +187,12 @@ export class UserManagementService {
 
     user.status = updateDto.status;
     await this.userRepository.save(user);
+    try {
+      await this.syncService.syncPerson(userId);
+    } catch (error) {
+      console.error(`Failed to sync user ${userId} to Elasticsearch:`, error);
+    }
+
 
     // Return with relations
     return this.getUserById(userId);
@@ -200,5 +216,10 @@ export class UserManagementService {
     // Soft delete by setting status to INACTIVE
     user.status = UserStatus.INACTIVE;
     await this.userRepository.save(user);
+    try {
+      await this.syncService.syncPerson(userId);
+    } catch (error) {
+      console.error(`Failed to sync user ${userId} to Elasticsearch:`, error);
+    }
   }
 }

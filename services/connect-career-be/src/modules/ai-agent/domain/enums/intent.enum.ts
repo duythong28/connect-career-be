@@ -54,4 +54,3 @@ export enum Intent {
   QUESTION = 'question',
   HELP = 'help',
 }
-

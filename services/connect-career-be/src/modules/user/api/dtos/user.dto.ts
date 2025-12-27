@@ -92,6 +92,9 @@ export class UserProfileDto {
   @ApiProperty({ description: 'Account creation date' })
   createdAt: Date;
 
+  @ApiPropertyOptional({ description: 'Candidate profile ID' })
+  candidateProfileId?: string;
+
   @ApiProperty({ description: 'Last update date' })
   updatedAt: Date;
 }

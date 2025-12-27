@@ -29,7 +29,10 @@ export class OrganizationIndexerService {
       await this.elasticsearchService.indexOrganization(organization);
       this.logger.log(`Successfully indexed organization: ${organizationId}`);
     } catch (error) {
-      this.logger.error(`Failed to index organization ${organizationId}:`, error);
+      this.logger.error(
+        `Failed to index organization ${organizationId}:`,
+        error,
+      );
       throw error;
     }
   }
@@ -41,21 +44,31 @@ export class OrganizationIndexerService {
 
     const failed = results.filter((r) => r.status === 'rejected');
     if (failed.length > 0) {
-      this.logger.warn(`Failed to index ${failed.length} out of ${organizationIds.length} organizations`);
+      this.logger.warn(
+        `Failed to index ${failed.length} out of ${organizationIds.length} organizations`,
+      );
     }
   }
 
   async removeOrganization(organizationId: string): Promise<void> {
     try {
       await this.elasticsearchService.deleteOrganization(organizationId);
-      this.logger.log(`Successfully removed organization from index: ${organizationId}`);
+      this.logger.log(
+        `Successfully removed organization from index: ${organizationId}`,
+      );
     } catch (error) {
-      this.logger.error(`Failed to remove organization ${organizationId}:`, error);
+      this.logger.error(
+        `Failed to remove organization ${organizationId}:`,
+        error,
+      );
       throw error;
     }
   }
 
-  async reindexAllOrganizations(): Promise<{ indexed: number; failed: number }> {
+  async reindexAllOrganizations(): Promise<{
+    indexed: number;
+    failed: number;
+  }> {
     this.logger.log('Starting full organization reindexing...');
     let indexed = 0;
     let failed = 0;
@@ -77,7 +90,10 @@ export class OrganizationIndexerService {
           await this.elasticsearchService.indexOrganization(organization);
           indexed++;
         } catch (error) {
-          this.logger.error(`Failed to index organization ${organization.id}:`, error);
+          this.logger.error(
+            `Failed to index organization ${organization.id}:`,
+            error,
+          );
           failed++;
         }
       }
@@ -86,8 +102,9 @@ export class OrganizationIndexerService {
       this.logger.log(`Indexed ${indexed} organizations, failed: ${failed}`);
     }
 
-    this.logger.log(`Reindexing complete. Indexed: ${indexed}, Failed: ${failed}`);
+    this.logger.log(
+      `Reindexing complete. Indexed: ${indexed}, Failed: ${failed}`,
+    );
     return { indexed, failed };
   }
 }
-

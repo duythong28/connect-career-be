@@ -12,7 +12,12 @@ export class OrganizationQueryBuilderService {
       must.push({
         multi_match: {
           query: dto.search,
-          fields: ['name^3', 'tagline^2', 'shortDescription', 'longDescription'],
+          fields: [
+            'name^3',
+            'tagline^2',
+            'shortDescription',
+            'longDescription',
+          ],
           type: 'best_fields',
           fuzziness: 'AUTO',
         },
@@ -113,4 +118,3 @@ export class OrganizationQueryBuilderService {
     return sort;
   }
 }
-

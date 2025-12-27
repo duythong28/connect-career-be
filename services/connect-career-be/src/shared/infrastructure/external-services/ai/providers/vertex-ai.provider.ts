@@ -4,6 +4,8 @@ import {
   AIChatResponse,
   AIGenerateRequest,
   AIGenerateResponse,
+  AIVectorizeRequest,
+  AIVectorizeResponse,
   AIProvider,
 } from '../domain/ai-provider.interface';
 
@@ -148,17 +150,19 @@ export class VertexAIProvider implements AIProvider {
     return { content: text, raw: resp };
   }
 
-  async *chatStream(request: AIChatRequest): AsyncGenerator<string, void, unknown> {
+  async *chatStream(
+    request: AIChatRequest,
+  ): AsyncGenerator<string, void, unknown> {
     const generativeModel = this.vertexAI.getGenerativeModel({
       model: this.textModelId,
     });
-  
+
     const contents: Array<{
       role: 'user' | 'model';
       parts: Array<{ text: string }>;
     }> = [];
     const systemMessages: string[] = [];
-  
+
     for (const message of request.messages) {
       if (message.role === 'system') {
         systemMessages.push(message.content);
@@ -179,14 +183,14 @@ export class VertexAIProvider implements AIProvider {
         });
       }
     }
-  
+
     if (systemMessages.length > 0 && contents.length === 0) {
       contents.push({
         role: 'user',
         parts: [{ text: systemMessages.join('\n\n') }],
       });
     }
-  
+
     const streamingResp = await generativeModel.generateContentStream({
       contents,
       generationConfig: {
@@ -196,12 +200,67 @@ export class VertexAIProvider implements AIProvider {
         maxOutputTokens: request.maxOutputTokens ?? 1024,
       },
     });
-  
+
     for await (const chunk of streamingResp.stream) {
       const text = chunk.candidates?.[0]?.content?.parts?.[0]?.text || '';
       if (text) {
         yield text;
       }
+    }
+  }
+  async embed(request: AIVectorizeRequest): Promise<AIVectorizeResponse> {
+    try {
+      // Use Google Generative AI REST API directly (simpler and more reliable)
+      const apiKey = process.env.GOOGLE_AI_API_KEY;
+
+      if (apiKey) {
+        // Use API key as query parameter (correct authentication method for Generative AI API)
+        const response = await fetch(
+          `https://generativelanguage.googleapis.com/v1beta/models/text-embedding-004:embedContent?key=${apiKey}`,
+          {
+            method: 'POST',
+            headers: {
+              'Content-Type': 'application/json',
+            },
+            body: JSON.stringify({
+              content: { parts: [{ text: request.text }] },
+            }),
+          },
+        );
+
+        if (!response.ok) {
+          const errorText = await response.text();
+          throw new Error(
+            `Google Generative AI API error: ${response.status} ${errorText}`,
+          );
+        }
+
+        const data = await response.json();
+        const embedding = data.embedding?.values || [];
+
+        if (!Array.isArray(embedding) || embedding.length === 0) {
+          throw new Error('Empty embedding returned from Google Generative AI');
+        }
+
+        // Normalize the embedding vector
+        const norm = Math.sqrt(
+          embedding.reduce((sum: number, val: number) => sum + val * val, 0),
+        );
+        const normalizedEmbedding: number[] =
+          norm > 0 ? embedding.map((val: number) => val / norm) : embedding;
+
+        return {
+          vector: normalizedEmbedding,
+          raw: data,
+        };
+      }
+
+      // Fallback to Vertex AI if no API key
+      throw new Error('GOOGLE_AI_API_KEY not configured');
+    } catch (error) {
+      throw new Error(
+        `Failed to generate embedding: ${error instanceof Error ? error.message : String(error)}`,
+      );
     }
   }
 }

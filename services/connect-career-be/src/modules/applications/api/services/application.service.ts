@@ -196,24 +196,32 @@ export class ApplicationService {
     if (candidateProfile) {
       application.candidateProfileId = candidateProfile.id;
     }
-    
-    // Publish event for AI-based matching score calculation (async, non-blocking)
-    this.eventBus.publish(
-      new ApplicationMatchingScoreRequestedEvent(
-        application.id,
-        job.id,
-        cv?.id,
-        candidateProfile?.id,
-        false, // not a forced recalculation
-      ),
-    );
-    
+  
     // Set initial score to 0, will be updated by event handler
     application.matchingScore = 0;
     application.isAutoScored = false;
     
     application.updateCalculatedFields();
     const savedApplication = await this.applicationRepository.save(application);
+
+    if (!job.appliedByUserIds) {
+      job.appliedByUserIds = [];
+    }
+    if (!job.appliedByUserIds.includes(savedApplication.candidateId)) {
+      job.appliedByUserIds.push(savedApplication.candidateId);
+      await this.jobRepository.save(job);
+    }    
+
+    // Publish event for AI-based matching score calculation (async, non-blocking)
+    this.eventBus.publish(
+      new ApplicationMatchingScoreRequestedEvent(
+        savedApplication.id,
+        job.id,
+        cv?.id,
+        candidateProfile?.id,
+        false, // not a forced recalculation
+      ),
+    );
 
     // Publish ApplicationCreatedEvent
     this.eventBus.publish(

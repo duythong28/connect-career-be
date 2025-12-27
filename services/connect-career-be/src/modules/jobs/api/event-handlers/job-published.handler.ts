@@ -22,7 +22,7 @@ export class JobPublishedHandler implements IEventHandler<JobPublishedEvent> {
     this.logger.log(
       `Handling JobPublishedEvent for job ${event.jobId}: ${event.jobTitle}`,
     );
-
+    
     try {
       const matchingCandidates = await this.getMatchingCandidates(event.jobId);
 

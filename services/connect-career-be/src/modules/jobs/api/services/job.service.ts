@@ -505,7 +505,7 @@ export class JobService {
 
     if (
       updateJobDto.status === JobStatus.ACTIVE &&
-      job.status !== JobStatus.ACTIVE &&
+      oldStatus !== JobStatus.ACTIVE &&
       !job.postedDate
     ) {
       job.postedDate = new Date();

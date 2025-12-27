@@ -17,6 +17,9 @@ import { AgentInterviewer } from './domain/entities/agent_interviewer.entity';
 import { User } from '../identity/domain/entities';
 import { ResponseService } from './api/services/response.service';
 import { AnalyticsService } from './api/services/analytics.service';
+import { WalletModule } from '../subscription/subscription.module';
+import { CandidateProfile } from '../profile/domain/entities/candidate-profile.entity';
+import { OrganizationMembership } from '../profile/domain/entities/organization-memberships.entity';
 
 @Module({
   imports: [
@@ -28,8 +31,11 @@ import { AnalyticsService } from './api/services/analytics.service';
       InterviewFeedback,
       AgentInterviewer,
       User,
+      CandidateProfile, 
+      OrganizationMembership
     ]),
     AIModule,
+    WalletModule
   ],
   controllers: [
     SystemMockAIInterviewController,

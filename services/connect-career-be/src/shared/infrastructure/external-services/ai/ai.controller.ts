@@ -1,4 +1,4 @@
-import { Body, Controller, Post, BadRequestException, NotFoundException } from '@nestjs/common';
+import { Body, Controller, Post, BadRequestException, NotFoundException, UseGuards, UseInterceptors } from '@nestjs/common';
 import fetch from 'node-fetch';
 import {
   parseResumeTextToCVContent,
@@ -15,6 +15,9 @@ import { InjectRepository } from '@nestjs/typeorm';
 import { CV, ParsingStatus } from 'src/modules/cv-maker/domain/entities/cv.entity';
 import { File } from '../file-system/domain/entities/file.entity';
 import { FindOptions, Repository } from 'typeorm';
+import { WalletDeductionInterceptor } from 'src/modules/subscription/api/interceptors/wallet-deduction.interceptor';
+import { WalletBalanceGuard } from 'src/modules/subscription/api/guards/wallet-balance.guard';
+import { RequireWalletBalance } from 'src/modules/subscription/api/decorators/wallet-balance.decorator';
 
 type ExtractPdfDto = {
   url: string;
@@ -172,6 +175,9 @@ export class AIController {
   }
 
   @Post('cv/enhance')
+  @UseGuards(WalletBalanceGuard)
+  @UseInterceptors(WalletDeductionInterceptor)
+  @RequireWalletBalance('AI_CV_ENHANCEMENT')
   async enhanceCV(@Body() body: aiCvEnhancementService.CVEnhancementPrompt) {
     if (!body?.cv) {
       throw new BadRequestException('cv is required');

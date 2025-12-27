@@ -89,6 +89,21 @@ export class ApplicationRecruiterController {
     );
   }
 
+  @Post(':id/recalculate-matching-score')
+  @ApiOperation({ summary: 'Recalculate matching score using AI' })
+  @ApiParam({ name: 'id', description: 'Application ID' })
+  @ApiResponse({ status: 200, description: 'Matching score recalculation triggered successfully' })
+  @ApiResponse({ status: 404, description: 'Application not found' })
+  async recalculateMatchingScore(
+    @Param('id') id: string,
+  ): Promise<{ message: string; applicationId: string }> {
+    await this.applicationService.recalculateMatchingScore(id);
+    return {
+      message: 'Matching score recalculation has been triggered. The score will be updated asynchronously.',
+      applicationId: id,
+    };
+  }
+
   @Post(':id/flag')
   @ApiOperation({ summary: 'Flag application' })
   @ApiParam({ name: 'id', description: 'Application ID' })

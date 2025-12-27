@@ -6,8 +6,14 @@ import { AIJobDescriptionService } from './services/ai-job-description.service';
 import { RetellAIProvider } from './providers/retell-ai.provider';
 import { OpenAIGeminiProvider } from './providers/openai-gemini.provider';
 import { AICVEnhancementService } from './services/ai-cv-enhancement.service';
+import { CV } from 'src/modules/cv-maker/domain/entities/cv.entity';
+import { TypeOrmModule } from '@nestjs/typeorm';
+import { File } from '../file-system/domain/entities/file.entity';
 
 @Module({
+  imports: [
+    TypeOrmModule.forFeature([CV, File]),
+  ],
   providers: [
     {
       provide: 'AIProvider',

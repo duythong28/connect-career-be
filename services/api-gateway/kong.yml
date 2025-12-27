@@ -4,6 +4,9 @@ _transform: true
 services:
   - name: connect-career-be
     url: http://connect-career-be:8080
+    connect_timeout: 300000
+    write_timeout: 300000
+    read_timeout: 300000
     routes:
       - name: connect-career-be-route
         paths:
@@ -40,6 +43,9 @@ services:
 
   - name: ai-service
     url: http://ai-service:8000
+    connect_timeout: 300000
+    write_timeout: 300000
+    read_timeout: 300000
     routes:
       - name: ai-service-route
         paths:

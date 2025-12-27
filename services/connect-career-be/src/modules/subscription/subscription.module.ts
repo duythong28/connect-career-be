@@ -28,6 +28,10 @@ import { BillableActionsService } from './api/services/billable-action.service';
 import { BillableActionsController } from './api/controllers/billable-action.controller';
 import { CurrencyConversionService } from './api/services/currency-conversion.service';
 import { UsageLedgerSeeder } from './infrastructure/seeders/usage-ledger.seeder';
+import { CandidateProfile } from '../profile/domain/entities/candidate-profile.entity';
+import { OrganizationMembership } from '../profile/domain/entities/organization-memberships.entity';
+import { WalletBalanceGuard } from './api/guards/wallet-balance.guard';
+import { WalletDeductionInterceptor } from './api/interceptors/wallet-deduction.interceptor';
 
 @Module({
   imports: [
@@ -40,6 +44,8 @@ import { UsageLedgerSeeder } from './infrastructure/seeders/usage-ledger.seeder'
       PaymentTransaction,
       PaymentMethod,
       Refund,
+      CandidateProfile,
+      OrganizationMembership,
     ]),
     IdentityModule,
   ],
@@ -65,7 +71,9 @@ import { UsageLedgerSeeder } from './infrastructure/seeders/usage-ledger.seeder'
     BillableActionsSeeder,
     UsageLedgerSeeder,
     CurrencyConversionService,
+    WalletBalanceGuard,
+    WalletDeductionInterceptor
   ],
-  exports: [WalletService, PaymentService, BillableActionsService],
+  exports: [WalletService, PaymentService, BillableActionsService, WalletBalanceGuard, WalletDeductionInterceptor],
 })
 export class WalletModule {}

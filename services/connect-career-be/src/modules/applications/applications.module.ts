@@ -22,6 +22,8 @@ import { JobsModule } from '../jobs/jobs.module';
 import { ApplicationSeeder } from './infrastructure/seeders/application.seeder';
 import { CqrsModule } from '@nestjs/cqrs';
 import { JobInteraction } from '../recommendations/domain/entities/job-interaction.entity';
+import { ApplicationMatchingScoreRequestedHandler } from './api/event-handlers/application-matching-score-requested.handler';
+import { HttpModule } from '@nestjs/axios';
 
 @Module({
   imports: [
@@ -40,6 +42,7 @@ import { JobInteraction } from '../recommendations/domain/entities/job-interacti
     ]),
     JobsModule,
     CqrsModule,
+    HttpModule,
   ],
   controllers: [ApplicationCandidateController, ApplicationRecruiterController],
   providers: [
@@ -50,6 +53,7 @@ import { JobInteraction } from '../recommendations/domain/entities/job-interacti
     CommunicationService,
     JobStatusService,
     ApplicationSeeder,
+    ApplicationMatchingScoreRequestedHandler,
   ],
   exports: [
     ApplicationService,

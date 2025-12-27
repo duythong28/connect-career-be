@@ -9,6 +9,7 @@ import {
   Query,
   UseGuards,
   ParseUUIDPipe,
+  UseInterceptors,
 } from '@nestjs/common';
 import {
   ApiTags,
@@ -23,6 +24,9 @@ import { JwtAuthGuard } from 'src/modules/identity/api/guards/jwt-auth.guard';
 import * as decorators from 'src/modules/identity/api/decorators';
 import { PaginationDto } from 'src/shared/kernel';
 import { Job, JobStatus } from '../../domain/entities/job.entity';
+import { WalletBalanceGuard } from 'src/modules/subscription/api/guards/wallet-balance.guard';
+import { RequireWalletBalance } from 'src/modules/subscription/api/decorators/wallet-balance.decorator';
+import { WalletDeductionInterceptor } from 'src/modules/subscription/api/interceptors/wallet-deduction.interceptor';
 
 @ApiTags('Organization Jobs')
 @Controller('/v1/recruiters/jobs')
@@ -31,6 +35,9 @@ import { Job, JobStatus } from '../../domain/entities/job.entity';
 export class JobOrganizationController {
   constructor(private readonly jobService: JobService) {}
 
+  @UseGuards(WalletBalanceGuard)
+  @UseInterceptors(WalletDeductionInterceptor)
+  @RequireWalletBalance('POST_JOB')
   @Post()
   @ApiOperation({ summary: 'Create a new job posting' })
   @ApiResponse({

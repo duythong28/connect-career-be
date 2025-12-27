@@ -1,5 +1,6 @@
 import logging
 import re
+import asyncio
 from typing import Dict, List, Tuple
 from ..models.schemas import (
     MatchingScoreRequest,
@@ -8,7 +9,8 @@ from ..models.schemas import (
     MatchingScoreExplanation,
     MatchingScoreDetails,
 )
-
+from ..services.llm_service import llm_service
+from ..services.embedding_service import embedding_service
 logger = logging.getLogger(__name__)
 
 
@@ -22,93 +24,121 @@ class MatchingScoreService:
         self.education_weight = 0.15
         self.location_weight = 0.15
 
-    def calculate_matching_score(self, request: MatchingScoreRequest) -> MatchingScoreResponse:
-        """Calculate comprehensive matching score with AI-enhanced analysis"""
+    async def calculate_matching_score(self, request: MatchingScoreRequest) -> MatchingScoreResponse:
+        """Calculate comprehensive matching score using AI (Gemini)"""
         try:
             job = request.job
             cv_content = request.cv.content
             candidate_profile = request.candidateProfile
-
-            # Extract data from CV
-            cv_skills = self._extract_skills_from_cv(cv_content)
-            candidate_experience_years = self._calculate_years_of_experience(
-                cv_content.get('workExperience', [])
-            )
-            education_level = self._get_highest_education_level(
-                cv_content.get('education', [])
-            )
-
-            # Extract job requirements
-            job_requirements = [r.lower().strip() for r in (job.requirements or [])]
-            required_experience_years = self._extract_required_experience(job_requirements)
-            required_education = self._extract_required_education(job_requirements)
-
-            # Calculate individual scores
-            skills_match = self._calculate_skills_match(job_requirements, cv_skills)
-            experience_match = self._calculate_experience_match(
-                required_experience_years, candidate_experience_years
-            )
-            education_match = self._calculate_education_match(
-                education_level, required_education, job_requirements
-            )
-            location_match = self._calculate_location_match(job.location, cv_content)
-
-            # Calculate overall score
-            overall_score = (
-                skills_match * self.skills_weight +
-                experience_match * self.experience_weight +
-                education_match * self.education_weight +
-                location_match * self.location_weight
-            )
-
-            # Get matched and missing skills
-            matched_skills, missing_skills = self._get_skill_matches(
-                job_requirements, cv_skills
-            )
-
-            # Generate AI-enhanced explanation
-            explanation = self._generate_explanation(
-                overall_score,
-                skills_match,
-                experience_match,
-                education_match,
-                location_match,
-                matched_skills,
-                missing_skills,
-                candidate_experience_years,
-                required_experience_years,
-                education_level,
-                required_education,
-                job,
+            
+            # Convert job to dict if needed
+            job_dict = job.__dict__ if hasattr(job, '__dict__') else {
+                'title': getattr(job, 'title', ''),
+                'summary': getattr(job, 'summary', ''),
+                'description': getattr(job, 'description', ''),
+                'location': getattr(job, 'location', ''),
+                'requirements': getattr(job, 'requirements', []),
+                'keywords': getattr(job, 'keywords', []),
+                'seniorityLevel': getattr(job, 'seniorityLevel', ''),
+                'type': getattr(job, 'type', ''),
+            }
+            
+            # Convert candidate profile to dict if needed
+            profile_dict = None
+            if candidate_profile:
+                profile_dict = candidate_profile.__dict__ if hasattr(candidate_profile, '__dict__') else {
+                    'skills': getattr(candidate_profile, 'skills', []),
+                    'languages': getattr(candidate_profile, 'languages', []),
+                }
+            
+            # Get complete analysis from Gemini
+            result = await llm_service.calculate_complete_matching_score(
+                job_dict,
                 cv_content,
+                profile_dict
             )
-
+            
+            # Build response objects
             breakdown = MatchingScoreBreakdown(
-                skillsMatch=round(skills_match, 2),
-                experienceMatch=round(experience_match, 2),
-                educationMatch=round(education_match, 2),
-                locationMatch=round(location_match, 2),
+                skillsMatch=round(result['breakdown']['skillsMatch'], 2),
+                experienceMatch=round(result['breakdown']['experienceMatch'], 2),
+                educationMatch=round(result['breakdown']['educationMatch'], 2),
+                locationMatch=round(result['breakdown']['locationMatch'], 2),
             )
-
+            
             details = MatchingScoreDetails(
-                matchedSkills=matched_skills,
-                missingSkills=missing_skills,
-                yearsExperience=round(candidate_experience_years, 1),
-                requiredExperience=round(required_experience_years, 1),
-                educationLevel=education_level or 'Not specified',
-                requiredEducation=required_education or 'Not specified',
+                matchedSkills=result['details']['matchedSkills'][:10],
+                missingSkills=result['details']['missingSkills'][:10],
+                yearsExperience=round(result['details']['yearsExperience'], 1),
+                requiredExperience=round(result['details']['requiredExperience'], 1),
+                educationLevel=result['details']['educationLevel'],
+                requiredEducation=result['details']['requiredEducation'],
             )
-
+            
+            explanation = MatchingScoreExplanation(
+                summary=result['explanation']['summary'],
+                strengths=result['explanation']['strengths'],
+                weaknesses=result['explanation']['weaknesses'],
+                recommendations=result['explanation']['recommendations'],
+            )
+            
             return MatchingScoreResponse(
-                overallScore=round(overall_score, 2),
+                overallScore=round(result['overallScore'], 2),
                 breakdown=breakdown,
                 explanation=explanation,
                 details=details,
             )
-
+            
         except Exception as e:
             logger.error(f"Error calculating matching score: {e}", exc_info=True)
             raise
+
+    async def _calculate_skills_match_ai(
+        self, 
+        job_requirements: List[str], 
+        cv_skills: List[str],
+        cv_experience: List[Dict]
+    ) -> Dict:
+        """AI-driven skills matching using LLM + Embeddings"""
+        if not job_requirements:
+            return {"score": 1.0, "matchedSkills": [], "missingSkills": []}
+        
+        if not cv_skills:
+            return {"score": 0.0, "matchedSkills": [], "missingSkills": []}
+
+        job_text = " ".join(job_requirements)
+        cv_text = " ".join(cv_skills)
+        
+        print('job_text', job_text)
+        print('cv_text', cv_text)
+        
+        try:
+            job_emb = embedding_service.encode_text(job_text)
+            cv_emb = embedding_service.encode_text(cv_text)
+            semantic_score = embedding_service.cosine_similarity(job_emb, cv_emb)
+            print('semantic_score', semantic_score)
+        except Exception as e:
+            logger.warning(f"Embedding calculation failed: {e}")
+            semantic_score = 0.0
+
+        # 2. Use LLM for nuanced semantic analysis
+        llm_result = await llm_service.analyze_skills_match(
+            job_requirements, 
+            cv_skills, 
+            cv_experience
+        )
+        
+        llm_score = llm_result.get('score', 0.0)
+        llm_matched = llm_result.get('matchedSkills', [])
+        llm_missing = llm_result.get('missingSkills', [])
+
+        final_score = (semantic_score * 0.4) + (llm_score * 0.6)
+        
+        return {
+            "score": round(min(final_score, 1.0), 2),
+            "matchedSkills": llm_matched[:10] if llm_matched else [],
+            "missingSkills": llm_missing[:10] if llm_missing else [],
+        }
 
     def _extract_skills_from_cv(self, cv_content: Dict) -> List[str]:
         """Extract skills from CV content"""
@@ -313,7 +343,6 @@ class MatchingScoreService:
                     return level
 
         return ''
-
     def _calculate_skills_match(self, job_requirements: List[str], cv_skills: List[str]) -> float:
         """Calculate skills matching score (0-1)"""
         if not job_requirements:

@@ -107,7 +107,6 @@ export class ApplicationMatchingScoreRequestedHandler
           where: { id: application.candidateProfileId },
         });
       }
-      console.log('cv', cv);
       // If no CV, set score to 0
       if (!cv || !cv.content) {
         this.logger.warn(

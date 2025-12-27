@@ -28,6 +28,7 @@ import { CV } from 'src/modules/cv-maker/domain/entities/cv.entity';
 import { EventBus } from '@nestjs/cqrs';
 import { ApplicationCreatedEvent } from '../../domain/events/application-created.event';
 import { ApplicationStatusChangedEvent } from '../../domain/events/application-status-changed.event';
+import { ApplicationMatchingScoreRequestedEvent } from '../../domain/events/application-matching-score-requested.event';
 import {
   JobInteraction,
   JobInteractionType,
@@ -195,11 +196,22 @@ export class ApplicationService {
     if (candidateProfile) {
       application.candidateProfileId = candidateProfile.id;
     }
-    application.calculateMatcingScore(
-      job,
-      cv ?? undefined,
-      candidateProfile ?? undefined,
+    
+    // Publish event for AI-based matching score calculation (async, non-blocking)
+    this.eventBus.publish(
+      new ApplicationMatchingScoreRequestedEvent(
+        application.id,
+        job.id,
+        cv?.id,
+        candidateProfile?.id,
+        false, // not a forced recalculation
+      ),
     );
+    
+    // Set initial score to 0, will be updated by event handler
+    application.matchingScore = 0;
+    application.isAutoScored = false;
+    
     application.updateCalculatedFields();
     const savedApplication = await this.applicationRepository.save(application);
 
@@ -821,5 +833,29 @@ export class ApplicationService {
     }
 
     return this.getApplicationById(applicationId);
+  }
+
+  async recalculateMatchingScore(applicationId: string): Promise<void> {
+    const application = await this.getApplicationById(applicationId);
+    
+    if (!application) {
+      throw new NotFoundException(`Application ${applicationId} not found`);
+    }
+
+    console.log('application', application);
+    // Publish event for AI-based matching score recalculation
+    this.eventBus.publish(
+      new ApplicationMatchingScoreRequestedEvent(
+        application.id,
+        application.jobId,
+        application.cvId,
+        application.candidateProfileId,
+        true,
+      ),
+    );
+
+    this.logger.log(
+      `Published matching score recalculation event for application ${applicationId}`,
+    );
   }
 }

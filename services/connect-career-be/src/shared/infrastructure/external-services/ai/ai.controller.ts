@@ -1,4 +1,4 @@
-import { Body, Controller, Post, BadRequestException } from '@nestjs/common';
+import { Body, Controller, Post, BadRequestException, NotFoundException } from '@nestjs/common';
 import fetch from 'node-fetch';
 import {
   parseResumeTextToCVContent,
@@ -11,6 +11,10 @@ import {
 import * as aiJobDescriptionService from './services/ai-job-description.service';
 import { AIService } from './services/ai.service';
 import * as aiCvEnhancementService from './services/ai-cv-enhancement.service';
+import { InjectRepository } from '@nestjs/typeorm';
+import { CV, ParsingStatus } from 'src/modules/cv-maker/domain/entities/cv.entity';
+import { File } from '../file-system/domain/entities/file.entity';
+import { FindOptions, Repository } from 'typeorm';
 
 type ExtractPdfDto = {
   url: string;
@@ -38,6 +42,10 @@ export class AIController {
     private readonly ai: AIService,
     private readonly aiJobDescriptionService: aiJobDescriptionService.AIJobDescriptionService,
     private readonly aiCvEnhancementService: aiCvEnhancementService.AICVEnhancementService,
+    @InjectRepository(CV)
+    private readonly cvRepository: Repository<CV>,
+    @InjectRepository(File)
+    private readonly fileRepository: Repository<File>,  
   ) {}
   @Post('cv/parse-resume-text')
   parseResumeText(@Body() body: ParseResumeDto) {
@@ -186,6 +194,135 @@ export class AIController {
       throw new BadRequestException(`CV enhancement failed: ${message}`);
     }
   }
+
+  @Post('cv/parse-and-save')
+async parseResumeAndSave(@Body() body: { cvId: string; url?: string }) {
+  if (!body?.cvId) throw new BadRequestException('cvId is required');
+
+  try {
+    // Get CV from database
+    const cv = await this.cvRepository.findOne({
+      where: { id: body.cvId },
+    });
+
+    if (!cv) {
+      throw new NotFoundException(`CV with id ${body.cvId} not found`);
+    }
+
+    // Determine PDF URL
+    let pdfUrl: string;
+    if (body.url) {
+      pdfUrl = body.url;
+    } else if (cv.fileId) {
+      // Get file from database
+      const file = await this.fileRepository.findOneBy({ 
+        id: cv.fileId 
+      });
+      console.log('file', file);
+      if (!file) {
+        throw new BadRequestException(
+          `File with id ${cv.fileId} not found`,
+        );
+      }
+
+      // Use secureUrl if file is public, otherwise try to use url
+      if (file.isPublic && file.secureUrl) {
+        pdfUrl = file.secureUrl;
+      } else if (file.secureUrl) {
+        pdfUrl = file.secureUrl;
+      } else if (file.url) {
+        pdfUrl = file.url;
+      } else {
+        throw new BadRequestException(
+          'CV file has no accessible URL. Please provide URL parameter or ensure file is public.',
+        );
+      }
+    } else {
+      throw new BadRequestException(
+        'CV has no file associated. Please provide URL parameter.',
+      );
+    }
+
+    // Step 1: Extract text from PDF (reuse existing logic)
+    const res = await fetch(pdfUrl);
+    if (!res.ok)
+      throw new BadRequestException(
+        `Download failed: ${res.status} ${res.statusText}`,
+      );
+    const buf = Buffer.from(await res.arrayBuffer());
+    const base64 = buf.toString('base64');
+
+    const extractResult = await this.ai.generateWithInlineFile({
+      prompt: ENHANCE_RESUME_EXTRACTION_PROMPT,
+      inline: { dataBase64: base64, mimeType: 'application/pdf' },
+      temperature: 0,
+    });
+
+    const extractedData = this.extractJsonFromMarkdown(String(extractResult.content || ''));
+
+    let cvContent: any;
+    let extractedText: string;
+
+    if (extractedData && typeof extractedData === 'object') {
+      // AI returned structured JSON - convert directly to CVContent
+      extractedText = String(extractResult.content || ''); // Keep original for storage
+      
+      // Convert JSON object to CVContent format
+      cvContent = this.convertJsonToCVContent(extractedData);
+    } else {
+      // AI returned plain text - parse it
+      extractedText = typeof extractedData === 'string' 
+        ? extractedData 
+        : String(extractResult.content || '');
+      
+      if (!extractedText || typeof extractedText !== 'string') {
+        throw new BadRequestException('Failed to extract text from PDF. No text content found.');
+      }
+      
+      // Parse text to CVContent
+      cvContent = parseResumeTextToCVContent(extractedText);
+    }
+
+    // Ensure extractedText is a non-empty string for storage
+    if (!extractedText || typeof extractedText !== 'string') {
+      extractedText = String(extractResult.content || '');
+    }
+
+    // Step 3: Update CV in database
+    await this.cvRepository.update(cv.id, {
+      content: cvContent as CV['content'],
+      extractedText: extractedText,
+      parsingStatus: ParsingStatus.PARSED,
+      parsedAt: new Date(),
+    } as Partial<CV>);
+
+    return {
+      success: true,
+      message: 'CV parsed and saved successfully',
+      data: {
+        cvId: cv.id,
+        extractedText,
+        cvContent,
+      },
+    };
+  } catch (error: unknown) {
+    const message =
+      error instanceof Error ? error.message : 'Unknown error occurred';
+    
+    // Update CV status to failed if it exists
+    if (body?.cvId) {
+      try {
+        await this.cvRepository.update(body.cvId, {
+          parsingStatus: ParsingStatus.FAILED,
+        });
+      } catch (updateError) {
+        // Ignore update error
+      }
+    }
+    
+    throw new BadRequestException(`Parse and save failed: ${message}`);
+  }
+}
   private extractJsonFromMarkdown(content: string): null {
     console.log('content', content);
     try {
@@ -213,5 +350,58 @@ export class AIController {
       console.error('Failed to parse JSON from markdown:', error);
       return null;
     }
+  }
+  private convertJsonToCVContent(jsonData: any): any {
+    return {
+      personalInfo: jsonData.personalInfo || {},
+      summary: jsonData.summary || jsonData.objective || '',
+      workExperience: (jsonData.workExperience || []).map((exp: any) => ({
+        id: exp.id || Math.random().toString(36).substr(2, 9),
+        company: exp.company || '',
+        position: exp.position || exp.title || '',
+        startDate: exp.startDate || '',
+        endDate: exp.endDate || (exp.current ? undefined : ''),
+        current: exp.current || exp.endDate === 'Present' || !exp.endDate,
+        description: exp.description || (exp.responsibilities || []).join('\n'),
+        technologies: exp.techStack || exp.technologies || [],
+        achievements: exp.achievements || [],
+      })),
+      education: (jsonData.education || []).map((edu: any) => ({
+        id: edu.id || Math.random().toString(36).substr(2, 9),
+        institution: edu.institution || edu.school || '',
+        degree: edu.degree || '',
+        fieldOfStudy: edu.fieldOfStudy || edu.major || '',
+        startDate: edu.startDate || '',
+        endDate: edu.endDate || '',
+        gpa: typeof edu.gpa === 'string' ? parseFloat(edu.gpa) : edu.gpa,
+        honors: edu.honors || [],
+      })),
+      skills: {
+        technical: Array.isArray(jsonData.skills) 
+          ? jsonData.skills 
+          : (jsonData.skills?.technical || []),
+        soft: jsonData.skills?.soft || [],
+        languages: jsonData.skills?.languages || [],
+      },
+      certifications: (jsonData.certifications || []).map((cert: any) => ({
+        id: cert.id || Math.random().toString(36).substr(2, 9),
+        name: cert.name || cert.title || '',
+        issuer: cert.issuer || cert.organization || '',
+        issueDate: cert.issueDate || cert.date || '',
+        expiryDate: cert.expiryDate,
+        credentialId: cert.credentialId || cert.id,
+        url: cert.url,
+      })),
+      projects: (jsonData.projects || []).map((proj: any) => ({
+        id: proj.id || Math.random().toString(36).substr(2, 9),
+        name: proj.name || proj.title || '',
+        description: proj.description || '',
+        startDate: proj.startDate || '',
+        endDate: proj.endDate,
+        technologies: proj.techStack || proj.technologies || [],
+        url: proj.url,
+        github: proj.github,
+      })),
+    };
   }
 }

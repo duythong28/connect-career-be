@@ -214,16 +214,9 @@ export class RefundBackofficeService {
               refund.currency, // VND
               wallet.currency, // USD
             );
-
-            this.logger.log(
-              `Converted refund ${refund.amount} ${refund.currency} to ${amountToDebit} ${wallet.currency} for wallet debit`,
-            );
           } catch (error) {
-            this.logger.error(
-              `Failed to convert currency for refund ${refund.id}: ${error.message}`,
-            );
             throw new Error(
-              `Currency conversion failed: ${error.message}. Cannot debit wallet.`,
+              `Currency conversion failed: ${error}. Cannot debit wallet.`,
             );
           }
         }

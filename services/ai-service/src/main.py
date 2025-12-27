@@ -13,9 +13,12 @@ from .models.schemas import (
     SimilarJobsResponse,
     CandidateRecommendationRequest,
     CandidateRecommendationResponse,
+    MatchingScoreRequest,
+    MatchingScoreResponse,
 )
 from .services.recommendation_service import recommendation_service
 from .services.embedding_service import embedding_service
+from .services.matching_score_service import matching_score_service
 from .database import db
 import sys, pathlib
 sys.path.append(str(pathlib.Path(__file__).parent.parent))
@@ -460,6 +463,17 @@ async def get_candidate_recommendations(
     except Exception as e:
         logger.error(f"Error getting candidate recommendations: {e}", exc_info=True)
         raise HTTPException(status_code=500, detail=str(e))
+
+@v1_router.post("/matching-score/calculate", response_model=MatchingScoreResponse)
+async def calculate_matching_score(request: MatchingScoreRequest):
+    """Calculate AI-enhanced matching score between job and candidate"""
+    try:
+        result = matching_score_service.calculate_matching_score(request)
+        return result
+    except Exception as e:
+        logger.error(f"Error calculating matching score: {e}", exc_info=True)
+        raise HTTPException(status_code=500, detail=str(e))
+
 # Register routers
 api_router.include_router(v1_router)
 app.include_router(api_router)

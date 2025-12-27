@@ -468,7 +468,7 @@ async def get_candidate_recommendations(
 async def calculate_matching_score(request: MatchingScoreRequest):
     """Calculate AI-enhanced matching score between job and candidate"""
     try:
-        result = matching_score_service.calculate_matching_score(request)
+        result = await matching_score_service.calculate_matching_score(request)
         return result
     except Exception as e:
         logger.error(f"Error calculating matching score: {e}", exc_info=True)
@@ -482,6 +482,18 @@ app.include_router(api_router)
 async def health_check():
     """Health check endpoint"""
     return HealthResponse(status="healthy", version=settings.app_version)
+
+@app.on_event("startup")
+async def startup_event():
+    """Initialize heavy services on startup (non-blocking)"""
+    import asyncio
+    
+    async def init_services():
+        logger.info("Initializing services...")
+        pass
+    
+    asyncio.create_task(init_services())
+    logger.info("Server starting...")
 
 if __name__ == "__main__":
     import uvicorn

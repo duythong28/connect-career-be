@@ -270,6 +270,22 @@ export class WalletBackofficeService {
       currentBalance: wallet.creditBalance,
     };
   }
+  async getWalletTransactionById(
+    transactionId: string,
+  ): Promise<WalletTransaction> {
+    const transaction = await this.transactionRepository.findOne({
+      where: { id: transactionId },
+      relations: ['wallet'],
+    });
+  
+    if (!transaction) {
+      throw new NotFoundException(
+        'Wallet transaction not found or you do not have access to it',
+      );
+    }
+  
+    return transaction;
+  }
 
   async getUsageHistory(userId: string, query: UsageHistoryQueryDto) {
     const wallet = await this.walletRepository.findOne({ where: { userId } });

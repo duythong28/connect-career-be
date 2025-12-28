@@ -498,22 +498,59 @@ export class PaymentService {
         },
         relations: ['wallet'],
       });
+
+      // If not found by providerPaymentId, try to find by Stripe session ID or payment intent ID
+      // by checking metadata or providerResponse
+      if (!transaction && provider === 'stripe') {
+        // Try finding by checking if any transaction has this Stripe ID in metadata
+        const allTransactions = await this.paymentTransactionRepository.find({
+          where: {
+            provider: provider.toLowerCase(),
+          },
+          relations: ['wallet'],
+        });
+
+        // Check if any transaction's metadata contains the Stripe ID
+        transaction = allTransactions.find((t) => {
+          const metadata = t.metadata as any;
+          const providerResponse = t.providerResponse as any;
+          
+          // Check if the Stripe ID matches any stored Stripe identifiers
+          return (
+            metadata?.sessionId === webhookEvent.paymentId ||
+            metadata?.paymentIntentId === webhookEvent.paymentId ||
+            providerResponse?.id === webhookEvent.paymentId ||
+            t.providerTransactionId === webhookEvent.paymentId
+          );
+        }) || null;
+
+        // If still not found and it's a checkout session ID, try to get the metadata from Stripe
+        if (!transaction && webhookEvent.paymentId?.startsWith('cs_')) {
+          try {
+            const stripeProvider = this.paymentProviderFactory.getProvider('stripe') as any;
+            if (stripeProvider?.getCheckoutSession) {
+              const session = await stripeProvider.getCheckoutSession(webhookEvent.paymentId);
+              const transactionId = session.metadata?.paymentTransactionId;
+              if (transactionId) {
+                transaction = await this.paymentTransactionRepository.findOne({
+                  where: {
+                    id: transactionId,
+                    provider: provider.toLowerCase(),
+                  },
+                  relations: ['wallet'],
+                });
+              }
+            }
+          } catch (error) {
+            this.logger.warn(`Failed to retrieve checkout session ${webhookEvent.paymentId}: ${error.message}`);
+          }
+        }
+      }
     }
 
     if (!transaction) {
       this.logger.warn(
         `Payment transaction not found for provider: ${provider}, paymentId: ${webhookEvent.paymentId}`,
-      );
-      return;
-    }
-
-    // Prevent duplicate processing
-    if (
-      transaction.status === PaymentStatus.COMPLETED &&
-      webhookEvent.type === 'payment.succeeded'
-    ) {
-      this.logger.warn(
-        `Payment ${transaction.id} already completed, ignoring duplicate webhook`,
       );
       return;
     }

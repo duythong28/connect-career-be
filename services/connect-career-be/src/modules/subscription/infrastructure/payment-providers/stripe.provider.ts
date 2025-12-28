@@ -360,9 +360,139 @@ export class StripeProvider extends BasePaymentProvider {
     let eventType = 'payment.unknown';
     let paymentId = '';
 
+    this.logger.log(`Processing Stripe webhook event: ${event.type}`);
+
     try {
       switch (event.type) {
-        // ... existing checkout.session and payment_intent cases ...
+        // Checkout session events - this is the primary event for successful payments
+        case 'checkout.session.completed': {
+          eventType = 'payment.succeeded';
+          const session = event.data.object as Stripe.Checkout.Session;
+          // Get our transaction ID from session metadata
+          paymentId = session.metadata?.paymentTransactionId || session.id;
+          this.logger.log(`Checkout session completed - metadata: ${JSON.stringify(session.metadata)}, paymentId: ${paymentId}`);
+          break;
+        }
+
+        // Payment intent events
+        case 'payment_intent.succeeded': {
+          eventType = 'payment.succeeded';
+          const paymentIntent = event.data.object as Stripe.PaymentIntent;
+          // Get our transaction ID from payment intent metadata
+          paymentId = paymentIntent.metadata?.paymentTransactionId || paymentIntent.id;
+          
+          this.logger.log(`Payment intent succeeded - metadata: ${JSON.stringify(paymentIntent.metadata)}, paymentId: ${paymentId}`);
+          
+          // If we don't have the transaction ID in metadata, try to get it from the checkout session
+          if (!paymentIntent.metadata?.paymentTransactionId && paymentIntent.id) {
+            try {
+              // Search for checkout sessions with this payment intent
+              const sessions = await this.stripe.checkout.sessions.list({
+                payment_intent: paymentIntent.id,
+                limit: 1,
+              });
+              if (sessions.data.length > 0) {
+                paymentId = sessions.data[0].metadata?.paymentTransactionId || paymentIntent.id;
+                this.logger.log(`Found checkout session for payment intent - paymentId: ${paymentId}`);
+              }
+            } catch (error) {
+              this.logger.warn(`Failed to find checkout session for payment intent ${paymentIntent.id}: ${error.message}`);
+            }
+          }
+          break;
+        }
+
+        case 'payment_intent.created': {
+          // Just log this, don't process as payment event
+          eventType = 'payment.unknown';
+          const paymentIntent = event.data.object as Stripe.PaymentIntent;
+          paymentId = paymentIntent.metadata?.paymentTransactionId || paymentIntent.id;
+          this.logger.debug(`Payment intent created: ${paymentId}`);
+          break;
+        }
+
+        // Charge events
+        case 'charge.succeeded': {
+          eventType = 'payment.succeeded';
+          const charge = event.data.object as Stripe.Charge;
+          if (charge.payment_intent) {
+            const intentId =
+              typeof charge.payment_intent === 'string'
+                ? charge.payment_intent
+                : charge.payment_intent.id;
+            try {
+              const intent = await this.stripe.paymentIntents.retrieve(intentId);
+              paymentId = intent.metadata?.paymentTransactionId || intentId;
+              
+              this.logger.log(`Charge succeeded - paymentIntent metadata: ${JSON.stringify(intent.metadata)}, paymentId: ${paymentId}`);
+              
+              // If not in metadata, try to find checkout session
+              if (!intent.metadata?.paymentTransactionId) {
+                try {
+                  const sessions = await this.stripe.checkout.sessions.list({
+                    payment_intent: intentId,
+                    limit: 1,
+                  });
+                  if (sessions.data.length > 0) {
+                    paymentId = sessions.data[0].metadata?.paymentTransactionId || intentId;
+                    this.logger.log(`Found checkout session for charge - paymentId: ${paymentId}`);
+                  }
+                } catch (error) {
+                  this.logger.warn(`Failed to find checkout session for charge ${charge.id}: ${error.message}`);
+                }
+              }
+            } catch (error) {
+              this.logger.warn(`Failed to retrieve payment intent ${intentId}: ${error.message}`);
+              paymentId = intentId;
+            }
+          } else {
+            paymentId = charge.id;
+          }
+          break;
+        }
+
+        case 'charge.updated': {
+          // Charge updated - usually means status changed, check if it's now succeeded
+          const charge = event.data.object as Stripe.Charge;
+          if (charge.status === 'succeeded' && charge.paid) {
+            eventType = 'payment.succeeded';
+            if (charge.payment_intent) {
+              const intentId =
+                typeof charge.payment_intent === 'string'
+                  ? charge.payment_intent
+                  : charge.payment_intent.id;
+              try {
+                const intent = await this.stripe.paymentIntents.retrieve(intentId);
+                paymentId = intent.metadata?.paymentTransactionId || intentId;
+                
+                // If not in metadata, try to find checkout session
+                if (!intent.metadata?.paymentTransactionId) {
+                  try {
+                    const sessions = await this.stripe.checkout.sessions.list({
+                      payment_intent: intentId,
+                      limit: 1,
+                    });
+                    if (sessions.data.length > 0) {
+                      paymentId = sessions.data[0].metadata?.paymentTransactionId || intentId;
+                    }
+                  } catch (error) {
+                    this.logger.warn(`Failed to find checkout session for charge ${charge.id}: ${error.message}`);
+                  }
+                }
+              } catch (error) {
+                this.logger.warn(`Failed to retrieve payment intent ${intentId}: ${error.message}`);
+                paymentId = intentId;
+              }
+            } else {
+              paymentId = charge.id;
+            }
+          } else {
+            // Not a success event, just log it
+            eventType = 'payment.unknown';
+            paymentId = charge.id;
+          }
+          break;
+        }
 
         // Charge events
         case 'charge.refunded':

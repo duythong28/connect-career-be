@@ -73,7 +73,7 @@ export class BillableActionsSeeder {
         },
       },
       {
-        actionCode: 'MOCK_AI_INTERVIEW', 
+        actionCode: 'MOCK_AI_INTERVIEW',
         actionName: 'AI Mock Interview',
         description: 'Create and conduct an AI-powered mock interview session',
         category: ActionCategory.CANDIDATE,

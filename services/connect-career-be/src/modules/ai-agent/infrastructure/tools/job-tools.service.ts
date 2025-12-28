@@ -61,7 +61,11 @@ export class JobToolsService {
           const searchDto: any = {
             searchTerm: query,
             location,
-            keywords: Array.isArray(skills) ? skills : skills ? [skills] : undefined,
+            keywords: Array.isArray(skills)
+              ? skills
+              : skills
+                ? [skills]
+                : undefined,
             pageNumber,
             pageSize: limit,
             status: JobStatus.ACTIVE,
@@ -198,7 +202,7 @@ export class JobToolsService {
             type: jobType as any,
             organizationId: companyId,
             companyName,
-            seniorityLevel: seniorityLevel, 
+            seniorityLevel: seniorityLevel,
             location,
             pageNumber,
             pageSize: limit,

@@ -72,8 +72,14 @@ import { WalletDeductionInterceptor } from './api/interceptors/wallet-deduction.
     UsageLedgerSeeder,
     CurrencyConversionService,
     WalletBalanceGuard,
-    WalletDeductionInterceptor
+    WalletDeductionInterceptor,
   ],
-  exports: [WalletService, PaymentService, BillableActionsService, WalletBalanceGuard, WalletDeductionInterceptor],
+  exports: [
+    WalletService,
+    PaymentService,
+    BillableActionsService,
+    WalletBalanceGuard,
+    WalletDeductionInterceptor,
+  ],
 })
 export class WalletModule {}

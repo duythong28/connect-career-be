@@ -390,8 +390,12 @@ export class ChatService {
 
     // Node name to progress message mapping
     const nodeProgressMessages: Record<string, string> = {
-      INTENT_DETECTOR: 'Understanding your request...',
+      INTENT_ROUTER: 'Understanding your request...',
       ROLE_DETECTOR: 'Detecting user role...',
+      CONTEXT_ANALYZER: 'Analyzing context...', 
+      SYNC: 'Synchronizing data...',
+      CANDIDATE_SUBGRAPH: 'Processing candidate request...',  
+      RECRUITER_SUBGRAPH: 'Processing recruiter request...',
       AGENT_ROUTER: 'Routing to appropriate agent...',
       CONTEXT_BUILDER: 'Building context...',
       ANSWER: 'Generating response...',
@@ -454,8 +458,6 @@ export class ChatService {
         manualRetryAttempts,
         retriedMessageId,
       };
-
-      this.logSummary('Enriched message:', enrichedMessage);
 
       // Store user message
       await this.episodicMemory.storeEvent(userId, {
@@ -558,6 +560,8 @@ export class ChatService {
         },
       };
 
+      this.logger.log('Graph created with streamEvents method');
+      this.logger.log('Graph keys:', Object.keys(graph));
       // ========================================================================
       // Phase 4: LangGraph Event Streaming
       // ========================================================================
@@ -565,6 +569,7 @@ export class ChatService {
       let analysisResult: any = null;
       let intent: string | undefined;
       let entities: Record<string, any> | undefined;
+      let agentResult: any = null; 
 
       try {
         const stream = graph.streamEvents(initialState as any, {
@@ -572,6 +577,8 @@ export class ChatService {
           ...config,
         });
 
+        this.logger.log('Stream created, starting event processing');
+        this.logger.log('Stream keys:', Object.keys(stream));
         for await (const event of stream) {
           const langGraphEvent = event as LangGraphEvent;
           const eventType = langGraphEvent.event;
@@ -683,6 +690,38 @@ export class ChatService {
           // ====================================================================
           // Handle Final State
           // ====================================================================
+          if (eventType === 'on_chain_end' && eventName === 'AGENT_RESULT') {
+            agentResult = langGraphEvent.data?.output;
+            this.logger.log('Captured agent result', {
+              success: agentResult?.success,
+              hasJobs: !!agentResult?.data?.jobs,
+              jobCount: agentResult?.data?.jobs?.length || 0,
+              nextSteps: agentResult?.nextSteps?.length || 0,
+            });
+            
+            // Extract suggestions from agent result's nextSteps
+            if (agentResult?.nextSteps && Array.isArray(agentResult.nextSteps) && agentResult.nextSteps.length > 0) {
+              suggestions = agentResult.nextSteps;
+              this.logger.log(`Extracted ${suggestions.length} suggestions from agent result`);
+              
+              // Stream suggestions immediately
+              yield {
+                type: 'suggestions',
+                data: {
+                  messages: {
+                    role: 'assistant',
+                    content: '',
+                    metadata: {
+                      suggestions,
+                      groupSuggestionId: `suggestions_${sessionId}_${Date.now()}`,
+                    },
+                  },
+                  isDone: false,
+                  isError: false,
+                },
+              };
+            }
+          }         
           if (eventType === 'on_chain_end' && eventName === 'LangGraph') {
             const finalState = langGraphEvent.data?.output as AgentState;
             this.logSummary('Final state', {
@@ -781,6 +820,30 @@ export class ChatService {
               entities,
               suggestions: suggestions.length > 0 ? suggestions : undefined,
               executionTime,
+              jobs: agentResult?.data?.jobs 
+                ? agentResult.data.jobs.map((job: any) => ({
+                    id: job.id,
+                    title: job.title || job.name,
+                    company: job.company || job.companyName,
+                    location: job.location,
+                    source: job._source || 'unknown',
+                    score: job._score,
+                    ...(job.salaryRange && { salaryRange: job.salaryRange }),
+                    ...(job.postedDate && { postedDate: job.postedDate }),
+                  }))
+                : undefined,
+              jobSources: agentResult?.data?.sources
+                ? {
+                    rag: {
+                      count: agentResult.data.sources.rag?.count || 0,
+                    },
+                    searchTool: {
+                      count: agentResult.data.sources.searchTool?.count || 0,
+                      totalAvailable: agentResult.data.sources.searchTool?.totalAvailable,
+                    },
+                  }
+                : undefined,
+              totalJobsFound: agentResult?.data?.totalFound,
             },
           },
           isDone: true,

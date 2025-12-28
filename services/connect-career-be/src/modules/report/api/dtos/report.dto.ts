@@ -22,6 +22,7 @@ import {
   InterviewReportReason,
   OfferReportReason,
   CVReportReason,
+  RefundReportReason,
 } from '../../domain/entities/report.entity';
 
 // Helper function to get reasons for entity type
@@ -47,6 +48,8 @@ export function getReasonsForEntityType(
       return Object.values(OfferReportReason);
     case ReportableEntityType.CV:
       return Object.values(CVReportReason);
+    case ReportableEntityType.REFUND:
+      return Object.values(RefundReportReason);
     default:
       return ['other'];
   }

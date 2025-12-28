@@ -37,7 +37,7 @@ export class RefundBackofficeService {
     @InjectRepository(WalletTransaction)
     private walletTransactionRepository: Repository<WalletTransaction>,
     private paymentService: PaymentService,
-    private readonly currencyConversionService: CurrencyConversionService, 
+    private readonly currencyConversionService: CurrencyConversionService,
   ) {}
   async getRefunds(query: RefundListQueryDto) {
     const queryBuilder = this.refundRepository
@@ -199,13 +199,13 @@ export class RefundBackofficeService {
       if (refund.paymentTransaction.type === PaymentType.TOP_UP) {
         const wallet = refund.paymentTransaction.wallet;
         const balanceBefore = wallet.creditBalance;
-        
+
         // FIX: Convert amount if needed (for VND to USD)
         let amountToDebit = refund.amount;
 
         if (
-          (refund.paymentTransaction.provider === 'momo' || 
-           refund.paymentTransaction.provider === 'zalopay') &&
+          (refund.paymentTransaction.provider === 'momo' ||
+            refund.paymentTransaction.provider === 'zalopay') &&
           refund.currency !== wallet.currency
         ) {
           try {

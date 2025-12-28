@@ -20,4 +20,3 @@ export class ApplicationMatchingScoreRequestedEvent implements IDomainEvent {
     this.occurredAt = new Date();
   }
 }
-

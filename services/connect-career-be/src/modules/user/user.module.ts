@@ -9,7 +9,11 @@ import { UserBackOfficeService } from './api/services/user.back-office.service';
 import { ElasticsearchModule } from '../search/infrastructure/elasticsearch/elasticsearch.module';
 
 @Module({
-  imports: [TypeOrmModule.forFeature([User, Role]), IdentityModule, ElasticsearchModule],
+  imports: [
+    TypeOrmModule.forFeature([User, Role]),
+    IdentityModule,
+    ElasticsearchModule,
+  ],
   controllers: [UserController, UserBackOfficeController],
   providers: [
     {

@@ -40,7 +40,9 @@ interface AIMatchingScoreResponse {
 export class ApplicationMatchingScoreRequestedHandler
   implements IEventHandler<ApplicationMatchingScoreRequestedEvent>
 {
-  private readonly logger = new Logger(ApplicationMatchingScoreRequestedHandler.name);
+  private readonly logger = new Logger(
+    ApplicationMatchingScoreRequestedHandler.name,
+  );
 
   constructor(
     @InjectRepository(Application)
@@ -175,12 +177,17 @@ export class ApplicationMatchingScoreRequestedHandler
       const aiResult = response.data;
 
       // Update application with AI-calculated score
-      application.matchingScore = Math.round(aiResult.overallScore * 100 * 100) / 100; // Round to 2 decimal places
+      application.matchingScore =
+        Math.round(aiResult.overallScore * 100 * 100) / 100; // Round to 2 decimal places
       application.matchingDetails = {
-        skillsMatch: Math.round(aiResult.breakdown.skillsMatch * 100 * 100) / 100,
-        experienceMatch: Math.round(aiResult.breakdown.experienceMatch * 100 * 100) / 100,
-        educationMatch: Math.round(aiResult.breakdown.educationMatch * 100 * 100) / 100,
-        locationMatch: Math.round(aiResult.breakdown.locationMatch * 100 * 100) / 100,
+        skillsMatch:
+          Math.round(aiResult.breakdown.skillsMatch * 100 * 100) / 100,
+        experienceMatch:
+          Math.round(aiResult.breakdown.experienceMatch * 100 * 100) / 100,
+        educationMatch:
+          Math.round(aiResult.breakdown.educationMatch * 100 * 100) / 100,
+        locationMatch:
+          Math.round(aiResult.breakdown.locationMatch * 100 * 100) / 100,
         overallScore: Math.round(aiResult.overallScore * 100 * 100) / 100,
         explanation: aiResult.explanation,
         details: aiResult.details,
@@ -217,4 +224,3 @@ export class ApplicationMatchingScoreRequestedHandler
     }
   }
 }
-

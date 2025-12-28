@@ -5,7 +5,10 @@ import { HttpService } from '@nestjs/axios';
 import { ConfigService } from '@nestjs/config';
 import { firstValueFrom } from 'rxjs';
 import { NotificationOrchestratorService } from 'src/modules/notifications/application/services/notification-orchstrator.service';
-import { NotificationChannel, NotificationType } from 'src/modules/notifications/domain/entities/notification.entity';
+import {
+  NotificationChannel,
+  NotificationType,
+} from 'src/modules/notifications/domain/entities/notification.entity';
 
 @Injectable()
 @EventsHandler(JobPublishedEvent)
@@ -22,14 +25,12 @@ export class JobPublishedHandler implements IEventHandler<JobPublishedEvent> {
     this.logger.log(
       `Handling JobPublishedEvent for job ${event.jobId}: ${event.jobTitle}`,
     );
-    
+
     try {
       const matchingCandidates = await this.getMatchingCandidates(event.jobId);
 
       if (!matchingCandidates || matchingCandidates.length === 0) {
-        this.logger.log(
-          `No matching candidates found for job ${event.jobId}`,
-        );
+        this.logger.log(`No matching candidates found for job ${event.jobId}`);
         return;
       }
 
@@ -76,9 +77,7 @@ export class JobPublishedHandler implements IEventHandler<JobPublishedEvent> {
     }
   }
 
-  private async getMatchingCandidates(
-    jobId: string,
-  ): Promise<string[]> {
+  private async getMatchingCandidates(jobId: string): Promise<string[]> {
     try {
       const aiUrl =
         this.configService.get<string>('AI_RECOMMENDER_URL') ||

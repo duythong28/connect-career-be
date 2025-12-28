@@ -469,7 +469,7 @@ export class JobService {
         savedJob.postedDate = new Date();
         await this.jobRepository.save(savedJob);
       }
-    
+
       this.eventBus.publish(
         new JobPublishedEvent(
           savedJob.id,
@@ -479,7 +479,7 @@ export class JobService {
           JobStatus.ACTIVE,
         ),
       );
-    
+
       await this.queueJobEmbedding(savedJob);
     }
 
@@ -582,7 +582,7 @@ export class JobService {
       !job.postedDate
     ) {
       job.postedDate = new Date();
-      
+
       // Publish JobPublishedEvent when job becomes ACTIVE
       this.eventBus.publish(
         new JobPublishedEvent(
@@ -739,9 +739,9 @@ export class JobService {
         'user',
       ],
     });
-  
+
     const jobMap = new Map(jobs.map((job) => [job.id, job]));
-  
+
     const result: Job[] = [];
     for (const id of ids) {
       const job = jobMap.get(id);
@@ -749,7 +749,7 @@ export class JobService {
         result.push(job);
       }
     }
-  
+
     return result;
-  }  
+  }
 }

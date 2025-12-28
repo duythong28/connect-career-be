@@ -47,7 +47,7 @@ import { WalletModule } from '../subscription/subscription.module';
       OrganizationMembership,
     ]),
     QueueModule,
-    WalletModule
+    WalletModule,
   ],
   controllers: [JobCandidateController, JobOrganizationController],
   providers: [

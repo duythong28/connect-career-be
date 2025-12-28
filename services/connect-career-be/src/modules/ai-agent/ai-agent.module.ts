@@ -87,7 +87,7 @@ import { JobsModule } from '../jobs/jobs.module';
       User,
       CandidateProfile,
     ]),
-    JobsModule
+    JobsModule,
   ],
   controllers: [AiAgentController],
   providers: [
@@ -146,7 +146,7 @@ import { JobsModule } from '../jobs/jobs.module';
     AnalysisAgent,
     InformationGatheringAgent,
     LearningPlanAgent,
-    CvEnhancementAgent, 
+    CvEnhancementAgent,
     OrganizationCultureAgent,
 
     // Agent registration - register agents after instantiation
@@ -192,7 +192,7 @@ import { JobsModule } from '../jobs/jobs.module';
         agentRouter.registerAgent(matchingAgent);
         agentRouter.registerAgent(analysisAgent);
         agentRouter.registerAgent(informationGatheringAgent);
-        agentRouter.registerAgent(learningPlanAgent); 
+        agentRouter.registerAgent(learningPlanAgent);
         agentRouter.registerAgent(cvEnhancementAgent);
         agentRouter.registerAgent(organizationCultureAgent);
         return true;

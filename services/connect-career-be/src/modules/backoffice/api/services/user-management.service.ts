@@ -87,7 +87,6 @@ export class UserManagementService {
     return user;
   }
 
-
   async updateUser(
     userId: string,
     updateDto: UpdateUserDto,
@@ -192,7 +191,6 @@ export class UserManagementService {
     } catch (error) {
       console.error(`Failed to sync user ${userId} to Elasticsearch:`, error);
     }
-
 
     // Return with relations
     return this.getUserById(userId);

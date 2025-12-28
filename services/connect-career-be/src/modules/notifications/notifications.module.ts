@@ -52,7 +52,7 @@ const Handlers = [
   OfferAcceptedHandler,
   OfferRejectedHandler,
   PasswordResetRequestedHandler,
-  JobPublishedHandler
+  JobPublishedHandler,
 ];
 
 @Module({

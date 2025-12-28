@@ -31,11 +31,11 @@ import { OrganizationMembership } from '../profile/domain/entities/organization-
       InterviewFeedback,
       AgentInterviewer,
       User,
-      CandidateProfile, 
-      OrganizationMembership
+      CandidateProfile,
+      OrganizationMembership,
     ]),
     AIModule,
-    WalletModule
+    WalletModule,
   ],
   controllers: [
     SystemMockAIInterviewController,

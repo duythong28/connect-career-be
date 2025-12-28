@@ -174,7 +174,7 @@ export class UserBackOfficeService {
     if (!user) {
       throw new NotFoundException('User not found');
     }
- 
+
     // Validate that all role IDs exist
     const roles = await this.roleRepository.findByIds(updateRolesDto.roleIds);
     if (roles.length !== updateRolesDto.roleIds.length) {

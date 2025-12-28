@@ -33,7 +33,7 @@ import { ElasticsearchModule } from '../search/infrastructure/elasticsearch/elas
       Role,
     ]),
     IdentityModule,
-    ElasticsearchModule
+    ElasticsearchModule,
   ],
   controllers: [BackofficeController],
   providers: [

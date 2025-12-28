@@ -134,6 +134,7 @@ export class RoleDetectorService {
         response.content,
       );
       const result = JSON.parse(cleanedContent);
+      console.log('result', JSON.stringify(result, null, 2));
       return {
         role: result.role || 'candidate',
         confidence: result.confidence || 0.7,

@@ -11,7 +11,7 @@ import { HttpService } from '@nestjs/axios';
 import { ConfigService } from '@nestjs/config';
 import { firstValueFrom } from 'rxjs';
 
-interface AIMatchingScoreResponse {
+export interface AIMatchingScoreResponse {
   overallScore: number;
   breakdown: {
     skillsMatch: number;

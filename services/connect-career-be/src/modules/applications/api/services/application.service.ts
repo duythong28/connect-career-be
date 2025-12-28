@@ -33,6 +33,10 @@ import {
   JobInteraction,
   JobInteractionType,
 } from 'src/modules/recommendations/domain/entities/job-interaction.entity';
+import { AIMatchingScoreResponse } from '../event-handlers/application-matching-score-requested.handler';
+import { ConfigService } from '@nestjs/config';
+import { HttpService } from '@nestjs/axios';
+import { firstValueFrom } from 'rxjs';
 
 export class CreateApplicationDto {
   @IsString()
@@ -119,6 +123,8 @@ export class ApplicationService {
     private readonly jobInteractionRepository: Repository<JobInteraction>,
     private readonly jobStatusService: JobStatusService,
     private readonly eventBus: EventBus,
+    private readonly configService: ConfigService,
+    private readonly httpService: HttpService,
   ) {}
 
   async createApplication(
@@ -849,21 +855,138 @@ export class ApplicationService {
     if (!application) {
       throw new NotFoundException(`Application ${applicationId} not found`);
     }
-
-    console.log('application', application);
     // Publish event for AI-based matching score recalculation
-    this.eventBus.publish(
-      new ApplicationMatchingScoreRequestedEvent(
-        application.id,
-        application.jobId,
-        application.cvId,
-        application.candidateProfileId,
-        true,
-      ),
+    this.logger.log(
+      `Processing matching score calculation for application ${application.id}`,
     );
 
-    this.logger.log(
-      `Published matching score recalculation event for application ${applicationId}`,
-    );
+    try {
+
+      // Load job
+      const job = await this.jobRepository.findOne({
+        where: { id: application.jobId },
+      });
+
+      if (!job) {
+        this.logger.warn(`Job ${application.jobId} not found for score calculation`);
+        return;
+      }
+
+      // Load CV if provided
+      let cv: CV | null = null;
+      if (application.cvId) {
+        cv = await this.cvRepository.findOne({
+          where: { id: application.cvId },
+        });
+      }
+
+      // Load candidate profile if provided
+      let candidateProfile: CandidateProfile | null = null;
+      if (application.candidateProfileId) {
+        candidateProfile = await this.candidateProfileRepository.findOne({
+          where: { id: application.candidateProfileId },
+        });
+      }
+      // If no CV, set score to 0
+      if (!cv || !cv.content) {
+        this.logger.warn(
+          `No CV found for application ${application.id}, setting score to 0`,
+        );
+        application.matchingScore = 0;
+        application.matchingDetails = {
+          skillsMatch: 0,
+          experienceMatch: 0,
+          educationMatch: 0,
+          locationMatch: 0,
+          overallScore: 0,
+        };
+        application.isAutoScored = true;
+        application.lastScoredAt = new Date();
+        await this.applicationRepository.save(application);
+        return;
+      }
+
+      // Call AI service to calculate matching score
+      const aiServiceUrl =
+        this.configService.get<string>('AI_RECOMMENDER_URL') ||
+        'http://ai-service:8000';
+
+      const requestPayload = {
+        applicationId: application.id,
+        job: {
+          id: job.id,
+          title: job.title,
+          description: job.description,
+          summary: job.summary,
+          location: job.location,
+          jobFunction: job.jobFunction,
+          seniorityLevel: job.seniorityLevel,
+          type: job.type,
+          requirements: job.requirements || [],
+          keywords: job.keywords || [],
+        },
+        cv: {
+          id: cv.id,
+          content: cv.content,
+        },
+        candidateProfile: candidateProfile
+          ? {
+              id: candidateProfile.id,
+              skills: candidateProfile.skills || [],
+              languages: candidateProfile.languages || [],
+            }
+          : null,
+      };
+
+      this.logger.debug(
+        `Calling AI service for matching score: ${aiServiceUrl}/api/v1/matching-score/calculate`,
+      );
+
+      const response = await firstValueFrom(
+        this.httpService.post<AIMatchingScoreResponse>(
+          `${aiServiceUrl}/api/v1/matching-score/calculate`,
+          requestPayload,
+          {
+            timeout: 30000, // 30 seconds timeout
+          },
+        ),
+      );
+
+      const aiResult = response.data;
+
+      // Update application with AI-calculated score
+      application.matchingScore =
+        Math.round(aiResult.overallScore * 100 * 100) / 100; // Round to 2 decimal places
+      application.matchingDetails = {
+        skillsMatch:
+          Math.round(aiResult.breakdown.skillsMatch * 100 * 100) / 100,
+        experienceMatch:
+          Math.round(aiResult.breakdown.experienceMatch * 100 * 100) / 100,
+        educationMatch:
+          Math.round(aiResult.breakdown.educationMatch * 100 * 100) / 100,
+        locationMatch:
+          Math.round(aiResult.breakdown.locationMatch * 100 * 100) / 100,
+        overallScore: Math.round(aiResult.overallScore * 100 * 100) / 100,
+        explanation: aiResult.explanation,
+        details: aiResult.details,
+      };
+      application.isAutoScored = true;
+      application.lastScoredAt = new Date();
+
+      await this.applicationRepository.save(application);
+
+      this.logger.log(
+        `Successfully calculated matching score ${application.matchingScore} for application ${application.id}`,
+      );
+    } catch (error) {
+      this.logger.error(
+        `Failed to calculate matching score for application ${application.id}: ${error instanceof Error ? error.message : 'Unknown error'}`,
+        error instanceof Error ? error.stack : undefined,
+      );
+      application.matchingScore = 0;
+      application.isAutoScored = false;
+      await this.applicationRepository.save(application);
+
+    }
   }
 }

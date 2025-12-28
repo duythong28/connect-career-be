@@ -45,11 +45,21 @@ class Database:
                 return cur.fetchall()
     
     def execute_update(self, query: str, params: tuple = None) -> None:
-        with self.get_connection() as conn:
+        """Execute an update query with immediate commit"""
+        conn = None
+        try:
+            conn = psycopg2.connect(self.dsn)
+            conn.autocommit = True  # Enable autocommit for immediate commit
+            
             with conn.cursor() as cur:
                 cur.execute(query, params)
-                if not conn.closed:
-                    conn.commit()
+                # With autocommit=True, changes are committed immediately
+        except Exception as e:
+            logger.error(f"Error executing update: {e}")
+            raise
+        finally:
+            if conn and not conn.closed:
+                conn.close()
 
 
 db = Database()

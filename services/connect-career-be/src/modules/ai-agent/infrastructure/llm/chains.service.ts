@@ -4,7 +4,7 @@ import { IAgent } from '../../domain/interfaces/agent.interface';
 import { ITool } from '../../domain/interfaces/tool.interface';
 import { AgentContext } from '../../domain/types/agent.types';
 import { ConfigService } from '@nestjs/config';
-import { createAgent } from "langchain";  
+import { createAgent } from 'langchain';
 
 import {
   ChatPromptTemplate,
@@ -203,77 +203,77 @@ export class ChainsService implements OnModuleDestroy {
   /**
    * Convert ITool to LangChain DynamicStructuredTool with validation
    */
-    /**
+  /**
    * Convert ITool to LangChain DynamicStructuredTool with validation
    */
-    private convertToolToLangChain(tool: ITool): DynamicStructuredTool {
-      const schemaObject: Record<string, z.ZodTypeAny> = {};
-  
-      for (const param of tool.parameters) {
-        let zodType: z.ZodTypeAny;
-  
-        switch (param.type) {
-          case 'string':
-            zodType = z.string().describe(param.description || '');
-            break;
-          case 'number':
-            zodType = z.number().describe(param.description || '');
-            break;
-          case 'boolean':
-            zodType = z.boolean().describe(param.description || '');
-            break;
-          case 'array':
-            zodType = z.array(z.any()).describe(param.description || '');
-            break;
-          case 'object':
-            zodType = z
-              .record(z.string(), z.any())
-              .describe(param.description || '');
-            break;
-          default:
-            zodType = z.any().describe(param.description || '');
-        }
-  
-        if (param.required) {
-          schemaObject[param.name] = zodType;
-        } else {
-          schemaObject[param.name] = zodType.optional();
-        }
+  private convertToolToLangChain(tool: ITool): DynamicStructuredTool {
+    const schemaObject: Record<string, z.ZodTypeAny> = {};
+
+    for (const param of tool.parameters) {
+      let zodType: z.ZodTypeAny;
+
+      switch (param.type) {
+        case 'string':
+          zodType = z.string().describe(param.description || '');
+          break;
+        case 'number':
+          zodType = z.number().describe(param.description || '');
+          break;
+        case 'boolean':
+          zodType = z.boolean().describe(param.description || '');
+          break;
+        case 'array':
+          zodType = z.array(z.any()).describe(param.description || '');
+          break;
+        case 'object':
+          zodType = z
+            .record(z.string(), z.any())
+            .describe(param.description || '');
+          break;
+        default:
+          zodType = z.any().describe(param.description || '');
       }
-  
-      const zodSchema = z.object(schemaObject);
-  
-      return new DynamicStructuredTool({
-        name: tool.name,
-        description: tool.description,
-        schema: zodSchema,
-        func: async (params: Record<string, any>) => {
-          try {
-            // Validate parameters before execution
-            const validated = zodSchema.parse(params);
-  
-            this.logger.debug(
-              `Executing tool: ${tool.name} with params: ${JSON.stringify(validated)}`,
-            );
-  
-            const result: any = await tool.execute(validated);
-            
-            // Format tool response for LLM readability
-            return this.formatToolResponse(result, tool.name);
-          } catch (error) {
-            const errorMessage =
-              error instanceof Error ? error.message : String(error);
-            this.logger.error(
-              `Tool ${tool.name} execution failed: ${errorMessage}`,
-              error instanceof Error ? error.stack : undefined,
-            );
-            throw new Error(`Tool execution failed: ${errorMessage}`);
-          }
-        },
-      });
+
+      if (param.required) {
+        schemaObject[param.name] = zodType;
+      } else {
+        schemaObject[param.name] = zodType.optional();
+      }
     }
-  
-      /**
+
+    const zodSchema = z.object(schemaObject);
+
+    return new DynamicStructuredTool({
+      name: tool.name,
+      description: tool.description,
+      schema: zodSchema,
+      func: async (params: Record<string, any>) => {
+        try {
+          // Validate parameters before execution
+          const validated = zodSchema.parse(params);
+
+          this.logger.debug(
+            `Executing tool: ${tool.name} with params: ${JSON.stringify(validated)}`,
+          );
+
+          const result: any = await tool.execute(validated);
+
+          // Format tool response for LLM readability
+          return this.formatToolResponse(result, tool.name);
+        } catch (error) {
+          const errorMessage =
+            error instanceof Error ? error.message : String(error);
+          this.logger.error(
+            `Tool ${tool.name} execution failed: ${errorMessage}`,
+            error instanceof Error ? error.stack : undefined,
+          );
+          throw new Error(`Tool execution failed: ${errorMessage}`);
+        }
+      },
+    });
+  }
+
+  /**
    * Format tool response for optimal LLM parsing
    * Returns a readable string format that LLMs can easily understand
    */
@@ -312,7 +312,7 @@ export class ChainsService implements OnModuleDestroy {
       // Format as readable JSON with indentation for LLM parsing
       try {
         const formatted = JSON.stringify(result, null, 2);
-        
+
         // Add a summary header for better context
         const summary = this.generateResultSummary(result, toolName);
         return `${summary}\n\nResult:\n${formatted}`;
@@ -369,37 +369,37 @@ export class ChainsService implements OnModuleDestroy {
 
     return response;
   }
-  
-    /**
-     * Generate a human-readable summary of tool results
-     */
-    private generateResultSummary(result: any, toolName: string): string {
-      if (Array.isArray(result)) {
-        return `Found ${result.length} item(s) from ${toolName}.`;
-      }
-  
-      if (typeof result === 'object' && result !== null) {
-        const keys = Object.keys(result);
-        if (keys.length > 0) {
-          // Check for common result patterns
-          if ('jobs' in result && Array.isArray(result.jobs)) {
-            return `Found ${result.jobs.length} job(s) from ${toolName}.`;
-          }
-          if ('resources' in result && Array.isArray(result.resources)) {
-            return `Found ${result.resources.length} resource(s) from ${toolName}.`;
-          }
-          if ('skills' in result && Array.isArray(result.skills)) {
-            return `Extracted ${result.skills.length} skill(s) from ${toolName}.`;
-          }
-          if ('total' in result) {
-            return `Total: ${result.total} result(s) from ${toolName}.`;
-          }
-          return `Retrieved ${keys.length} field(s) from ${toolName}.`;
-        }
-      }
-  
-      return `Result from ${toolName}:`;
+
+  /**
+   * Generate a human-readable summary of tool results
+   */
+  private generateResultSummary(result: any, toolName: string): string {
+    if (Array.isArray(result)) {
+      return `Found ${result.length} item(s) from ${toolName}.`;
     }
+
+    if (typeof result === 'object' && result !== null) {
+      const keys = Object.keys(result);
+      if (keys.length > 0) {
+        // Check for common result patterns
+        if ('jobs' in result && Array.isArray(result.jobs)) {
+          return `Found ${result.jobs.length} job(s) from ${toolName}.`;
+        }
+        if ('resources' in result && Array.isArray(result.resources)) {
+          return `Found ${result.resources.length} resource(s) from ${toolName}.`;
+        }
+        if ('skills' in result && Array.isArray(result.skills)) {
+          return `Extracted ${result.skills.length} skill(s) from ${toolName}.`;
+        }
+        if ('total' in result) {
+          return `Total: ${result.total} result(s) from ${toolName}.`;
+        }
+        return `Retrieved ${keys.length} field(s) from ${toolName}.`;
+      }
+    }
+
+    return `Result from ${toolName}:`;
+  }
 
   /**
    * Create LangSmith trace
@@ -514,7 +514,6 @@ Always explain what you're doing and why.`;
         tools: langChainTools,
         systemPrompt: systemPrompt, // Use the ChatPromptTemplate you created above
       });
-
 
       return {
         agent,

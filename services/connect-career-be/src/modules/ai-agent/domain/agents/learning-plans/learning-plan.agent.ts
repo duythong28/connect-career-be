@@ -160,7 +160,8 @@ Format as a clear, actionable roadmap that the learner can follow step-by-step. 
       intent === 'upskilling_plan' ||
       (intent.includes('learning') &&
         (intent.includes('plan') || intent.includes('path'))) ||
-      (intent.includes('roadmap') || intent.includes('skill'))
+      intent.includes('roadmap') ||
+      intent.includes('skill')
     );
   }
 
@@ -220,7 +221,9 @@ Format as a clear, actionable roadmap that the learner can follow step-by-step. 
     return null;
   }
 
-  private inferSkillLevel(skills: string[]): 'beginner' | 'intermediate' | 'advanced' {
+  private inferSkillLevel(
+    skills: string[],
+  ): 'beginner' | 'intermediate' | 'advanced' {
     if (!skills || skills.length === 0) return 'beginner';
     // Simple heuristic - can be enhanced
     if (skills.length < 3) return 'beginner';
@@ -237,6 +240,8 @@ Format as a clear, actionable roadmap that the learner can follow step-by-step. 
       phases.push(match[1].trim());
     }
 
-    return phases.length > 0 ? phases : ['Foundation', 'Intermediate', 'Advanced'];
+    return phases.length > 0
+      ? phases
+      : ['Foundation', 'Intermediate', 'Advanced'];
   }
 }

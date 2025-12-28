@@ -196,11 +196,11 @@ export class ApplicationService {
     if (candidateProfile) {
       application.candidateProfileId = candidateProfile.id;
     }
-  
+
     // Set initial score to 0, will be updated by event handler
     application.matchingScore = 0;
     application.isAutoScored = false;
-    
+
     application.updateCalculatedFields();
     const savedApplication = await this.applicationRepository.save(application);
 
@@ -210,7 +210,7 @@ export class ApplicationService {
     if (!job.appliedByUserIds.includes(savedApplication.candidateId)) {
       job.appliedByUserIds.push(savedApplication.candidateId);
       await this.jobRepository.save(job);
-    }    
+    }
 
     // Publish event for AI-based matching score calculation (async, non-blocking)
     this.eventBus.publish(
@@ -845,7 +845,7 @@ export class ApplicationService {
 
   async recalculateMatchingScore(applicationId: string): Promise<void> {
     const application = await this.getApplicationById(applicationId);
-    
+
     if (!application) {
       throw new NotFoundException(`Application ${applicationId} not found`);
     }

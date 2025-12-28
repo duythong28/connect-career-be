@@ -1,4 +1,11 @@
-import { IsArray, IsOptional, IsEnum, IsString, IsBoolean, ValidateNested } from 'class-validator';
+import {
+  IsArray,
+  IsOptional,
+  IsEnum,
+  IsString,
+  IsBoolean,
+  ValidateNested,
+} from 'class-validator';
 import { ApiProperty, ApiPropertyOptional } from '@nestjs/swagger';
 import { ApplicationStatus } from '../../domain/entities/application.entity';
 
@@ -22,7 +29,6 @@ class UpdateApplicationDto {
   @IsOptional()
   @IsBoolean()
   isFlagged?: boolean;
-
 }
 
 export class BulkUpdateApplicationDto {

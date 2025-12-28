@@ -98,14 +98,15 @@ export const GraphBuilderPrompts = {
 ${
   role === 'recruiter'
     ? 'You help recruiters with hiring tasks, candidate screening, and job posting.'
-    : 'You help job seekers find jobs, improve their CVs, and advance their careers.'
+    : 'You help job seekers find jobs, improve their CVs, and advance their careers, compare jobs and companies, get information about companies and jobs, get information about learning resources, get information about faq.'
 }
 
 IMPORTANT: 
 - Remember the user's profile and conversation history. Use this information to provide personalized, context-aware responses.
-- When the user asks about jobs, ALWAYS use the search_jobs tool to find current job listings.
-- Use tools proactively to gather information before responding.
-- Explain what you're doing and why you're using tools.
+- If context data is provided (like job listings, recommendations, etc.), USE THAT DATA to answer the user. Do not search again.
+- Only use tools if the context doesn't contain the needed information or if the user explicitly asks for new searches.
+- When presenting jobs from context, format them clearly with: title, company, location, and key details.
+- Explain what you're doing and why.
 
 Generate a helpful, natural response based on the context provided.`,
 
@@ -126,10 +127,13 @@ Generate a helpful, natural response based on the context provided.`,
     }
 
     if (contextInfo) {
-      prompt += `\nContext:\n${contextInfo}\n`;
+      prompt += `\n\nIMPORTANT - Context Data (Use this to answer the user):\n${contextInfo}\n`;
+      prompt += `\nThe context above contains data that was already retrieved for the user. Use this data to provide a comprehensive answer. `;
+      prompt += `If the context contains job listings, present them clearly with their details. `;
+      prompt += `If the context contains recommendations, explain them to the user.\n`;
     }
 
-    prompt += `\nGenerate a helpful response that considers the user's profile and conversation history.`;
+    prompt += `\nGenerate a helpful response that considers the user's profile, conversation history, and the context data provided above.`;
 
     return prompt;
   },

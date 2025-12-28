@@ -83,7 +83,7 @@ import { ElasticsearchModule } from '../search/infrastructure/elasticsearch/elas
       JobInteraction,
     ]),
     QueueModule,
-    ElasticsearchModule
+    ElasticsearchModule,
   ],
   controllers: [
     OrganizationController,

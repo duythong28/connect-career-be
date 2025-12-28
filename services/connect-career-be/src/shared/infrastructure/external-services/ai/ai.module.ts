@@ -15,8 +15,13 @@ import { CandidateProfile } from 'src/modules/profile/domain/entities/candidate-
 
 @Module({
   imports: [
-    TypeOrmModule.forFeature([CV, File, CandidateProfile, OrganizationMembership]),
-    WalletModule
+    TypeOrmModule.forFeature([
+      CV,
+      File,
+      CandidateProfile,
+      OrganizationMembership,
+    ]),
+    WalletModule,
   ],
   providers: [
     {

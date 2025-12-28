@@ -113,12 +113,6 @@ export class IntentDetectorService {
     role?: 'candidate' | 'recruiter',
   ): Promise<IntentResult> {
     try {
-      // Use role-specific patterns if role is provided
-      const patternMatch = this.matchPatterns(message, role);
-      if (patternMatch && patternMatch.confidence > 0.8) {
-        return patternMatch;
-      }
-
       // Use LLM for more sophisticated intent detection
       const llmResult = await this.detectIntentWithLLM(
         message,
@@ -126,11 +120,7 @@ export class IntentDetectorService {
         userContext,
         role,
       );
-
-      // Combine pattern and LLM results
-      if (patternMatch && llmResult.confidence < 0.7) {
-        return patternMatch;
-      }
+      console.log('llmResult', JSON.stringify(llmResult));
 
       return llmResult;
     } catch (error) {

@@ -91,7 +91,7 @@ Format the response in an engaging, informative way. If specific information is 
 
       const cultureOverview = await this.callLLM(culturePrompt, {
         systemPrompt:
-          'You are a company culture expert helping candidates understand what it\'s like to work at different organizations. Be honest, engaging, and informative.',
+          "You are a company culture expert helping candidates understand what it's like to work at different organizations. Be honest, engaging, and informative.",
       });
 
       return this.createSuccessResult(

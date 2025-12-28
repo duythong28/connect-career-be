@@ -90,6 +90,12 @@ export class GraphBuilderService {
           context,
         );
         const agentResult = await agent.execute(context);
+        console.log('agentResult', JSON.stringify(agentResult));
+        yield {
+          event: 'on_chain_end',
+          name: 'AGENT_RESULT',
+          data: { output: agentResult },
+        };
 
         // CONTEXT_BUILDER
         yield { event: 'on_chain_start', name: 'CONTEXT_BUILDER' };
@@ -101,14 +107,52 @@ export class GraphBuilderService {
         );
 
         const contextInfo = agentResult?.data
-          ? JSON.stringify(agentResult.data, null, 2)
-          : undefined;
+          ? (() => {
+              // If data contains jobs, format them nicely with source metadata
+              if (
+                agentResult.data.jobs &&
+                Array.isArray(agentResult.data.jobs)
+              ) {
+                const jobsSummary = agentResult.data.jobs
+                  .slice(0, 10) // Limit to top 10
+                  .map((job: any, index: number) => {
+                    const sourceInfo =
+                      job._source === 'search_tool'
+                        ? `[Found via Search Tool]`
+                        : job._source === 'rag'
+                          ? `[Found via AI Search]`
+                          : '';
 
-        // Include user profile and conversation history in the prompt
+                    return `${index + 1}. ${job.title || job.name || 'Job'} at ${job.company || job.companyName || 'Company'} ${sourceInfo}
+              - Location: ${job.location || 'Not specified'}
+              ${job.description ? `- Description: ${job.description.substring(0, 200)}...` : ''}
+              ${job.id ? `- Job ID: ${job.id}` : ''}
+              ${job._score ? `- Relevance Score: ${job._score.toFixed(3)}` : ''}`;
+                  })
+                  .join('\n\n');
+
+                // Add source summary
+                const sourceSummary = agentResult.data.sources
+                  ? `\n\nSource Summary:
+              - AI Search (RAG): ${agentResult.data.sources.rag?.count || 0} jobs
+              - Search Tool: ${agentResult.data.sources.searchTool?.count || 0} jobs (${agentResult.data.sources.searchTool?.totalAvailable || 0} total available)`
+                  : '';
+
+                return `Jobs Found (${agentResult.data.totalFound || agentResult.data.jobs.length}):${sourceSummary}
+                ${jobsSummary}
+
+                ${agentResult.data.recommendations ? `\nRecommendations:\n${agentResult.data.recommendations}` : ''}
+
+                Full data: ${JSON.stringify(agentResult.data, null, 2)}`;
+              }
+
+              // For other data types, use JSON
+              return JSON.stringify(agentResult.data, null, 2);
+            })()
+          : undefined;
         const userProfileInfo = initialState?.user_profile
-          ? JSON.stringify(initialState.user_profile, null, 2)
-          : undefined;
-
+            ? JSON.stringify(initialState.user_profile, null, 2)
+            : undefined;
         // Format conversation history for the prompt (last 10 messages for context)
         const recentHistory = messages
           .slice(-10)
@@ -129,6 +173,7 @@ export class GraphBuilderService {
 
         // Get agent's tools for tool calling
         const agentTools = agent.getTools();
+        console.log('agentTools', JSON.stringify(agentTools));
 
         let answer: string;
 
@@ -161,6 +206,7 @@ export class GraphBuilderService {
             typeof lastMessage?.content === 'string'
               ? lastMessage.content
               : JSON.stringify(lastMessage?.content || chainResult);
+          console.log('answer', answer);
         } else {
           // Fallback to simple chain if no tools
           const chain = self.chainsService.createSimpleChain(systemPrompt, {

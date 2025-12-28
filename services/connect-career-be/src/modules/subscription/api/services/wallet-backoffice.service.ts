@@ -34,7 +34,6 @@ export class WalletBackofficeService {
     private paymentTransactionRepository: Repository<PaymentTransaction>,
     @InjectRepository(Refund)
     private refundRepository: Repository<Refund>,
-
   ) {}
 
   async getWallets(query: WalletListQueryDto): Promise<{
@@ -202,9 +201,7 @@ export class WalletBackofficeService {
     ];
     const refundIds = [
       ...new Set(
-        data
-          .map((t) => t.relatedRefundId)
-          .filter((id): id is string => !!id),
+        data.map((t) => t.relatedRefundId).filter((id): id is string => !!id),
       ),
     ];
 
@@ -245,21 +242,20 @@ export class WalletBackofficeService {
 
       // Add related usage ledger with correct field name
       if (transaction.relatedUsageLedgerId) {
-        result.relatedUsageLedger = usageMap.get(
-          transaction.relatedUsageLedgerId,
-        ) || null;
+        result.relatedUsageLedger =
+          usageMap.get(transaction.relatedUsageLedgerId) || null;
       }
 
       // Add related payment transaction with correct field name
       if (transaction.relatedPaymentTransactionId) {
-        result.relatedPaymentTransaction = paymentMap.get(
-          transaction.relatedPaymentTransactionId,
-        ) || null;
+        result.relatedPaymentTransaction =
+          paymentMap.get(transaction.relatedPaymentTransactionId) || null;
       }
 
       // Add related refund
       if (transaction.relatedRefundId) {
-        result.relatedRefund = refundMap.get(transaction.relatedRefundId) || null;
+        result.relatedRefund =
+          refundMap.get(transaction.relatedRefundId) || null;
       }
 
       return result;

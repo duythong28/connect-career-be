@@ -120,7 +120,6 @@ export class CandidateMockAIInterviewController {
   @UseGuards(WalletBalanceGuard)
   @UseInterceptors(WalletDeductionInterceptor)
   @RequireWalletBalance('MOCK_AI_INTERVIEW')
-
   async createQuestionsSession(
     @Body() body: CreateMockInterviewDto,
     @decorators.CurrentUser() user: decorators.CurrentUserPayload,

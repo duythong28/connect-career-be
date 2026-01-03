@@ -38,6 +38,8 @@ import { User } from '../identity/domain/entities';
 import { PasswordResetRequestedHandler } from './application/handlers/password-reset-requested.handler';
 import { JobPublishedHandler } from '../jobs/api/event-handlers/job-published.handler';
 import { HttpModule } from '@nestjs/axios';
+import { PushProvider } from './infrastructure/providers/push/push.provider';
+import { Job } from '../jobs/domain/entities/job.entity';
 
 const Handlers = [
   SendNotificationHandler,
@@ -64,6 +66,7 @@ const Handlers = [
       UserNotificationPreferences,
       PushNotificationToken,
       User,
+      Job
     ]),
     BullModule.registerQueue({
       name: 'notifications',
@@ -85,6 +88,7 @@ const Handlers = [
     NotificationQueueService,
     ScheduledNotificationScheduler,
     NodemailerProvider,
+    PushProvider,
     {
       provide: NOTIFICATION_REPOSITORY,
       useClass: NotificationTypeOrmRepository,
@@ -100,6 +104,10 @@ const Handlers = [
     {
       provide: 'WebSocketProvider',
       useClass: WebSocketProvider,
+    },
+    {
+      provide: 'PushProvider',
+      useClass: PushProvider,
     },
     ProviderFactory,
   ],

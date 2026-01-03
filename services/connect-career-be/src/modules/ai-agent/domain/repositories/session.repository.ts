@@ -36,7 +36,7 @@ export class SessionRepository implements ISessionRepository {
   ): Promise<SessionEntity[]> {
     return await this.repository.find({
       where: { userId },
-      order: { updatedAt: 'DESC' },
+      order: { createdAt: 'DESC' },
       take: limit,
       relations: ['messages'],
     });

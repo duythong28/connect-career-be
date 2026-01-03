@@ -8,6 +8,7 @@ import {
   Put,
   Query,
   UseGuards,
+  BadRequestException,
 } from '@nestjs/common';
 import {
   ApiBearerAuth,
@@ -26,6 +27,8 @@ import { GetNotificationsQueryDto } from '../application/dtos/get-notifications-
 import { UpdatePreferencesDto } from '../application/dtos/update-prefereces.dto';
 import { RegisterPushTokenDto } from '../application/dtos/register-push-token.dto';
 import { NotificationQueueService } from 'src/shared/infrastructure/queue/services/notification-queue.service';
+import { PushProvider } from '../infrastructure/providers/push/push.provider';
+import * as admin from 'firebase-admin';
 
 @ApiTags('Notifications')
 @Controller('v1/notifications')
@@ -36,6 +39,7 @@ export class NotificationsController {
     private readonly commandBus: CommandBus,
     private readonly notificationService: NotificationService,
     private readonly notificationQueueService: NotificationQueueService,
+    private readonly pushProvider: PushProvider,
   ) {}
 
   @Post('send')
@@ -134,5 +138,252 @@ export class NotificationsController {
   @ApiOperation({ summary: 'Get notification queue statistics (Admin)' })
   async getQueueStats() {
     return this.notificationQueueService.getQueueStats();
+  }
+  
+  @Get('push/test-connection')
+  @decorators.Public()
+  @ApiOperation({ summary: 'Test FCM connection and credentials' })
+  @ApiResponse({ status: 200, description: 'FCM connection test result' })
+  async testFCMConnection() {
+    try {
+      return await this.pushProvider.testConnection();
+    } catch (error) {
+      return {
+        success: false,
+        error: error instanceof Error ? error.message : String(error),
+      };
+    }
+  }
+
+  @Post('push/test')
+  @ApiOperation({ summary: 'Send test push notification to current user' })
+  @ApiResponse({ status: 200, description: 'Test notification sent' })
+  async testPushNotification(
+    @decorators.CurrentUser() user: decorators.CurrentUserPayload,
+  ) {
+    try {
+      // Check if user has registered push tokens
+      const tokens = await this.notificationService.getPushTokens(user.sub);
+      
+      if (tokens.length === 0) {
+        throw new BadRequestException(
+          'No push tokens registered. Please register a push token first using POST /v1/notifications/push-token',
+        );
+      }
+
+      // Send test notification
+      await this.pushProvider.send(
+        user.sub,
+        'Test Notification',
+        'This is a test push notification from Connect Career!',
+        {
+          test: true,
+          timestamp: new Date().toISOString(),
+        },
+      );
+
+      return {
+        success: true,
+        message: 'Test push notification sent successfully',
+        tokensCount: tokens.length,
+        timestamp: new Date().toISOString(),
+      };
+    } catch (error) {
+      return {
+        success: false,
+        error: error instanceof Error ? error.message : String(error),
+        message: 'Failed to send test push notification',
+      };
+    }
+  }
+
+  @Post('push/test/:userId')
+  @ApiOperation({ summary: 'Send test push notification to specific user (Admin)' })
+  @ApiResponse({ status: 200, description: 'Test notification sent' })
+  async testPushNotificationToUser(
+    @Param('userId') userId: string,
+    @Body() body?: { title?: string; message?: string },
+  ) {
+    try {
+      const tokens = await this.notificationService.getPushTokens(userId);
+      
+      if (tokens.length === 0) {
+        throw new BadRequestException(
+          `No push tokens registered for user ${userId}`,
+        );
+      }
+
+      await this.pushProvider.send(
+        userId,
+        body?.title || 'Test Notification',
+        body?.message || 'This is a test push notification!',
+        {
+          test: true,
+          timestamp: new Date().toISOString(),
+        },
+      );
+
+      return {
+        success: true,
+        message: `Test push notification sent to user ${userId}`,
+        tokensCount: tokens.length,
+        timestamp: new Date().toISOString(),
+      };
+    } catch (error) {
+      return {
+        success: false,
+        error: error instanceof Error ? error.message : String(error),
+      };
+    }
+  }
+
+  @Post('push/test-direct')
+  @ApiOperation({ summary: 'Send test push notification directly to FCM token (for testing/debugging)' })
+  @ApiResponse({ status: 200, description: 'Test notification sent' })
+  async testPushNotificationDirect(
+    @Body() body: {
+      fcmToken: string;
+      title?: string;
+      message?: string;
+      metadata?: any;
+    },
+  ) {
+    try {
+      if (!body.fcmToken) {
+        throw new BadRequestException('FCM token is required');
+      }
+
+      // Validate FCM token format (should be a long string)
+      if (body.fcmToken.length < 10) {
+        throw new BadRequestException('Invalid FCM token format');
+      }
+
+      // Send directly using Firebase Admin SDK
+      const messaging = admin.messaging();
+      
+      const message = {
+        token: body.fcmToken,
+        notification: {
+          title: body.title || 'Test Notification',
+          body: body.message || 'This is a direct test push notification!',
+        },
+        data: {
+          test: 'true',
+          timestamp: new Date().toISOString(),
+          ...(body.metadata || {}),
+        },
+        webpush: {
+          notification: {
+            title: body.title || 'Test Notification',
+            body: body.message || 'This is a direct test push notification!',
+            icon: body.metadata?.icon || '/icon-192x192.png',
+            badge: body.metadata?.badge || '/badge-72x72.png',
+          },
+          fcmOptions: {
+            link: body.metadata?.url || body.metadata?.clickAction || '',
+          },
+        },
+      };
+
+      const response = await messaging.send(message);
+
+      return {
+        success: true,
+        message: 'Test push notification sent successfully',
+        messageId: response,
+        fcmTokenPreview: `${body.fcmToken.substring(0, 20)}...${body.fcmToken.substring(body.fcmToken.length - 10)}`,
+        timestamp: new Date().toISOString(),
+      };
+    } catch (error: any) {
+      const errorCode = error.code || error.errorInfo?.code;
+      const errorMessage = error.message || error.errorInfo?.message;
+
+      return {
+        success: false,
+        error: errorMessage,
+        errorCode,
+        message: 'Failed to send test push notification',
+        details: errorCode === 'messaging/registration-token-not-registered' 
+          ? 'The FCM token is not registered or has expired. Make sure the token is valid and the user has the app/browser open.'
+          : errorMessage,
+      };
+    }
+  }
+
+  @Post('push/test-batch')
+  @ApiOperation({ summary: 'Send test push notification to multiple FCM tokens at once' })
+  @ApiResponse({ status: 200, description: 'Test notifications sent' })
+  async testPushNotificationBatch(
+    @Body() body: {
+      fcmTokens: string[];
+      title?: string;
+      message?: string;
+      metadata?: any;
+    },
+  ) {
+    try {
+      if (!body.fcmTokens || !Array.isArray(body.fcmTokens) || body.fcmTokens.length === 0) {
+        throw new BadRequestException('fcmTokens array is required and must not be empty');
+      }
+
+      if (body.fcmTokens.length > 500) {
+        throw new BadRequestException('Maximum 500 tokens allowed per batch');
+      }
+
+      const messaging = admin.messaging();
+
+      const messages = body.fcmTokens.map((fcmToken) => ({
+        token: fcmToken,
+        notification: {
+          title: body.title || 'Test Notification',
+          body: body.message || 'This is a batch test push notification!',
+        },
+        data: {
+          test: 'true',
+          timestamp: new Date().toISOString(),
+          ...(body.metadata || {}),
+        },
+        webpush: {
+          notification: {
+            title: body.title || 'Test Notification',
+            body: body.message || 'This is a batch test push notification!',
+            icon: body.metadata?.icon || '/icon-192x192.png',
+            badge: body.metadata?.badge || '/badge-72x72.png',
+          },
+          fcmOptions: {
+            link: body.metadata?.url || body.metadata?.clickAction || '',
+          },
+        },
+      }));
+
+      const results = await messaging.sendEach(messages);
+
+      const successCount = results.responses.filter((r) => r.success).length;
+      const failureCount = results.responses.filter((r) => !r.success).length;
+
+      const failures = results.responses
+        .map((response, index) => ({
+          tokenIndex: index,
+          tokenPreview: `${body.fcmTokens[index].substring(0, 20)}...${body.fcmTokens[index].substring(body.fcmTokens[index].length - 10)}`,
+          error: response.error,
+        }))
+        .filter((f) => f.error);
+
+      return {
+        success: true,
+        message: `Batch test push notifications sent`,
+        total: body.fcmTokens.length,
+        successCount,
+        failureCount,
+        failures: failures.length > 0 ? failures : undefined,
+        timestamp: new Date().toISOString(),
+      };
+    } catch (error: any) {
+      return {
+        success: false,
+        error: error instanceof Error ? error.message : String(error),
+        message: 'Failed to send batch test push notifications',
+      };
+    }
   }
 }

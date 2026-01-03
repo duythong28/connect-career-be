@@ -7,6 +7,7 @@ import {
   Post,
   Query,
   UseGuards,
+  UseInterceptors,
 } from '@nestjs/common';
 import { JwtAuthGuard } from 'src/modules/identity/api/guards/jwt-auth.guard';
 import { MockInterviewService } from '../services/mock-interview.service';
@@ -19,6 +20,9 @@ import { CreateMockInterviewDto } from '../dto/mock-interview.dto';
 import { AgentInterviewerService } from '../services/agent-interviewer.service';
 import { ApiOperation } from '@nestjs/swagger';
 import { ListMockInterviewQueryDto } from '../dto/list-mock-interview-query.dto';
+import { WalletDeductionInterceptor } from 'src/modules/subscription/api/interceptors/wallet-deduction.interceptor';
+import { WalletBalanceGuard } from 'src/modules/subscription/api/guards/wallet-balance.guard';
+import { RequireWalletBalance } from 'src/modules/subscription/api/decorators/wallet-balance.decorator';
 
 @Controller('v1/candidates/mock-ai-interview')
 @UseGuards(JwtAuthGuard)
@@ -113,6 +117,9 @@ export class CandidateMockAIInterviewController {
   }
 
   @Post('')
+  @UseGuards(WalletBalanceGuard)
+  @UseInterceptors(WalletDeductionInterceptor)
+  @RequireWalletBalance('MOCK_AI_INTERVIEW')
   async createQuestionsSession(
     @Body() body: CreateMockInterviewDto,
     @decorators.CurrentUser() user: decorators.CurrentUserPayload,

@@ -6,6 +6,7 @@ from ..config import settings
 from ..services.embedding_service import embedding_service
 from ..services.cf_service import cf_service
 from ..models.schemas import RecommendationRequest, UserPreferences
+from .recommendation_cache import get_recommendation_cache
 
 logger = logging.getLogger(__name__)
 
@@ -13,6 +14,7 @@ logger = logging.getLogger(__name__)
 class RecommendationService:
     def __init__(self):
         self.alpha = settings.hybrid_alpha
+        self.cache = get_recommendation_cache()  #
     
     def get_candidate_jobs(self, user_id: str, preferences: UserPreferences = None) -> List[str]:
         """Get candidate job IDs with basic filtering"""
@@ -114,8 +116,19 @@ class RecommendationService:
             return job_scores
         
     def get_recommendations(self, request: RecommendationRequest) -> Tuple[List[str], List[float]]:
-        """Main recommendation logic"""
-        # 1. Get candidate jobs
+        """Main recommendation logic with caching"""
+        cache_key = {
+            'userId': request.userId,
+            'limit': request.limit,
+            'preferences': self._serialize_preferences(request.preferences) if request.preferences else None,
+        }
+        
+        if self.cache:
+            cached_result = self.cache.get(request.userId, cache_key)
+            if cached_result is not None:
+                logger.info(f"Returning cached recommendations for user {request.userId}")
+                return cached_result
+    
         candidate_job_ids = self.get_candidate_jobs(request.userId, request.preferences)
         
         if not candidate_job_ids:
@@ -232,7 +245,649 @@ class RecommendationService:
         
         logger.info(f"Generated {len(top_job_ids)} recommendations for user {request.userId}")
         return top_job_ids, top_scores
+    
+    def get_similar_jobs(self, job_id: str, limit: int = 10, exclude_job_id: bool = True) -> Tuple[List[str], List[float]]:
+        """Get similar jobs based on job embedding similarity with caching"""   
+        try:
+            cache_key = {
+                'jobId': job_id,
+                'limit': limit,
+                'excludeJobId': exclude_job_id,
+            }
+            
+            if self.cache:
+                cached_result = self.cache.get_similar_jobs(job_id, cache_key)
+                if cached_result is not None:
+                    logger.info(f"Returning cached similar jobs for job {job_id}")
+                    return cached_result
+            
+            # Get the source job's embedding
+            source_emb = embedding_service.get_job_embedding(job_id)
+            if source_emb is None:
+                logger.warning(f"Job {job_id} has no embedding in database")
+                return [], []
+            
+            # Get candidate jobs (active jobs only)
+            query = """
+                SELECT j.id
+                FROM jobs j
+                WHERE j.status = 'active'
+                AND (j."deletedAt" IS NULL OR j."deletedAt" > NOW())
+            """
+            if exclude_job_id:
+                query += " AND j.id != %s"
+                params = (job_id,)
+            else:
+                params = None
+            
+            try:
+                results = db.execute_query(query, params)
+                candidate_job_ids = [str(row['id']) for row in results]
+            except Exception as e:
+                logger.error(f"Error getting candidate jobs: {e}")
+                return [], []
+            
+            if not candidate_job_ids:
+                logger.warning("No candidate jobs found")
+                return [], []
+            
+            # Limit candidates for performance
+            if len(candidate_job_ids) > 500:
+                candidate_job_ids = candidate_job_ids[:500]
+            
+            # Batch load all job embeddings
+            logger.info(f"Loading embeddings for {len(candidate_job_ids)} candidate jobs")
+            job_embeddings = {}
+            
+            placeholders = ','.join(['%s'] * len(candidate_job_ids))
+            try:
+                emb_query = f"""
+                    SELECT "jobId", embedding
+                    FROM job_content_embeddings
+                    WHERE "jobId" IN ({placeholders})
+                """
+                emb_results = db.execute_query(emb_query, tuple(candidate_job_ids))
+                for row in emb_results:
+                    job_id_candidate = str(row['jobId'])
+                    emb_data = row['embedding']
+                    if emb_data:
+                        if isinstance(emb_data, list):
+                            job_embeddings[job_id_candidate] = np.array(emb_data, dtype=np.float32)
+                        elif isinstance(emb_data, str):
+                            import json
+                            job_embeddings[job_id_candidate] = np.array(json.loads(emb_data), dtype=np.float32)
+                        else:
+                            job_embeddings[job_id_candidate] = np.array(emb_data, dtype=np.float32)
+            except Exception as e:
+                logger.error(f"Error batch loading job embeddings: {e}")
+            
+            # Compute similarity scores
+            scored_jobs = []
+            source_emb_norm = np.linalg.norm(source_emb)
+            
+            for candidate_id in candidate_job_ids:
+                try:
+                    candidate_emb = job_embeddings.get(candidate_id)
+                    if candidate_emb is not None:
+                        # Compute cosine similarity
+                        similarity = float(np.dot(source_emb, candidate_emb) / (source_emb_norm * np.linalg.norm(candidate_emb)))
+                        scored_jobs.append((candidate_id, similarity))
+                except Exception as e:
+                    logger.error(f"Error computing similarity for job {candidate_id}: {e}")
+                    continue
+            
+            # Sort by similarity (descending)
+            scored_jobs.sort(key=lambda x: x[1], reverse=True)
+            
+            # Return top N
+            top_jobs = scored_jobs[:limit]
+            top_job_ids = [job_id for job_id, _ in top_jobs]
+            top_scores = [score for _, score in top_jobs]
+            
+            if self.cache:
+                self.cache.set_similar_jobs(
+                    job_id,
+                    cache_key,
+                    top_job_ids,
+                    top_scores,
+                    ttl=300  # 5 minutes
+                )
+            
+            logger.info(f"Generated {len(top_job_ids)} similar jobs for job {job_id}")
+            return top_job_ids, top_scores
+        except Exception as e:
+            logger.error(f"Error getting similar jobs for {job_id}: {e}", exc_info=True)
+            return [], []
+        
+    def _serialize_preferences(self, preferences: UserPreferences) -> dict:
+        """Serialize preferences for cache key"""
+        if not preferences:
+            return None
+        return {
+            'hiddenCompanyIds': sorted(preferences.hiddenCompanyIds) if preferences.hiddenCompanyIds else None,
+            'preferredLocations': sorted(preferences.preferredLocations) if preferences.preferredLocations else None,
+            'minSalary': preferences.minSalary,
+        }
+    def get_candidate_recommendations(
+        self, 
+        job_id: str, 
+        limit: int = 20, 
+        exclude_applied: bool = True,
+        min_score: float = None
+    ) -> Tuple[List[str], List[float]]:
+        """Get candidate recommendations for a job (recruiter side)"""
+        try:
+            # Get the job's embedding
+            job_emb = embedding_service.get_job_embedding(job_id)
+            if job_emb is None:
+                logger.warning(f"Job {job_id} has no embedding in database")
+                return [], []
+            
+            # Get job CF factors for hybrid scoring
+            job_cf = cf_service.get_job_cf_factors(job_id)
+            
+            # Get candidate user IDs (users with candidate profiles)
+            query = """
+                SELECT DISTINCT cp."userId"
+                FROM candidate_profiles cp
+                WHERE cp."userId" IS NOT NULL
+            """
+            
+            # Exclude users who already applied to this job
+            if exclude_applied:
+                query += """
+                    AND cp."userId" NOT IN (
+                        SELECT DISTINCT ji."userId"
+                        FROM job_interactions ji
+                        WHERE ji."jobId" = %s
+                        AND ji.type = 'apply'
+                    )
+                """
+                params = (job_id,)
+            else:
+                params = None
+            
+            try:
+                results = db.execute_query(query, params)
+                candidate_user_ids = [str(row['userId']) for row in results]
+            except Exception as e:
+                logger.error(f"Error getting candidate users: {e}")
+                return [], []
+            
+            if not candidate_user_ids:
+                logger.warning("No candidate users found")
+                return [], []
+            
+            # Limit candidates for performance
+            if len(candidate_user_ids) > 500:
+                candidate_user_ids = candidate_user_ids[:500]
+            
+            # Batch load all user embeddings
+            logger.info(f"Loading embeddings for {len(candidate_user_ids)} candidate users")
+            user_embeddings = {}
+            user_cf_factors = {}
+            
+            placeholders = ','.join(['%s'] * len(candidate_user_ids))
+            try:
+                # Load user embeddings in batch
+                emb_query = f"""
+                    SELECT "userId", embedding
+                    FROM user_content_embeddings
+                    WHERE "userId" IN ({placeholders})
+                """
+                emb_results = db.execute_query(emb_query, tuple(candidate_user_ids))
+                for row in emb_results:
+                    user_id = str(row['userId'])
+                    emb_data = row['embedding']
+                    if emb_data:
+                        if isinstance(emb_data, list):
+                            user_embeddings[user_id] = np.array(emb_data, dtype=np.float32)
+                        elif isinstance(emb_data, str):
+                            import json
+                            user_embeddings[user_id] = np.array(json.loads(emb_data), dtype=np.float32)
+                        else:
+                            user_embeddings[user_id] = np.array(emb_data, dtype=np.float32)
+            except Exception as e:
+                logger.error(f"Error batch loading user embeddings: {e}")
+            
+            # Load user CF factors in batch
+            try:
+                cf_query = f"""
+                    SELECT "userId", factors
+                    FROM user_cf_factors
+                    WHERE "userId" IN ({placeholders})
+                """
+                cf_results = db.execute_query(cf_query, tuple(candidate_user_ids))
+                for row in cf_results:
+                    user_id = str(row['userId'])
+                    factors_data = row['factors']
+                    if factors_data:
+                        if isinstance(factors_data, list):
+                            user_cf_factors[user_id] = np.array(factors_data, dtype=np.float32)
+                        elif isinstance(factors_data, str):
+                            import json
+                            user_cf_factors[user_id] = np.array(json.loads(factors_data), dtype=np.float32)
+                        else:
+                            user_cf_factors[user_id] = np.array(factors_data, dtype=np.float32)
+            except Exception as e:
+                logger.error(f"Error batch loading user CF factors: {e}")
+            
+            # Compute similarity scores (hybrid: content-based + CF)
+            scored_candidates = []
+            job_emb_norm = np.linalg.norm(job_emb)
+            
+            for user_id in candidate_user_ids:
+                try:
+                    user_emb = user_embeddings.get(user_id)
+                    user_cf = user_cf_factors.get(user_id)
+                    
+                    # Content-based score (cosine similarity)
+                    if user_emb is not None:
+                        content_score = float(np.dot(job_emb, user_emb) / (job_emb_norm * np.linalg.norm(user_emb)))
+                    else:
+                        content_score = 0.0
+                    
+                    # Collaborative filtering score
+                    if job_cf is not None and user_cf is not None:
+                        cf_score = float(np.dot(job_cf, user_cf))
+                    else:
+                        cf_score = 0.0
+                    
+                    # Hybrid combination (same alpha as user recommendations)
+                    final_score = self.alpha * content_score + (1 - self.alpha) * cf_score
+                    
+                    # Apply minimum score threshold if specified
+                    if min_score is not None and final_score < min_score:
+                        continue
+                    
+                    scored_candidates.append((user_id, final_score))
+                except Exception as e:
+                    logger.error(f"Error scoring candidate {user_id}: {e}")
+                    continue
+            
+            # Sort by score (descending)
+            scored_candidates.sort(key=lambda x: x[1], reverse=True)
+            
+            # Return top N
+            top_candidates = scored_candidates[:limit]
+            top_user_ids = [user_id for user_id, _ in top_candidates]
+            top_scores = [score for _, score in top_candidates]
+            
+            logger.info(f"Generated {len(top_user_ids)} candidate recommendations for job {job_id}")
+            return top_user_ids, top_scores
+        except Exception as e:
+            logger.error(f"Error getting candidate recommendations for {job_id}: {e}", exc_info=True)
+            return [], []
+            """Get similar jobs based on job embedding similarity"""
+            try:
+                # Get the source job's embedding
+                source_emb = embedding_service.get_job_embedding(job_id)
+                if source_emb is None:
+                    logger.warning(f"Job {job_id} has no embedding in database")
+                    return [], []
+                
+                # Get candidate jobs (active jobs only)
+                query = """
+                    SELECT j.id
+                    FROM jobs j
+                    WHERE j.status = 'active'
+                    AND (j."deletedAt" IS NULL OR j."deletedAt" > NOW())
+                """
+                if exclude_job_id:
+                    query += " AND j.id != %s"
+                    params = (job_id,)
+                else:
+                    params = None
+                
+                try:
+                    results = db.execute_query(query, params)
+                    candidate_job_ids = [str(row['id']) for row in results]
+                except Exception as e:
+                    logger.error(f"Error getting candidate jobs: {e}")
+                    return [], []
+                
+                if not candidate_job_ids:
+                    logger.warning("No candidate jobs found")
+                    return [], []
+                
+                # Limit candidates for performance
+                if len(candidate_job_ids) > 500:
+                    candidate_job_ids = candidate_job_ids[:500]
+                
+                # Batch load all job embeddings
+                logger.info(f"Loading embeddings for {len(candidate_job_ids)} candidate jobs")
+                job_embeddings = {}
+                
+                placeholders = ','.join(['%s'] * len(candidate_job_ids))
+                try:
+                    emb_query = f"""
+                        SELECT "jobId", embedding
+                        FROM job_content_embeddings
+                        WHERE "jobId" IN ({placeholders})
+                    """
+                    emb_results = db.execute_query(emb_query, tuple(candidate_job_ids))
+                    for row in emb_results:
+                        job_id_candidate = str(row['jobId'])
+                        emb_data = row['embedding']
+                        if emb_data:
+                            if isinstance(emb_data, list):
+                                job_embeddings[job_id_candidate] = np.array(emb_data, dtype=np.float32)
+                            elif isinstance(emb_data, str):
+                                import json
+                                job_embeddings[job_id_candidate] = np.array(json.loads(emb_data), dtype=np.float32)
+                            else:
+                                job_embeddings[job_id_candidate] = np.array(emb_data, dtype=np.float32)
+                except Exception as e:
+                    logger.error(f"Error batch loading job embeddings: {e}")
+                
+                # Compute similarity scores
+                scored_jobs = []
+                source_emb_norm = np.linalg.norm(source_emb)
+                
+                for candidate_id in candidate_job_ids:
+                    try:
+                        candidate_emb = job_embeddings.get(candidate_id)
+                        if candidate_emb is not None:
+                            # Compute cosine similarity
+                            similarity = float(np.dot(source_emb, candidate_emb) / (source_emb_norm * np.linalg.norm(candidate_emb)))
+                            scored_jobs.append((candidate_id, similarity))
+                    except Exception as e:
+                        logger.error(f"Error computing similarity for job {candidate_id}: {e}")
+                        continue
+                
+                # Sort by similarity (descending)
+                scored_jobs.sort(key=lambda x: x[1], reverse=True)
+                
+                # Return top N
+                top_jobs = scored_jobs[:limit]
+                top_job_ids = [job_id for job_id, _ in top_jobs]
+                top_scores = [score for _, score in top_jobs]
+                
+                logger.info(f"Generated {len(top_job_ids)} similar jobs for job {job_id}")
+                return top_job_ids, top_scores
+            except Exception as e:
+                logger.error(f"Error getting similar jobs for {job_id}: {e}", exc_info=True)
+                return [], []
 
+    def get_search_recommendations(self, request: RecommendationRequest) -> Tuple[List[str], List[float]]:
+        """
+        Get job recommendations using ML (embeddings + CF) with search filters applied.
+        Falls back to semantic search if no results.
+        """
+        try:
+            # First, get candidate jobs with all filters applied (including searchTerm, skillsLike, etc.)
+            candidate_job_ids = self.get_candidate_jobs(
+                request.userId, 
+                request.preferences,
+            )
+            
+            if not candidate_job_ids:
+                logger.warning(f"No candidate jobs found for user {request.userId} with search filters - trying semantic search")
+                return self._semantic_search_fallback(request)
+            
+            # Limit candidates for performance
+            if len(candidate_job_ids) > 500:
+                candidate_job_ids = candidate_job_ids[:500]
+            
+            # Load user embedding and CF factors for ML-based scoring
+            logger.info(f"Loading embeddings and CF factors for {len(candidate_job_ids)} jobs")
+            
+            user_emb = embedding_service.get_user_embedding(request.userId)
+            user_cf = cf_service.get_user_cf_factors(request.userId)
 
+            if user_emb is None:
+                logger.warning(f"User {request.userId} has no embedding - trying semantic search fallback")
+                return self._semantic_search_fallback(request)
+            
+            if user_cf is None:
+                logger.warning(f"User {request.userId} has no CF factors in database")
 
+            # Batch load all job embeddings
+            job_embeddings = {}
+            job_cf_factors = {}
+            
+            placeholders = ','.join(['%s'] * len(candidate_job_ids))
+            try:
+                emb_query = f"""
+                    SELECT "jobId", embedding
+                    FROM job_content_embeddings
+                    WHERE "jobId" IN ({placeholders})
+                """
+                emb_results = db.execute_query(emb_query, tuple(candidate_job_ids))
+                for row in emb_results:
+                    job_id = str(row['jobId'])
+                    emb_data = row['embedding']
+                    if emb_data:
+                        if isinstance(emb_data, list):
+                            job_embeddings[job_id] = np.array(emb_data, dtype=np.float32)
+                        elif isinstance(emb_data, str):
+                            import json
+                            job_embeddings[job_id] = np.array(json.loads(emb_data), dtype=np.float32)
+                        else:
+                            job_embeddings[job_id] = np.array(emb_data, dtype=np.float32)
+            except Exception as e:
+                logger.error(f"Error batch loading job embeddings: {e}")
+            
+            # Load job CF factors in batch
+            try:
+                cf_query = f"""
+                    SELECT "jobId", factors
+                    FROM job_cf_factors
+                    WHERE "jobId" IN ({placeholders})
+                """
+                cf_results = db.execute_query(cf_query, tuple(candidate_job_ids))
+                for row in cf_results:
+                    job_id = str(row['jobId'])
+                    factors_data = row['factors']
+                    if factors_data:
+                        if isinstance(factors_data, list):
+                            job_cf_factors[job_id] = np.array(factors_data, dtype=np.float32)
+                        elif isinstance(factors_data, str):
+                            import json
+                            job_cf_factors[job_id] = np.array(json.loads(factors_data), dtype=np.float32)
+                        else:
+                            job_cf_factors[job_id] = np.array(factors_data, dtype=np.float32)
+            except Exception as e:
+                logger.error(f"Error batch loading job CF factors: {e}")
+            
+            # Score each candidate using ML (embeddings + CF)
+            scored_jobs = []
+            user_emb_norm = np.linalg.norm(user_emb) if user_emb is not None else 1.0
+            
+            for job_id in candidate_job_ids:
+                try:
+                    job_emb = job_embeddings.get(job_id)
+                    job_cf = job_cf_factors.get(job_id)
+                    
+                    # Content-based score (cosine similarity)
+                    if job_emb is not None:
+                        content_score = float(np.dot(user_emb, job_emb) / (user_emb_norm * np.linalg.norm(job_emb)))
+                    else:
+                        content_score = 0.0
+
+                    # Collaborative filtering score
+                    if user_cf is not None and job_cf is not None:
+                        cf_score = float(np.dot(user_cf, job_cf))
+                    else:
+                        cf_score = 0.0
+
+                    # Hybrid combination (same as get_recommendations)
+                    final_score = self.alpha * content_score + (1 - self.alpha) * cf_score
+                    
+                    scored_jobs.append((job_id, final_score))
+                except Exception as e:
+                    logger.error(f"Error scoring job {job_id}: {e}")
+                    continue
+            
+            # Apply preference boosts (location, role type, company size, etc.)
+            scored_jobs = self.apply_preference_boosts(scored_jobs, request.preferences)
+                                    
+            # Sort by score (descending)
+            scored_jobs.sort(key=lambda x: x[1], reverse=True)
+            
+            # Return top N
+            top_jobs = scored_jobs[:request.limit]
+            top_job_ids = [job_id for job_id, _ in top_jobs]
+            top_scores = [score for _, score in top_jobs]
+            
+            # Fallback to semantic search if results are empty or insufficient
+            if not top_job_ids or len(top_job_ids) < request.limit:
+                logger.info(f"Only {len(top_job_ids)} recommendations found, using semantic search to fill remaining slots")
+                semantic_jobs, semantic_scores = self._semantic_search_fallback(
+                    request, 
+                    exclude_job_ids=top_job_ids,
+                    needed=request.limit - len(top_job_ids)
+                )
+                if semantic_jobs:
+                    top_job_ids.extend(semantic_jobs)
+                    top_scores.extend(semantic_scores)
+                    logger.info(f"Added {len(semantic_jobs)} jobs from semantic search")
+            
+            logger.info(f"Generated {len(top_job_ids)} ML-based search recommendations for user {request.userId}")
+            return top_job_ids, top_scores
+            
+        except Exception as e:
+            logger.error(f"Error in get_search_recommendations: {e}", exc_info=True)
+            # Final fallback to semantic search
+            return self._semantic_search_fallback(request)
+
+    def _semantic_search_fallback(
+        self,
+        request: RecommendationRequest,
+        exclude_job_ids: List[str] = None,
+        needed: int = None
+    ) -> Tuple[List[str], List[float]]:
+        """
+        Semantic search fallback using embedding similarity.
+        Generates query embedding and finds similar jobs.
+        """
+        try:
+            # Build search query from searchTerm and preferences
+            query_parts = []
+            
+            if request.searchTerm:
+                query_parts.append(request.searchTerm)
+            
+            if request.preferences:
+                if request.preferences.skillsLike:
+                    query_parts.extend(request.preferences.skillsLike)
+                if request.preferences.preferredLocations:
+                    query_parts.extend(request.preferences.preferredLocations)
+                if request.preferences.preferredRoleTypes:
+                    query_parts.extend(request.preferences.preferredRoleTypes)
+            
+            # If no query, use a generic job search
+            if not query_parts:
+                query_text = "job opportunities"
+            else:
+                query_text = " ".join(query_parts)
+            
+            logger.info(f"Semantic search fallback with query: {query_text}")
+            
+            # Generate embedding for the query
+            query_embedding = embedding_service.encode_text(query_text)
+            
+            if query_embedding is None or np.all(query_embedding == 0):
+                logger.warning("Failed to generate query embedding for semantic search")
+                return [], []
+            
+            # Get all active jobs with their embeddings, applying filters
+            base_query = """
+                SELECT j.id, jce.embedding
+                FROM jobs j
+                LEFT JOIN job_content_embeddings jce ON j.id = jce."jobId"
+                WHERE j.status = 'active'
+                AND (j."deletedAt" IS NULL OR j."deletedAt" > NOW())
+                AND jce.embedding IS NOT NULL
+            """
+            params = []
+            
+            # Exclude already recommended jobs
+            if exclude_job_ids:
+                placeholders = ','.join(['%s'] * len(exclude_job_ids))
+                base_query += f" AND j.id NOT IN ({placeholders})"
+                params.extend(exclude_job_ids)
+            
+            # Apply preference filters
+            if request.preferences:
+                if request.preferences.hiddenCompanyIds:
+                    base_query += " AND j.\"organizationId\" != ALL(%s)"
+                    params.append(request.preferences.hiddenCompanyIds)
+                
+                if request.preferences.preferredLocations:
+                    base_query += " AND j.location = ANY(%s)"
+                    params.append(request.preferences.preferredLocations)
+                
+                if request.preferences.minSalary:
+                    base_query += " AND (j.\"salaryDetails\"->>'minAmount')::int >= %s"
+                    params.append(request.preferences.minSalary)
+                
+                if request.preferences.preferredRoleTypes:
+                    # Cast enum to text for comparison
+                    base_query += " AND j.type::text = ANY(%s)"
+                    params.append(request.preferences.preferredRoleTypes)
+            
+            # Limit for performance (get more candidates than needed for better results)
+            limit = needed if needed else request.limit
+            base_query += f" LIMIT %s"
+            params.append(min(limit * 3, 1000))  # Get 3x more for better selection
+            
+            # Execute query
+            results = db.execute_query(base_query, tuple(params) if params else None)
+            
+            if not results:
+                logger.warning("No jobs found for semantic search")
+                return [], []
+            
+            # Compute similarity scores
+            scored_jobs = []
+            query_norm = np.linalg.norm(query_embedding)
+            
+            for row in results:
+                job_id = str(row['id'])
+                emb_data = row['embedding']
+                
+                if not emb_data:
+                    continue
+                
+                try:
+                    # Parse embedding
+                    if isinstance(emb_data, list):
+                        job_emb = np.array(emb_data, dtype=np.float32)
+                    elif isinstance(emb_data, str):
+                        import json
+                        job_emb = np.array(json.loads(emb_data), dtype=np.float32)
+                    else:
+                        job_emb = np.array(emb_data, dtype=np.float32)
+                    
+                    # Compute cosine similarity
+                    similarity = float(np.dot(query_embedding, job_emb) / (query_norm * np.linalg.norm(job_emb)))
+                    
+                    # Filter by minimum similarity threshold
+                    if similarity >= 0.3:  # Minimum similarity threshold
+                        scored_jobs.append((job_id, similarity))
+                except Exception as e:
+                    logger.error(f"Error computing similarity for job {job_id}: {e}")
+                    continue
+            
+            # Sort by similarity (descending)
+            scored_jobs.sort(key=lambda x: x[1], reverse=True)
+            
+            # Apply preference boosts
+            scored_jobs = self.apply_preference_boosts(scored_jobs, request.preferences)
+            
+            # Re-sort after boosts
+            scored_jobs.sort(key=lambda x: x[1], reverse=True)
+            
+            # Return top N
+            top_jobs = scored_jobs[:limit]
+            top_job_ids = [job_id for job_id, _ in top_jobs]
+            top_scores = [score for _, score in top_jobs]
+            
+            logger.info(f"Semantic search returned {len(top_job_ids)} jobs")
+            return top_job_ids, top_scores
+            
+        except Exception as e:
+            logger.error(f"Error in semantic search fallback: {e}", exc_info=True)
+            return [], []
 recommendation_service = RecommendationService()

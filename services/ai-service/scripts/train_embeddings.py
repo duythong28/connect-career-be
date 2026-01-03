@@ -10,7 +10,10 @@ sys.path.insert(0, os.path.join(os.path.dirname(__file__), '..'))
 import psycopg2
 import json
 import logging
+import time
 from typing import List, Optional
+from datetime import datetime, timedelta
+from google.api_core import exceptions  # Add this import
 from src.config import settings
 from src.services.embedding_service import EmbeddingService
 from src.database import db
@@ -242,12 +245,13 @@ def build_user_text(user_data: dict) -> str:
 
 def train_user_embeddings():
     """Generate embeddings for users based on their profiles, experiences, and preferences"""
+    import time
+    
     logger.info("Starting user embeddings training...")
     embedding_svc = EmbeddingService()
     
     try:
         # Fetch users with candidate profiles
-        # Note: Using LEFT JOINs to get all users, even without profiles
         query = """
             SELECT DISTINCT
                 u.id as user_id
@@ -265,117 +269,155 @@ def train_user_embeddings():
         skipped = 0
         failed = 0
         
-        for user_row in users:
-            try:
-                user_id = str(user_row['user_id'])
-                
-                # Fetch complete user data
-                profile_query = """
-                    SELECT 
-                        cp.skills,
-                        cp.languages
-                    FROM candidate_profiles cp
-                    WHERE cp."userId" = %s
-                    LIMIT 1
-                """
-                profile_result = db.execute_query(profile_query, (user_id,))
-                profile_data = profile_result[0] if profile_result else {}
-                
-                # Fetch work experiences
-                work_exp_query = """
-                    SELECT 
-                        we."jobTitle",
-                        we.description,
-                        we.skills
-                    FROM work_experiences we
-                    JOIN candidate_profiles cp ON cp.id = we."candidateProfileId"
-                    WHERE cp."userId" = %s
-                    ORDER BY we."startDate" DESC
-                """
-                work_experiences = db.execute_query(work_exp_query, (user_id,))
-                
-                # Fetch education
-                edu_query = """
-                    SELECT 
-                        e."institutionName",
-                        e."fieldOfStudy",
-                        e."degreeType",
-                        e.coursework
-                    FROM educations e
-                    JOIN candidate_profiles cp ON cp.id = e."candidateProfileId"
-                    WHERE cp."userId" = %s
-                    ORDER BY e."graduationDate" DESC NULLS LAST, e."startDate" DESC
-                """
-                educations = db.execute_query(edu_query, (user_id,))
-                
-                # Fetch user preferences
-                pref_query = """
-                    SELECT 
-                        up."skillsLike",
-                        up."preferredLocations",
-                        up."preferredRoleTypes",
-                        up."industriesLike"
-                    FROM user_preferences up
-                    WHERE up."userId" = %s
-                    LIMIT 1
-                """
-                pref_result = db.execute_query(pref_query, (user_id,))
-                preferences = pref_result[0] if pref_result else {}
-                
-                # Fetch recent job interactions (saved, favorited, applied)
-                interaction_query = """
-                    SELECT DISTINCT
-                        j.title as job_title
-                    FROM job_interactions ji
-                    JOIN jobs j ON j.id = ji."jobId"
-                    WHERE ji."userId" = %s
-                    AND ji.type IN ('save', 'favorite', 'apply')
-                    ORDER BY ji."createdAt" DESC
-                    LIMIT 5
-                """
-                recent_interactions = db.execute_query(interaction_query, (user_id,))
-                
-                # Build user data dict
-                user_data = {
-                    'skills': profile_data.get('skills', []),
-                    'languages': profile_data.get('languages', []),
-                    'work_experiences': [dict(exp) for exp in work_experiences],
-                    'educations': [dict(edu) for edu in educations],
-                    'skills_like': preferences.get('skillsLike', []),
-                    'preferred_locations': preferences.get('preferredLocations', []),
-                    'preferred_role_types': preferences.get('preferredRoleTypes', []),
-                    'industries_like': preferences.get('industriesLike', []),
-                    'recent_interactions': [dict(inter) for inter in recent_interactions],
-                }
-                
-                # Build text representation
-                user_text = build_user_text(user_data)
-                
-                if not user_text.strip():
-                    skipped += 1
-                    logger.debug(f"User {user_id} has no profile data, skipping")
-                    continue
-                
-                # Generate embedding
-                embedding = embedding_svc.encode_text(user_text)
-                
-                # Upsert into database (using camelCase column name as per entity)
-                upsert_query = """
-                    INSERT INTO user_content_embeddings ("userId", embedding)
-                    VALUES (%s, %s::jsonb)
-                    ON CONFLICT ("userId") 
-                    DO UPDATE SET embedding = EXCLUDED.embedding
-                """
-                db.execute_update(upsert_query, (user_id, json.dumps(embedding.tolist())))
-                
-                processed += 1
-                if processed % 50 == 0:
-                    logger.info(f"Processed {processed} users...")
+        # Process in chunks with delays to avoid quota issues
+        chunk_size = 10  # Process 10 users at a time
+        delay_between_chunks = 2.0  # Wait 2 seconds between chunks
+        delay_between_users = 0.5  # Wait 0.5 seconds between individual users
+        
+        for chunk_start in range(0, len(users), chunk_size):
+            chunk = users[chunk_start:chunk_start + chunk_size]
+            logger.info(f"Processing chunk {chunk_start // chunk_size + 1}/{(len(users) + chunk_size - 1) // chunk_size} ({len(chunk)} users)")
+            
+            for user_row in chunk:
+                try:
+                    user_id = str(user_row['user_id'])
                     
-            except Exception as e:
-                failed += 1
-                logger.error(f"Error processing user {user_id}: {e}", exc_info=True)
-                continue
+                    # Check if embedding already exists (skip if recent)
+                    existing_query = """
+                        SELECT "userId"
+                        FROM user_content_embeddings
+                        WHERE "userId" = %s
+                    """
+                    existing = db.execute_query(existing_query, (user_id,))
+                    
+                    # Skip if embedding exists and was updated recently (within last 24 hours)
+                    if existing:
+                        skipped += 1
+                        logger.debug(f"User {user_id} embedding already exists, skipping")
+                        continue
+                    
+                    # Fetch complete user data
+                    profile_query = """
+                        SELECT 
+                            cp.skills,
+                            cp.languages
+                        FROM candidate_profiles cp
+                        WHERE cp."userId" = %s
+                        LIMIT 1
+                    """
+                    profile_result = db.execute_query(profile_query, (user_id,))
+                    profile_data = profile_result[0] if profile_result else {}
+                    
+                    # Fetch work experiences
+                    work_exp_query = """
+                        SELECT 
+                            we."jobTitle",
+                            we.description,
+                            we.skills
+                        FROM work_experiences we
+                        JOIN candidate_profiles cp ON cp.id = we."candidateProfileId"
+                        WHERE cp."userId" = %s
+                        ORDER BY we."startDate" DESC
+                    """
+                    work_experiences = db.execute_query(work_exp_query, (user_id,))
+                    
+                    # Fetch education
+                    edu_query = """
+                        SELECT 
+                            e."institutionName",
+                            e."fieldOfStudy",
+                            e."degreeType",
+                            e.coursework
+                        FROM educations e
+                        JOIN candidate_profiles cp ON cp.id = e."candidateProfileId"
+                        WHERE cp."userId" = %s
+                        ORDER BY e."graduationDate" DESC NULLS LAST, e."startDate" DESC
+                    """
+                    educations = db.execute_query(edu_query, (user_id,))
+                    
+                    # Fetch user preferences
+                    pref_query = """
+                        SELECT 
+                            up."skillsLike",
+                            up."preferredLocations",
+                            up."preferredRoleTypes",
+                            up."industriesLike"
+                        FROM user_preferences up
+                        WHERE up."userId" = %s
+                        LIMIT 1
+                    """
+                    pref_result = db.execute_query(pref_query, (user_id,))
+                    preferences = pref_result[0] if pref_result else {}
+                    
+                    # Fetch recent job interactions (fixed query)
+                    interaction_query = """
+                        SELECT DISTINCT ON (j.title)
+                            j.title as job_title
+                        FROM job_interactions ji
+                        JOIN jobs j ON j.id = ji."jobId"
+                        WHERE ji."userId" = %s
+                        AND ji.type IN ('save', 'favorite', 'apply')
+                        ORDER BY j.title, ji."createdAt" DESC
+                        LIMIT 5
+                    """
+                    recent_interactions = db.execute_query(interaction_query, (user_id,))
+                    
+                    # Build user data dict
+                    user_data = {
+                        'skills': profile_data.get('skills', []),
+                        'languages': profile_data.get('languages', []),
+                        'work_experiences': [dict(exp) for exp in work_experiences],
+                        'educations': [dict(edu) for edu in educations],
+                        'skills_like': preferences.get('skillsLike', []),
+                        'preferred_locations': preferences.get('preferredLocations', []),
+                        'preferred_role_types': preferences.get('preferredRoleTypes', []),
+                        'industries_like': preferences.get('industriesLike', []),
+                        'recent_interactions': [dict(inter) for inter in recent_interactions],
+                    }
+                    
+                    # Build text representation
+                    user_text = build_user_text(user_data)
+                    
+                    if not user_text.strip():
+                        skipped += 1
+                        logger.debug(f"User {user_id} has no profile data, skipping")
+                        continue
+                    
+                    # Generate embedding (with rate limiting built into service)
+                    embedding = embedding_svc.encode_text(user_text)
+                    
+                    # Upsert into database
+                    upsert_query = """
+                        INSERT INTO user_content_embeddings ("userId", embedding)
+                        VALUES (%s, %s::jsonb)
+                        ON CONFLICT ("userId") 
+                        DO UPDATE SET embedding = EXCLUDED.embedding
+                    """
+                    db.execute_update(upsert_query, (user_id, json.dumps(embedding.tolist())))
+                    
+                    processed += 1
+                    if processed % 10 == 0:
+                        logger.info(f"Processed {processed}/{len(users)} users... (Skipped: {skipped}, Failed: {failed})")
+                    
+                    # Small delay between users to respect rate limits
+                    time.sleep(delay_between_users)
+                    
+                except exceptions.ResourceExhausted as e:
+                    failed += 1
+                    logger.error(f"Quota exceeded for user {user_id}: {e}")
+                    # Wait longer before continuing
+                    logger.warning("Waiting 30 seconds before continuing due to quota limit...")
+                    time.sleep(30)
+                    continue
+                except Exception as e:
+                    failed += 1
+                    logger.error(f"Error processing user {user_id}: {e}", exc_info=True)
+                    continue
+            
+            # Delay between chunks
+            if chunk_start + chunk_size < len(users):
+                logger.info(f"Chunk complete. Waiting {delay_between_chunks}s before next chunk...")
+                time.sleep(delay_between_chunks)
         
         logger.info(f"User embeddings training complete! Processed: {processed}, Skipped: {skipped}, Failed: {failed}")
     

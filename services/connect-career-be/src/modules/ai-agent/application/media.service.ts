@@ -1,6 +1,7 @@
 import { Injectable, Logger } from '@nestjs/common';
-import { MediaType } from '../apis/dtos/media-upload.dto';
+import axios from 'axios';
 import { AIService } from 'src/shared/infrastructure/external-services/ai/services/ai.service';
+import { MediaType } from '../apis/dtos/media-attachment.dto';
 
 export interface MediaProcessingResult {
   success: boolean;
@@ -17,8 +18,8 @@ export class MediaService {
   constructor(private readonly aiService: AIService) {}
 
   async processMedia(
-    content: string, // Base64 encoded
-    type: MediaType,
+    content: string,
+    type: string,
     fileName: string,
     options?: {
       userId?: string;
@@ -27,7 +28,8 @@ export class MediaService {
     },
   ): Promise<MediaProcessingResult> {
     try {
-      switch (type) {
+      const mediaType = this.mapStringToMediaType(type);
+      switch (mediaType) {
         case MediaType.DOCUMENT:
           return await this.processDocument(content, fileName, options);
         case MediaType.IMAGE:
@@ -50,6 +52,45 @@ export class MediaService {
     }
   }
 
+  async processMediaFromUrl(
+    url: string,
+    type: string,
+    fileName: string,
+    options?: {
+      userId?: string;
+      sessionId?: string;
+      metadata?: Record<string, any>;
+    },
+  ): Promise<MediaProcessingResult> {
+    try {
+      const response = await axios.get(url, { responseType: 'arraybuffer' });
+      const base64Content = Buffer.from(response.data).toString('base64');
+
+      return await this.processMedia(base64Content, type, fileName, options);
+    } catch (error) {
+      this.logger.error(`Failed to fetch media from URL: ${url}`, error);
+      return {
+        success: false,
+        error: error instanceof Error ? error.message : String(error),
+      };
+    }
+  }
+
+  private mapStringToMediaType(type: string): MediaType {
+    switch (type.toLowerCase()) {
+      case 'image':
+        return MediaType.IMAGE;
+      case 'document':
+        return MediaType.DOCUMENT;
+      case 'video':
+        return MediaType.VIDEO;
+      case 'audio':
+        return MediaType.AUDIO;
+      default:
+        return MediaType.DOCUMENT;
+    }
+  }
+
   private async processDocument(
     content: string,
     fileName: string,
@@ -64,7 +105,7 @@ export class MediaService {
       // Determine MIME type from file extension
       const mimeType = this.getMimeTypeFromFileName(fileName);
 
-      const response = await this.aiService.generateWithInlineFile({
+      const response = (await this.aiService.generateWithInlineFile({
         prompt:
           'Extract all text content from this document. Return the text in a structured format.',
         inline: {
@@ -73,7 +114,7 @@ export class MediaService {
         },
         temperature: 0.1,
         maxOutputTokens: 4096,
-      });
+      })) as { content: string; raw?: unknown };
 
       return {
         success: true,
@@ -105,7 +146,7 @@ export class MediaService {
     try {
       const mimeType = this.getMimeTypeFromFileName(fileName) || 'image/jpeg';
 
-      const response = await this.aiService.generateWithInlineFile({
+      const response = (await this.aiService.generateWithInlineFile({
         prompt:
           'Analyze this image and describe its content. If it contains text, extract it. If it appears to be a document (CV, resume, certificate), provide a structured analysis.',
         inline: {
@@ -114,7 +155,7 @@ export class MediaService {
         },
         temperature: 0.3,
         maxOutputTokens: 2048,
-      });
+      })) as { content: string; raw?: unknown };
 
       return {
         success: true,

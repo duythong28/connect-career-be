@@ -52,7 +52,10 @@ export class InterviewScheduledHandler
           event.interviewerId,
           {
             type: NotificationType.INTERVIEW_SCHEDULED,
-            channels: [NotificationChannel.EMAIL, NotificationChannel.WEBSOCKET],
+            channels: [
+              NotificationChannel.EMAIL,
+              NotificationChannel.WEBSOCKET,
+            ],
             metadata: {
               interviewId: event.interviewId,
               applicationId: event.applicationId,
@@ -77,4 +80,3 @@ export class InterviewScheduledHandler
     }
   }
 }
-

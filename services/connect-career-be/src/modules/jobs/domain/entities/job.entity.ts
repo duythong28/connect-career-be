@@ -198,6 +198,9 @@ export class Job {
   @Column('simple-array', { nullable: true })
   savedByUserIds?: string[];
 
+  @Column('simple-array', { nullable: true })
+  appliedByUserIds?: string[];
+
   @ManyToOne(() => HiringPipeline, (pipeline) => pipeline.jobs, {
     nullable: true,
   })

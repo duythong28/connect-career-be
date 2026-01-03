@@ -45,6 +45,13 @@ export enum NotificationType {
   PROFILE_VIEWED = 'profile_viewed',
   CV_FEEDBACK = 'cv_feedback',
 
+  // Report
+  REPORT_CREATED = 'report_created',
+  REPORT_STATUS_CHANGED = 'report_status_changed',
+  REPORT_ASSIGNED = 'report_assigned',
+  REPORT_RESOLVED = 'report_resolved',
+  REPORT_DISMISSED = 'report_dismissed',
+
   // System
   USER_REGISTERED = 'user_registered',
   PASSWORD_RESET = 'password_reset',

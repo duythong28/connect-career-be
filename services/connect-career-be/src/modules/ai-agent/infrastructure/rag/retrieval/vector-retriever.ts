@@ -1,6 +1,7 @@
 import { Injectable, Logger } from '@nestjs/common';
 import { VectorStore, DocumentChunk } from '../stores/base.store';
 import { AIService } from 'src/shared/infrastructure/external-services/ai/services/ai.service';
+import { AIVectorizeResponse } from 'src/shared/infrastructure/external-services/ai/domain/ai-provider.interface';
 
 @Injectable()
 export class VectorRetriever {
@@ -36,21 +37,85 @@ export class VectorRetriever {
   }
 
   private async generateEmbedding(text: string): Promise<number[]> {
-    // Placeholder - in production, use embedding service
-    // For now, return a dummy embedding
-    // TODO: Integrate with actual embedding service (Vertex AI, OpenAI, etc.)
-    this.logger.warn(
-      'Using placeholder embedding - integrate with actual embedding service',
-    );
+    try {
+      // Use real embedding service
+      let response: AIVectorizeResponse | null = null;
+      try {
+        response = await this.aiService.embed({ text });
+      } catch (err) {
+        this.logger.warn(
+          `Embedding service call failed: ${err instanceof Error ? err.message : String(err)}`,
+        );
+        return this.generateFallbackEmbedding(text);
+      }
 
-    // Dummy embedding vector (768 dimensions for text-embedding-004)
+      // Type guard to ensure response is valid
+      if (!response || typeof response !== 'object') {
+        this.logger.warn(
+          'Invalid response from embedding service, using fallback',
+        );
+        return this.generateFallbackEmbedding(text);
+      }
+
+      const vector = response.vector;
+      if (!vector || !Array.isArray(vector) || vector.length === 0) {
+        this.logger.warn('Empty embedding returned, using fallback');
+        return this.generateFallbackEmbedding(text);
+      }
+
+      // Ensure all values are numbers
+      const numericVector = vector.filter(
+        (val): val is number => typeof val === 'number' && !isNaN(val),
+      );
+
+      if (numericVector.length === 0) {
+        this.logger.warn(
+          'No valid numeric values in embedding, using fallback',
+        );
+        return this.generateFallbackEmbedding(text);
+      }
+
+      this.logger.debug(
+        `Generated embedding with ${numericVector.length} dimensions`,
+      );
+      return numericVector;
+    } catch (error) {
+      this.logger.error(
+        `Failed to generate embedding: ${error instanceof Error ? error.message : String(error)}. Using fallback.`,
+      );
+      // Fallback to placeholder embedding if service fails
+      return this.generateFallbackEmbedding(text);
+    }
+  }
+
+  private generateFallbackEmbedding(text: string): number[] {
+    // Fallback: Generate a simple hash-based embedding
+    // This is better than random but still not ideal
+    this.logger.warn('Using fallback embedding generation');
+
     const dimensions = 768;
-    const embedding = new Array(dimensions)
-      .fill(0)
-      .map(() => Math.random() - 0.5);
+    const embedding = new Array(dimensions).fill(0);
+
+    // Simple hash-based approach for consistency
+    let hash = 0;
+    for (let i = 0; i < text.length; i++) {
+      const char = text.charCodeAt(i);
+      hash = (hash << 5) - hash + char;
+      hash = hash & hash; // Convert to 32-bit integer
+    }
+
+    // Use hash to seed pseudo-random values
+    const seed = Math.abs(hash);
+    for (let i = 0; i < dimensions; i++) {
+      // Simple seeded random
+      const x = Math.sin((seed + i) * 12.9898) * 43758.5453;
+      embedding[i] = x - Math.floor(x) - 0.5;
+    }
 
     // Normalize
-    const norm = Math.sqrt(embedding.reduce((sum, val) => sum + val * val, 0));
-    return embedding.map((val) => val / norm);
+    const norm = Math.sqrt(
+      embedding.reduce((sum: number, val: number) => sum + val * val, 0),
+    );
+    return embedding.map((val: number) => (norm > 0 ? val / norm : 0));
   }
 }

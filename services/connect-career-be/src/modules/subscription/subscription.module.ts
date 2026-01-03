@@ -23,6 +23,15 @@ import { RefundBackofficeService } from './api/services/refund-backoffice.servic
 import { WalletBackofficeService } from './api/services/wallet-backoffice.service';
 import { Refund } from './domain/entities/refund.entity';
 import { IdentityModule } from '../identity/identity.module';
+import { BillableActionsSeeder } from './infrastructure/seeders/billable-actions.seeder';
+import { BillableActionsService } from './api/services/billable-action.service';
+import { BillableActionsController } from './api/controllers/billable-action.controller';
+import { CurrencyConversionService } from './api/services/currency-conversion.service';
+import { UsageLedgerSeeder } from './infrastructure/seeders/usage-ledger.seeder';
+import { CandidateProfile } from '../profile/domain/entities/candidate-profile.entity';
+import { OrganizationMembership } from '../profile/domain/entities/organization-memberships.entity';
+import { WalletBalanceGuard } from './api/guards/wallet-balance.guard';
+import { WalletDeductionInterceptor } from './api/interceptors/wallet-deduction.interceptor';
 
 @Module({
   imports: [
@@ -35,6 +44,8 @@ import { IdentityModule } from '../identity/identity.module';
       PaymentTransaction,
       PaymentMethod,
       Refund,
+      CandidateProfile,
+      OrganizationMembership,
     ]),
     IdentityModule,
   ],
@@ -45,6 +56,7 @@ import { IdentityModule } from '../identity/identity.module';
     ZaloPayPaymentController,
     WalletBackofficeController,
     RefundBackofficeController,
+    BillableActionsController,
   ],
   providers: [
     WalletService,
@@ -55,7 +67,19 @@ import { IdentityModule } from '../identity/identity.module';
     StripeProvider,
     WalletBackofficeService,
     RefundBackofficeService,
+    BillableActionsService,
+    BillableActionsSeeder,
+    UsageLedgerSeeder,
+    CurrencyConversionService,
+    WalletBalanceGuard,
+    WalletDeductionInterceptor,
   ],
-  exports: [WalletService, PaymentService],
+  exports: [
+    WalletService,
+    PaymentService,
+    BillableActionsService,
+    WalletBalanceGuard,
+    WalletDeductionInterceptor,
+  ],
 })
 export class WalletModule {}

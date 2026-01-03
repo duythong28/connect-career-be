@@ -18,4 +18,3 @@ export class OfferSentEvent implements IDomainEvent {
     this.occurredAt = new Date();
   }
 }
-

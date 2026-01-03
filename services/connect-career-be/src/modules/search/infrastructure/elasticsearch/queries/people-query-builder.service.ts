@@ -122,4 +122,3 @@ export class PeopleQueryBuilderService {
     return sort;
   }
 }
-

@@ -2,12 +2,14 @@ import {
   CanActivate,
   ExecutionContext,
   ForbiddenException,
+  Injectable,
   UnauthorizedException,
 } from '@nestjs/common';
 import { WalletService } from '../services/wallet.service';
 import { Reflector } from '@nestjs/core';
 import { CurrentUserPayload } from 'src/modules/identity/api/decorators';
 
+@Injectable()
 export class WalletBalanceGuard implements CanActivate {
   constructor(
     private readonly walletService: WalletService,

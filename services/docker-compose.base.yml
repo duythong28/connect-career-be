@@ -25,6 +25,7 @@ services:
       - ./connect-career-be/.env
     volumes:
       - ${GOOGLE_CREDENTIALS_PATH:-../connect-career-be/src/credentials/scientific-host-472000-u8-ac884452d866.json}:/app/credentials.json:ro
+      - /home/connect_career_work/connect-career-be/services/connect-career-be/src/credentials:/app/src/credentials:ro
     environment:
       - GOOGLE_APPLICATION_CREDENTIALS=/app/credentials.json
 

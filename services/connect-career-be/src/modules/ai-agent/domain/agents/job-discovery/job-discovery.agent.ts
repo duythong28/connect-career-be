@@ -58,7 +58,7 @@ export class JobDiscoveryAgent extends BaseAgent {
       const ragJobs = ragResults.map((r) => {
         // RAG results have job details in metadata, not content
         const jobData = (r.metadata || {}) as Record<string, any>;
-        
+
         // If content is JSON, try to parse it and merge
         let parsedContent: Record<string, any> = {};
         if (r.content) {
@@ -72,18 +72,22 @@ export class JobDiscoveryAgent extends BaseAgent {
             // If parsing fails, content is just text - ignore it
           }
         }
-        
+
         // Merge metadata (from database) with parsed content (if any) and add source info
         return {
           id: jobData.id || parsedContent.id,
           title: jobData.title || parsedContent.title,
-          company: jobData.company || jobData.companyName || parsedContent.company,
-          companyName: jobData.companyName || jobData.company || parsedContent.companyName,
+          company:
+            jobData.company || jobData.companyName || parsedContent.company,
+          companyName:
+            jobData.companyName || jobData.company || parsedContent.companyName,
           location: jobData.location || parsedContent.location,
           country: jobData.country || parsedContent.country,
           type: jobData.type || parsedContent.type,
-          seniorityLevel: jobData.seniorityLevel || parsedContent.seniorityLevel,
-          organizationId: jobData.organizationId || parsedContent.organizationId,
+          seniorityLevel:
+            jobData.seniorityLevel || parsedContent.seniorityLevel,
+          organizationId:
+            jobData.organizationId || parsedContent.organizationId,
           source: jobData.source || parsedContent.source,
           // Add source metadata
           _source: 'rag',

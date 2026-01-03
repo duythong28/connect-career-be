@@ -151,8 +151,8 @@ export class GraphBuilderService {
             })()
           : undefined;
         const userProfileInfo = initialState?.user_profile
-            ? JSON.stringify(initialState.user_profile, null, 2)
-            : undefined;
+          ? JSON.stringify(initialState.user_profile, null, 2)
+          : undefined;
         // Format conversation history for the prompt (last 10 messages for context)
         const recentHistory = messages
           .slice(-10)

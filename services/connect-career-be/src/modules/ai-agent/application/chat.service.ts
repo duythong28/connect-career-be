@@ -392,9 +392,9 @@ export class ChatService {
     const nodeProgressMessages: Record<string, string> = {
       INTENT_ROUTER: 'Understanding your request...',
       ROLE_DETECTOR: 'Detecting user role...',
-      CONTEXT_ANALYZER: 'Analyzing context...', 
+      CONTEXT_ANALYZER: 'Analyzing context...',
       SYNC: 'Synchronizing data...',
-      CANDIDATE_SUBGRAPH: 'Processing candidate request...',  
+      CANDIDATE_SUBGRAPH: 'Processing candidate request...',
       RECRUITER_SUBGRAPH: 'Processing recruiter request...',
       AGENT_ROUTER: 'Routing to appropriate agent...',
       CONTEXT_BUILDER: 'Building context...',
@@ -569,7 +569,7 @@ export class ChatService {
       let analysisResult: any = null;
       let intent: string | undefined;
       let entities: Record<string, any> | undefined;
-      let agentResult: any = null; 
+      let agentResult: any = null;
 
       try {
         const stream = graph.streamEvents(initialState as any, {
@@ -698,12 +698,18 @@ export class ChatService {
               jobCount: agentResult?.data?.jobs?.length || 0,
               nextSteps: agentResult?.nextSteps?.length || 0,
             });
-            
+
             // Extract suggestions from agent result's nextSteps
-            if (agentResult?.nextSteps && Array.isArray(agentResult.nextSteps) && agentResult.nextSteps.length > 0) {
+            if (
+              agentResult?.nextSteps &&
+              Array.isArray(agentResult.nextSteps) &&
+              agentResult.nextSteps.length > 0
+            ) {
               suggestions = agentResult.nextSteps;
-              this.logger.log(`Extracted ${suggestions.length} suggestions from agent result`);
-              
+              this.logger.log(
+                `Extracted ${suggestions.length} suggestions from agent result`,
+              );
+
               // Stream suggestions immediately
               yield {
                 type: 'suggestions',
@@ -721,7 +727,7 @@ export class ChatService {
                 },
               };
             }
-          }         
+          }
           if (eventType === 'on_chain_end' && eventName === 'LangGraph') {
             const finalState = langGraphEvent.data?.output as AgentState;
             this.logSummary('Final state', {
@@ -820,7 +826,7 @@ export class ChatService {
               entities,
               suggestions: suggestions.length > 0 ? suggestions : undefined,
               executionTime,
-              jobs: agentResult?.data?.jobs 
+              jobs: agentResult?.data?.jobs
                 ? agentResult.data.jobs.map((job: any) => ({
                     id: job.id,
                     title: job.title || job.name,
@@ -839,7 +845,8 @@ export class ChatService {
                     },
                     searchTool: {
                       count: agentResult.data.sources.searchTool?.count || 0,
-                      totalAvailable: agentResult.data.sources.searchTool?.totalAvailable,
+                      totalAvailable:
+                        agentResult.data.sources.searchTool?.totalAvailable,
                     },
                   }
                 : undefined,

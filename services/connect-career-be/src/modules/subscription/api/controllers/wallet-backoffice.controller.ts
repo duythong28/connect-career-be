@@ -56,22 +56,21 @@ export class WalletBackofficeController {
   }
 
   @Get('transactions/:id')
-      @ApiOperation({ summary: 'Get wallet transaction by ID' })
-      @ApiParam({ name: 'id', description: 'Wallet transaction ID' })
-      @ApiResponse({
-        status: 200,
-        description: 'Wallet transaction retrieved successfully',
-        type: TransactionDto,
-      })
-      @ApiResponse({ status: 404, description: 'Transaction not found' })
-      async getTransactionById(
-        @Param('id') id: string,
-      ): Promise<WalletTransaction> {
-        const transaction = await this.walletBackofficeService.getWalletTransactionById(
-          id,
-        );
-        return transaction;
-      }
+  @ApiOperation({ summary: 'Get wallet transaction by ID' })
+  @ApiParam({ name: 'id', description: 'Wallet transaction ID' })
+  @ApiResponse({
+    status: 200,
+    description: 'Wallet transaction retrieved successfully',
+    type: TransactionDto,
+  })
+  @ApiResponse({ status: 404, description: 'Transaction not found' })
+  async getTransactionById(
+    @Param('id') id: string,
+  ): Promise<WalletTransaction> {
+    const transaction =
+      await this.walletBackofficeService.getWalletTransactionById(id);
+    return transaction;
+  }
   @Get(':userId')
   @ApiOperation({ summary: 'Get wallet by user ID' })
   @ApiParam({ name: 'userId', description: 'User ID' })

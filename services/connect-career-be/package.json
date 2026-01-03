@@ -57,6 +57,7 @@
     "class-validator": "^0.14.2",
     "cloudinary": "^2.7.0",
     "cookie-parser": "^1.4.7",
+    "firebase-admin": "^13.6.0",
     "ioredis": "^5.8.2",
     "langchain": "^1.2.0",
     "langsmith": "^0.3.82",
@@ -90,6 +91,7 @@
     "stripe": "^19.3.1",
     "typeorm": "^0.3.26",
     "uuid": "^11.1.0",
+    "web-push": "^3.6.7",
     "winston": "^3.18.3",
     "zod": "^4.1.13"
   },
@@ -105,6 +107,7 @@
     "@types/node": "^22.19.1",
     "@types/stream-json": "^1.7.8",
     "@types/supertest": "^6.0.2",
+    "@types/web-push": "^3.6.4",
     "eslint": "^9.18.0",
     "eslint-config-prettier": "^10.0.1",
     "eslint-plugin-prettier": "^5.2.2",

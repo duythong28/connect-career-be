@@ -13,6 +13,8 @@ import { HiringPipeline } from '../../../hiring-pipeline/domain/entities/hiring-
 import { PipelineStage } from '../../../hiring-pipeline/domain/entities/pipeline-stage.entity';
 import { ChangeApplicationStageDto } from '../dtos/application-detail.dto';
 import { Job } from 'src/modules/jobs/domain/entities/job.entity';
+import { EventBus } from '@nestjs/cqrs';
+import { ApplicationStatusChangedEvent } from '../../domain/events/application-status-changed.event';
 
 @Injectable()
 export class ApplicationStatusService {
@@ -23,6 +25,7 @@ export class ApplicationStatusService {
     private readonly pipelineRepository: Repository<HiringPipeline>,
     @InjectRepository(Job)
     private readonly jobRepository: Repository<Job>,
+    private readonly eventBus: EventBus,
   ) {}
 
   async changeApplicationStage(
@@ -61,6 +64,7 @@ export class ApplicationStatusService {
     }
 
     const currentStage = application.currentStageKey;
+    const oldStatus = application.status;
 
     // Validate stage transition
     if (currentStage) {
@@ -95,10 +99,20 @@ export class ApplicationStatusService {
       changedBy,
       changeDto.notes,
     );
-    // Update calculated fields
-    application.updateCalculatedFields();
-
-    return this.applicationRepository.save(application);
+    const savedApplication = await this.applicationRepository.save(application);
+    this.eventBus.publish(
+      new ApplicationStatusChangedEvent(
+        savedApplication.id,
+        savedApplication.candidateId,
+        savedApplication.jobId,
+        job.title,
+        oldStatus,
+        newStatus,
+        changedBy,
+        changeDto.reason || changeDto.notes,
+      ),
+    );
+    return savedApplication;
   }
 
   async getAvailableNextStages(

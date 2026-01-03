@@ -861,14 +861,15 @@ export class ApplicationService {
     );
 
     try {
-
       // Load job
       const job = await this.jobRepository.findOne({
         where: { id: application.jobId },
       });
 
       if (!job) {
-        this.logger.warn(`Job ${application.jobId} not found for score calculation`);
+        this.logger.warn(
+          `Job ${application.jobId} not found for score calculation`,
+        );
         return;
       }
 
@@ -986,7 +987,6 @@ export class ApplicationService {
       application.matchingScore = 0;
       application.isAutoScored = false;
       await this.applicationRepository.save(application);
-
     }
   }
 }

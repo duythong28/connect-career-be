@@ -308,7 +308,7 @@ export class MockInterviewService {
     const session = await this.sessionRepository.findOne({
       where: { id: sessionId },
       relations: ['questions', 'responses', 'scores', 'feedback'],
-      relationLoadStrategy: 'query'
+      relationLoadStrategy: 'query',
     });
 
     if (!session) {

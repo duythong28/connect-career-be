@@ -277,13 +277,13 @@ export class WalletBackofficeService {
       where: { id: transactionId },
       relations: ['wallet'],
     });
-  
+
     if (!transaction) {
       throw new NotFoundException(
         'Wallet transaction not found or you do not have access to it',
       );
     }
-  
+
     return transaction;
   }
 

@@ -1,11 +1,15 @@
 import {
-  Heading,
-  Text,
-  Section,
+  Body,
   Button,
+  Container,
+  Head,
+  Heading,
+  Html,
+  Preview,
+  Section,
+  Text,
 } from '@react-email/components';
 import * as React from 'react';
-import BaseEmail from './base-email.template';
 
 interface PasswordResetEmailProps {
   userFirstname: string;
@@ -16,43 +20,46 @@ export const PasswordResetEmail = ({
   userFirstname,
   url = '',
 }: PasswordResetEmailProps) => (
-  <BaseEmail
-    userFirstname={userFirstname}
-    preview="Reset your password for your CareerHub account"
-  >
-    {/* PAGE HEADER: text-2xl font-bold text-foreground centered */}
-    <Heading style={pageTitle}>
-      [CAREERHUB] PASSWORD RESET
-    </Heading>
+  <Html>
+    <Head />
+    <Preview>Reset your password for your CareerHub account</Preview>
+    <Body style={main}>
+      <Container style={containerCard}>
+        {/* PAGE HEADER: 24px, Bold, Foreground Color, Centered */}
+        <Heading style={heading}>
+          [CAREERHUB] PASSWORD RESET
+        </Heading>
 
-    <Text style={paragraph}>
-      We received a request to reset the password for your account. 
-      Please click the button below to choose a new password.
-    </Text>
+        <Text style={paragraph}>
+          We received a request to reset the password for your account. 
+          Please click the button below to choose a new password.
+        </Text>
 
-    <Section style={btnContainer}>
-      {/* STANDARD PRIMARY ACTION: h-10, rounded-xl, bg-primary */}
-      <Button style={buttonPrimary} href={url}>
-        Reset Password
-      </Button>
-    </Section>
+        <Section style={btnContainer}>
+          {/* STANDARD PRIMARY ACTION: h-10 (40px), rounded-xl (12px), bg-primary */}
+          <Button style={buttonPrimary} href={url}>
+            Reset Password
+          </Button>
+        </Section>
 
-    <Text style={paragraph}>
-      This link will expire in 1 hour. If you did not request a password reset, 
-      please ignore this email.
-    </Text>
+        <Text style={paragraph}>
+          This link will expire in 1 hour. If you did not request a password reset, 
+          please ignore this email.
+        </Text>
 
-    <Text style={paragraph}>
-      Thank you for using <strong style={brandHighlight}>CAREERHUB</strong>.
-    </Text>
+        <Text style={paragraph}>
+          Thank you for using <strong style={brandHighlight}>CAREERHUB</strong>.
+        </Text>
 
-    <Section style={footerContainer}>
-      <Text style={footerText}>
-        Regards, <br />
-        <strong style={brandHighlight}>CareerHub Admin Team</strong>
-      </Text>
-    </Section>
-  </BaseEmail>
+        <Section style={footerSection}>
+          <Text style={footerText}>
+            Regards, <br />
+            <strong style={brandHighlight}>CareerHub Admin Team</strong>
+          </Text>
+        </Section>
+      </Container>
+    </Body>
+  </Html>
 );
 
 PasswordResetEmail.PreviewProps = {
@@ -62,23 +69,37 @@ PasswordResetEmail.PreviewProps = {
 
 export default PasswordResetEmail;
 
-// --- CareerHub Design System Styles ---
+// --- CareerHub Design System Styles (Hardcoded for Email Compatibility) ---
 
-const pageTitle = {
-  fontSize: '24px',
-  fontWeight: '700' as const,
-  color: 'var(--foreground)',
+const main = {
+  backgroundColor: '#F8F9FB', // bg-[#F8F9FB]
+  padding: '64px 0',
+};
+
+const containerCard = {
+  backgroundColor: '#ffffff', // bg-card
+  border: '1px solid #E2E8F0', // border-border
+  borderRadius: '24px', // rounded-3xl
+  margin: '0 auto',
+  padding: '40px',
+  width: '560px',
+};
+
+const heading = {
+  fontSize: '24px', // text-2xl
+  fontWeight: '700', // font-bold
+  color: '#0F172A', // text-foreground
   lineHeight: '32px',
-  margin: '0 0 16px 0',
   textAlign: 'center' as const,
+  margin: '0 0 24px 0',
+  textTransform: 'uppercase' as const,
 };
 
 const paragraph = {
-  fontSize: '14px',
-  color: 'var(--muted-foreground)',
-  lineHeight: '1.6',
-  margin: '0 0 16px 0',
-  textAlign: 'center' as const,
+  fontSize: '16px',
+  lineHeight: '26px',
+  color: '#475569', // text-muted-foreground / slate-600
+  margin: '16px 0',
 };
 
 const btnContainer = {
@@ -87,11 +108,11 @@ const btnContainer = {
 };
 
 const buttonPrimary = {
-  backgroundColor: 'var(--primary)',
+  backgroundColor: '#2563EB', // bg-primary (CareerHub Blue)
   borderRadius: '12px', // rounded-xl
-  color: 'var(--primary-foreground)',
+  color: '#ffffff',
   fontSize: '14px',
-  fontWeight: '600' as const,
+  fontWeight: '600',
   textDecoration: 'none',
   textAlign: 'center' as const,
   display: 'inline-block',
@@ -101,19 +122,18 @@ const buttonPrimary = {
 };
 
 const brandHighlight = {
-  color: 'var(--primary)',
+  color: '#2563EB', // text-primary
 };
 
-const footerContainer = {
+const footerSection = {
   marginTop: '32px',
+  borderTop: '1px solid #E2E8F0', // border-border
   paddingTop: '24px',
-  borderTop: '1px solid var(--border)',
-  textAlign: 'center' as const,
 };
 
 const footerText = {
   fontSize: '14px',
-  color: 'var(--muted-foreground)',
   lineHeight: '24px',
+  color: '#64748B', // text-muted-foreground
   margin: '0',
 };

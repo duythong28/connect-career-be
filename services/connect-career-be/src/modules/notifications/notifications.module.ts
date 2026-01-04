@@ -81,7 +81,7 @@ const Handlers = [
       inject: [ConfigService],
     }),
     RecommendationModule,
-    JobsModule
+    JobsModule,
   ],
   controllers: [NotificationsController],
   providers: [
@@ -124,7 +124,7 @@ const Handlers = [
     NotificationService,
     NotificationOrchestratorService,
     NotificationQueueService,
-    JobAlertTestService
+    JobAlertTestService,
   ],
 })
 export class NotificationsModule {}

@@ -18,7 +18,6 @@ export class PasswordResetRequestedHandler
   ) {}
 
   async handle(event: PasswordResetRequestedEvent) {
-    console.log('PasswordResetRequestedEvent', event);
     const appWebUrl =
       this.configService.get<string>('FRONTEND_URL') ||
       'https://app.connect-career.com';
@@ -35,7 +34,7 @@ export class PasswordResetRequestedHandler
       }),
     );
 
-    const title = '[CONNECTCAREER] Đặt lại mật khẩu của bạn';
+    const title = '[CONNECTCAREER] Reset your password';
 
     await provider.send(event.email, title, emailHtml);
   }

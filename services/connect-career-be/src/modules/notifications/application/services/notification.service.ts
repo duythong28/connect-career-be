@@ -14,7 +14,7 @@ export interface GetNotificationsQuery {
   status?: NotificationStatus;
   type?: string;
   limit?: number;
-  offset?: number;
+  page?: number;
 }
 
 @Injectable()
@@ -34,7 +34,7 @@ export class NotificationService {
         status: query.status,
         type: query.type,
         limit: query.limit || 20,
-        offset: query.offset || 0,
+        offset: query.page || 0,
       });
 
     return {
@@ -42,8 +42,8 @@ export class NotificationService {
       pagination: {
         total,
         limit: query.limit || 20,
-        offset: query.offset || 0,
-        hasMore: (query.offset || 0) + (query.limit || 20) < total,
+        offset: query.page || 0,
+        hasMore: (query.page || 0) + (query.limit || 20) < total,
       },
     };
   }
@@ -82,12 +82,12 @@ export class NotificationService {
         preferences: {
           email: {
             enabled: true,
-            types: [],
+            types: ['job_recommendation'], // Default: job alerts enabled
             frequency: 'realtime',
           },
           push: {
             enabled: true,
-            types: [],
+            types: ['job_recommendation'], // Default: job alerts enabled
           },
           sms: {
             enabled: false,

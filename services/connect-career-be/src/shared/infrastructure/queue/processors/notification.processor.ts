@@ -79,7 +79,11 @@ export class NotificationProcessor extends WorkerHost {
 
       // Get provider and send notification
       const provider = this.providerFactory.createProvider(channel);
-      await provider.send(recipient, title, message);
+      const contentToSend = 
+        channel === NotificationChannel.EMAIL && htmlContent 
+          ? htmlContent 
+          : message;
+      await provider.send(recipient, title, contentToSend);
 
       // Update notification status to SENT
       notification.status = NotificationStatus.SENT;

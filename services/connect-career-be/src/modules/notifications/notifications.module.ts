@@ -40,6 +40,10 @@ import { JobPublishedHandler } from '../jobs/api/event-handlers/job-published.ha
 import { HttpModule } from '@nestjs/axios';
 import { PushProvider } from './infrastructure/providers/push/push.provider';
 import { Job } from '../jobs/domain/entities/job.entity';
+import { RecommendationModule } from '../recommendations/recommendation.module';
+import { JobsModule } from '../jobs/jobs.module';
+import { JobAlertScheduler } from './infrastructure/schedulers/job-alert.scheduler';
+import { JobAlertTestService } from './application/services/job-alert-test.service';
 
 const Handlers = [
   SendNotificationHandler,
@@ -66,7 +70,7 @@ const Handlers = [
       UserNotificationPreferences,
       PushNotificationToken,
       User,
-      Job
+      Job,
     ]),
     BullModule.registerQueue({
       name: 'notifications',
@@ -76,6 +80,8 @@ const Handlers = [
       useFactory: jwtConfig,
       inject: [ConfigService],
     }),
+    RecommendationModule,
+    JobsModule
   ],
   controllers: [NotificationsController],
   providers: [
@@ -89,6 +95,8 @@ const Handlers = [
     ScheduledNotificationScheduler,
     NodemailerProvider,
     PushProvider,
+    JobAlertScheduler,
+    JobAlertTestService,
     {
       provide: NOTIFICATION_REPOSITORY,
       useClass: NotificationTypeOrmRepository,
@@ -116,6 +124,7 @@ const Handlers = [
     NotificationService,
     NotificationOrchestratorService,
     NotificationQueueService,
+    JobAlertTestService
   ],
 })
 export class NotificationsModule {}

@@ -19,20 +19,22 @@ export class PushProvider implements INotificationProvider {
     if (!admin.apps.length) {
       try {
         // Get path from env or use default
-        const serviceAccountPath = 
+        const serviceAccountPath =
           this.configService.get<string>('FIREBASE_SERVICE_ACCOUNT_PATH') ||
           path.join(
             __dirname,
             '../../../credentials/connect-career-be-5ae57-firebase-adminsdk-fbsvc-d07d7be13a.json',
           );
-        
+
         const serviceAccount = require(serviceAccountPath);
-        
+
         admin.initializeApp({
           credential: admin.credential.cert(serviceAccount),
         });
-        
-        this.logger.log(`Firebase Admin initialized from: ${serviceAccountPath}`);
+
+        this.logger.log(
+          `Firebase Admin initialized from: ${serviceAccountPath}`,
+        );
       } catch (error) {
         this.logger.error('Failed to initialize Firebase Admin', error);
       }
@@ -45,7 +47,8 @@ export class PushProvider implements INotificationProvider {
   private initializeWebPush(): void {
     try {
       const vapidPublicKey = this.configService.get<string>('VAPID_PUBLIC_KEY');
-      const vapidPrivateKey = this.configService.get<string>('VAPID_PRIVATE_KEY');
+      const vapidPrivateKey =
+        this.configService.get<string>('VAPID_PRIVATE_KEY');
       const vapidSubject =
         this.configService.get<string>('VAPID_SUBJECT') ||
         'mailto:support@connectcareer.com';
@@ -89,7 +92,8 @@ export class PushProvider implements INotificationProvider {
 
       // Test Web Push
       const vapidPublicKey = this.configService.get<string>('VAPID_PUBLIC_KEY');
-      const vapidPrivateKey = this.configService.get<string>('VAPID_PRIVATE_KEY');
+      const vapidPrivateKey =
+        this.configService.get<string>('VAPID_PRIVATE_KEY');
       result.webPush = {
         initialized: !!(vapidPublicKey && vapidPrivateKey),
       };
@@ -103,7 +107,9 @@ export class PushProvider implements INotificationProvider {
       this.logger.error('Failed to test push connection', error);
       return {
         success: false,
-        message: 'Push connection test failed: ' + (error instanceof Error ? error.message : String(error)),
+        message:
+          'Push connection test failed: ' +
+          (error instanceof Error ? error.message : String(error)),
       };
     }
   }
@@ -124,7 +130,9 @@ export class PushProvider implements INotificationProvider {
     }
 
     // Group tokens by platform
-    const fcmTokens = tokens.filter((t) => t.platform === 'fcm' || t.platform === 'apns');
+    const fcmTokens = tokens.filter(
+      (t) => t.platform === 'fcm' || t.platform === 'apns',
+    );
     const webTokens = tokens.filter((t) => t.platform === 'web');
 
     const promises: Promise<any>[] = [];
@@ -143,11 +151,97 @@ export class PushProvider implements INotificationProvider {
     results.forEach((result, index) => {
       if (result.status === 'rejected') {
         const platform = index === 0 ? 'FCM' : 'Web Push';
-        this.logger.error(`Failed to send ${platform} notifications`, result.reason);
+        this.logger.error(
+          `Failed to send ${platform} notifications`,
+          result.reason,
+        );
       }
     });
   }
 
+  // private async sendFCM(
+  //   tokens: PushNotificationToken[],
+  //   title: string,
+  //   message: string,
+  //   metadata?: any,
+  // ): Promise<void> {
+  //   if (!admin.apps || admin.apps.length === 0) {
+  //     throw new Error('Firebase Admin not initialized');
+  //   }
+
+  //   // Convert metadata to string-only format for FCM
+  //   // FCM requires all data values to be strings
+  //   const fcmData: Record<string, string> = {};
+  //   if (metadata) {
+  //     Object.keys(metadata).forEach((key) => {
+  //       const value = metadata[key];
+  //       // Convert all values to strings
+  //       if (value !== null && value !== undefined) {
+  //         if (typeof value === 'object') {
+  //           // Stringify objects/arrays
+  //           fcmData[key] = JSON.stringify(value);
+  //         } else {
+  //           // Convert primitives to strings
+  //           fcmData[key] = String(value);
+  //         }
+  //       }
+  //     });
+  //   }
+
+  //   const messages = tokens.map((token) => ({
+  //     token: token.token,
+  //     notification: {
+  //       title,
+  //       body: message,
+  //     },
+  //     data: fcmData,
+  //     android: {
+  //       priority: 'high' as const,
+  //     },
+  //     apns: {
+  //       payload: {
+  //         aps: {
+  //           sound: 'default',
+  //           badge: 1,
+  //         },
+  //       },
+  //     },
+  //   }));
+
+  //   try {
+  //     const results = await admin.messaging().sendEach(messages);
+
+  //     // Handle failed tokens
+  //     results.responses.forEach(async (response, index) => {
+  //       if (!response.success) {
+  //         const token = tokens[index];
+  //         if (
+  //           response.error?.code === 'messaging/invalid-registration-token' ||
+  //           response.error?.code ===
+  //             'messaging/registration-token-not-registered'
+  //         ) {
+  //           token.isActive = false;
+  //           await this.pushTokenRepository.update(token.id, {
+  //             isActive: false,
+  //           });
+  //           this.logger.warn(`Deactivated invalid FCM token ${token.id}`);
+  //         } else {
+  //           this.logger.error(
+  //             `FCM send failed for token ${token.id}:`,
+  //             response.error,
+  //           );
+  //         }
+  //       }
+  //     });
+
+  //     this.logger.log(
+  //       `FCM: Sent ${results.successCount}/${tokens.length} notifications`,
+  //     );
+  //   } catch (error) {
+  //     this.logger.error('Failed to send FCM notifications', error);
+  //     throw error;
+  //   }
+  // }
   private async sendFCM(
     tokens: PushNotificationToken[],
     title: string,
@@ -156,6 +250,38 @@ export class PushProvider implements INotificationProvider {
   ): Promise<void> {
     if (!admin.apps || admin.apps.length === 0) {
       throw new Error('Firebase Admin not initialized');
+    }
+
+    // Extract deep link URL from metadata
+    // Support multiple formats: deepLink, url, clickAction, or construct from jobId
+    const frontendUrl = this.configService.get<string>('FRONTEND_URL') || 'https://connect-career.vercel.app';
+    let clickAction: string | undefined;
+    
+    if (metadata) {
+      // Priority: deepLink > url > clickAction > construct from jobId
+      if (metadata.deepLink) {
+        clickAction = String(metadata.deepLink);
+      } else if (metadata.url) {
+        clickAction = String(metadata.url);
+      } else if (metadata.clickAction) {
+        clickAction = String(metadata.clickAction);
+      } else if (metadata.jobId) {
+        // Single job recommendation - link to specific job
+        clickAction = `${frontendUrl}/jobs/${metadata.jobId}`;
+      } else if (metadata.jobIds && Array.isArray(metadata.jobIds) && metadata.jobIds.length > 0) {
+        // Multiple jobs - link to jobs list or first job
+        if (metadata.jobIds.length === 1) {
+          clickAction = `${frontendUrl}/jobs/${metadata.jobIds[0]}`;
+        } else {
+          clickAction = `${frontendUrl}/jobs`;
+        }
+      } else {
+        // Default fallback - link to jobs page
+        clickAction = `${frontendUrl}/jobs`;
+      }
+    } else {
+      // No metadata - default to jobs page
+      clickAction = `${frontendUrl}/jobs`;
     }
 
     // Convert metadata to string-only format for FCM
@@ -177,22 +303,50 @@ export class PushProvider implements INotificationProvider {
       });
     }
 
+    // Add click action to data payload for app handling (works for both Android and iOS)
+    if (clickAction) {
+      fcmData.click_action = clickAction;
+      fcmData.url = clickAction; // Also add as 'url' for consistency
+    }
+
     const messages = tokens.map((token) => ({
       token: token.token,
       notification: {
         title,
         body: message,
+        // Add click action for Android (legacy, but still supported)
+        ...(clickAction && { clickAction: clickAction }),
       },
       data: fcmData,
       android: {
         priority: 'high' as const,
+        notification: {
+          ...(clickAction && { clickAction: clickAction }),
+          // Add channel for Android 8.0+ notification channels
+          channelId: 'job_recommendations',
+        },
       },
       apns: {
         payload: {
           aps: {
             sound: 'default',
             badge: 1,
+            category: 'JOB_RECOMMENDATION', // Category for interactive notifications
           },
+        },
+        // For iOS, deep link is handled via data payload (click_action/url)
+        // The app should read from data.click_action or data.url
+      },
+      // Add web push options for consistency
+      webpush: {
+        notification: {
+          title,
+          body: message,
+          icon: metadata?.icon || '/icon-192x192.png',
+          badge: metadata?.badge || '/badge-72x72.png',
+        },
+        fcmOptions: {
+          link: clickAction || `${frontendUrl}/jobs`,
         },
       },
     }));
@@ -206,10 +360,13 @@ export class PushProvider implements INotificationProvider {
           const token = tokens[index];
           if (
             response.error?.code === 'messaging/invalid-registration-token' ||
-            response.error?.code === 'messaging/registration-token-not-registered'
+            response.error?.code ===
+              'messaging/registration-token-not-registered'
           ) {
             token.isActive = false;
-            await this.pushTokenRepository.update(token.id, { isActive: false });
+            await this.pushTokenRepository.update(token.id, {
+              isActive: false,
+            });
             this.logger.warn(`Deactivated invalid FCM token ${token.id}`);
           } else {
             this.logger.error(
@@ -221,7 +378,7 @@ export class PushProvider implements INotificationProvider {
       });
 
       this.logger.log(
-        `FCM: Sent ${results.successCount}/${tokens.length} notifications`,
+        `FCM: Sent ${results.successCount}/${tokens.length} notifications${clickAction ? ` with deep link: ${clickAction}` : ''}`,
       );
     } catch (error) {
       this.logger.error('Failed to send FCM notifications', error);
@@ -239,7 +396,8 @@ export class PushProvider implements INotificationProvider {
       throw new Error('Firebase Admin not initialized');
     }
 
-    const fcmTokens: Array<{ token: PushNotificationToken; fcmToken: string }> = [];
+    const fcmTokens: Array<{ token: PushNotificationToken; fcmToken: string }> =
+      [];
 
     for (const token of tokens) {
       try {
@@ -269,8 +427,13 @@ export class PushProvider implements INotificationProvider {
         }
 
         // Validate subscription structure
-        if (!subscription?.endpoint || typeof subscription.endpoint !== 'string') {
-          this.logger.error(`Invalid subscription: missing endpoint for token ${token.id}`);
+        if (
+          !subscription?.endpoint ||
+          typeof subscription.endpoint !== 'string'
+        ) {
+          this.logger.error(
+            `Invalid subscription: missing endpoint for token ${token.id}`,
+          );
           token.isActive = false;
           await this.pushTokenRepository.save(token);
           continue;
@@ -278,7 +441,8 @@ export class PushProvider implements INotificationProvider {
 
         // Check if it's an FCM endpoint
         if (subscription.endpoint.includes('fcm.googleapis.com')) {
-          const fcmTokenMatch = subscription.endpoint.match(/\/send\/([^\/\?]+)/);
+          const fcmTokenMatch =
+            subscription.endpoint.match(/\/send\/([^\/\?]+)/);
           console.log('fcmTokenMatch', fcmTokenMatch);
           if (fcmTokenMatch && fcmTokenMatch[1]) {
             fcmTokens.push({
@@ -310,7 +474,9 @@ export class PushProvider implements INotificationProvider {
     }
 
     if (fcmTokens.length === 0) {
-      this.logger.warn('No valid FCM tokens extracted from web push subscriptions');
+      this.logger.warn(
+        'No valid FCM tokens extracted from web push subscriptions',
+      );
       return;
     }
 
@@ -320,7 +486,8 @@ export class PushProvider implements INotificationProvider {
       Object.keys(metadata).forEach((key) => {
         const value = metadata[key];
         if (value !== null && value !== undefined) {
-          fcmData[key] = typeof value === 'object' ? JSON.stringify(value) : String(value);
+          fcmData[key] =
+            typeof value === 'object' ? JSON.stringify(value) : String(value);
         }
       });
     }
@@ -360,8 +527,12 @@ export class PushProvider implements INotificationProvider {
             errorCode === 'messaging/registration-token-not-registered'
           ) {
             token.isActive = false;
-            await this.pushTokenRepository.update(token.id, { isActive: false });
-            this.logger.warn(`Deactivated invalid FCM web push token ${token.id}`);
+            await this.pushTokenRepository.update(token.id, {
+              isActive: false,
+            });
+            this.logger.warn(
+              `Deactivated invalid FCM web push token ${token.id}`,
+            );
           } else {
             this.logger.error(
               `FCM web push failed for token ${token.id}:`,
@@ -379,5 +550,4 @@ export class PushProvider implements INotificationProvider {
       throw error;
     }
   }
-
 }

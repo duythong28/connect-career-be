@@ -6,9 +6,12 @@ import { UserContentEmbedding } from './domain/entities/user-content-embedding.e
 import { JobContentEmbedding } from './domain/entities/job-content-embedding.entity';
 import { UserPreferences } from './domain/entities/user-preferences.entity';
 import { JobInteraction } from './domain/entities/job-interaction.entity';
+import { RecommendationService } from './apis/service/recommendation.service';
+import { HttpModule } from '@nestjs/axios';
 
 @Module({
   imports: [
+    HttpModule,
     TypeOrmModule.forFeature([
       JobCfFactors,
       UserCfFactors,
@@ -18,7 +21,11 @@ import { JobInteraction } from './domain/entities/job-interaction.entity';
       UserPreferences,
     ]),
   ],
-  providers: [],
-  exports: [],
+  providers: [
+    RecommendationService,
+  ],
+  exports: [
+    RecommendationService
+  ],
 })
 export class RecommendationModule {}

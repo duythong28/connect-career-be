@@ -23,12 +23,12 @@ export const WelcomeEmail = ({
   <Html>
     <Head />
     <Preview>
-      Welcome to ConnectCareer - The platform to accelerate your career.
+      Welcome to CareerHub - The platform to accelerate your career.
     </Preview>
     <Body style={main}>
       <Container style={containerCard}>
         <Heading style={heading}>
-          [CONNECTCAREER] WELCOME TO CONNECTCAREER
+          [CAREERHUB] WELCOME TO CAREERHUB
         </Heading>
 
         <Text style={paragraph}>Hi {userFirstname},</Text>
@@ -45,13 +45,13 @@ export const WelcomeEmail = ({
         </Section>
 
         <Text style={paragraph}>
-          <strong style={brandHighlight}>ConnectCareer</strong> would like to thank 
+          <strong style={brandHighlight}>CareerHub</strong> would like to thank 
           you for registering on our platform. We are excited to help you find your next opportunity.
         </Text>
 
         <Text style={footer}>
           Best regards, <br />
-          <strong style={brandHighlight}>ConnectCareer Admin</strong>
+          <strong style={brandHighlight}>CareerHub Admin</strong>
         </Text>
       </Container>
     </Body>

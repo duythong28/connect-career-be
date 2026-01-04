@@ -8,9 +8,13 @@ import { UserNotificationPreferences } from '../../domain/entities/user-notifica
 import { User } from 'src/modules/identity/domain/entities';
 import { Job } from 'src/modules/jobs/domain/entities/job.entity';
 import { NotificationOrchestratorService } from '../../application/services/notification-orchstrator.service';
-import { NotificationType, NotificationChannel } from '../../domain/entities/notification.entity';
+import {
+  NotificationType,
+  NotificationChannel,
+} from '../../domain/entities/notification.entity';
 import { JobAlertEmail } from '../providers/common/template/job-alert.template';
 import { RecommendationService } from 'src/modules/recommendations/apis/service/recommendation.service';
+import { ProviderFactory } from '../providers/common/provider.factory';
 
 @Injectable()
 export class JobAlertScheduler {
@@ -26,6 +30,7 @@ export class JobAlertScheduler {
     private readonly configService: ConfigService,
     private readonly notificationOrchestrator: NotificationOrchestratorService,
     private readonly recommendationService: RecommendationService,
+    private readonly providerFactory: ProviderFactory,
   ) {}
 
   // Run at 8 AM, 2 PM, and 8 PM daily
@@ -84,7 +89,12 @@ export class JobAlertScheduler {
   }
 
   private async getUsersWithJobAlertsEnabled(): Promise<
-    Array<{ id: string; email: string; firstName: string; preferences: UserNotificationPreferences }>
+    Array<{
+      id: string;
+      email: string;
+      firstName: string;
+      preferences: UserNotificationPreferences;
+    }>
   > {
     // Get users who have email or push notifications enabled for job recommendations
     const preferences = await this.preferencesRepository
@@ -121,14 +131,18 @@ export class JobAlertScheduler {
   }
 
   private async sendJobAlertToUser(
-    user: { id: string; email: string; firstName: string; preferences: UserNotificationPreferences },
+    user: {
+      id: string;
+      email: string;
+      firstName: string;
+      preferences: UserNotificationPreferences;
+    },
     frontendBaseUrl: string,
   ): Promise<void> {
     try {
       // Get recommended jobs for user
-      const recommendedJobIds = await this.recommendationService.getRecommendations(
-        user.id,
-      );
+      const recommendedJobIds =
+        await this.recommendationService.getRecommendations(user.id);
 
       if (!recommendedJobIds || recommendedJobIds.length === 0) {
         this.logger.debug(`No recommendations for user ${user.id}`);
@@ -182,11 +196,7 @@ export class JobAlertScheduler {
 
       // Send email notification
       if (emailEnabled) {
-        await this.sendEmailNotification(
-          user,
-          formattedJobs,
-          frontendBaseUrl,
-        );
+        await this.sendEmailNotification(user, formattedJobs, frontendBaseUrl);
       }
 
       // Send push notification
@@ -194,10 +204,7 @@ export class JobAlertScheduler {
         await this.sendPushNotification(user, formattedJobs, frontendBaseUrl);
       }
     } catch (error) {
-      this.logger.error(
-        `Error sending job alert to user ${user.id}:`,
-        error,
-      );
+      this.logger.error(`Error sending job alert to user ${user.id}:`, error);
       throw error;
     }
   }
@@ -217,7 +224,6 @@ export class JobAlertScheduler {
         }),
       );
 
-      // Send via notification orchestrator
       await this.notificationOrchestrator.sendToRecipient(
         user.id,
         {
@@ -226,7 +232,7 @@ export class JobAlertScheduler {
           metadata: {
             jobIds: jobs.map((j) => j.id),
             jobCount: jobs.length,
-            emailHtml: emailHtml, // Pass the rendered HTML
+            emailHtml: emailHtml,
           },
         },
         {
@@ -235,7 +241,7 @@ export class JobAlertScheduler {
           email: user.email,
           firstName: user.firstName,
           jobs: jobs,
-          emailHtml: emailHtml, // Also pass in event data
+          emailHtml: emailHtml,
         } as any,
       );
     } catch (error) {

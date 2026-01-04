@@ -126,7 +126,8 @@ export class PushProvider implements INotificationProvider {
     });
 
     if (tokens.length === 0) {
-      throw new Error(`No active push tokens found for user ${recipient}`);
+      this.logger.warn(`No active push tokens found for user ${recipient}`);
+      return;
     }
 
     // Group tokens by platform
@@ -254,9 +255,11 @@ export class PushProvider implements INotificationProvider {
 
     // Extract deep link URL from metadata
     // Support multiple formats: deepLink, url, clickAction, or construct from jobId
-    const frontendUrl = this.configService.get<string>('FRONTEND_URL') || 'https://connect-career.vercel.app';
+    const frontendUrl =
+      this.configService.get<string>('FRONTEND_URL') ||
+      'https://connect-career.vercel.app';
     let clickAction: string | undefined;
-    
+
     if (metadata) {
       // Priority: deepLink > url > clickAction > construct from jobId
       if (metadata.deepLink) {
@@ -268,7 +271,11 @@ export class PushProvider implements INotificationProvider {
       } else if (metadata.jobId) {
         // Single job recommendation - link to specific job
         clickAction = `${frontendUrl}/jobs/${metadata.jobId}`;
-      } else if (metadata.jobIds && Array.isArray(metadata.jobIds) && metadata.jobIds.length > 0) {
+      } else if (
+        metadata.jobIds &&
+        Array.isArray(metadata.jobIds) &&
+        metadata.jobIds.length > 0
+      ) {
         // Multiple jobs - link to jobs list or first job
         if (metadata.jobIds.length === 1) {
           clickAction = `${frontendUrl}/jobs/${metadata.jobIds[0]}`;
@@ -314,15 +321,12 @@ export class PushProvider implements INotificationProvider {
       notification: {
         title,
         body: message,
-        // Add click action for Android (legacy, but still supported)
-        ...(clickAction && { clickAction: clickAction }),
       },
       data: fcmData,
       android: {
         priority: 'high' as const,
         notification: {
           ...(clickAction && { clickAction: clickAction }),
-          // Add channel for Android 8.0+ notification channels
           channelId: 'job_recommendations',
         },
       },
@@ -331,7 +335,7 @@ export class PushProvider implements INotificationProvider {
           aps: {
             sound: 'default',
             badge: 1,
-            category: 'JOB_RECOMMENDATION', // Category for interactive notifications
+            category: 'JOB_RECOMMENDATION',
           },
         },
         // For iOS, deep link is handled via data payload (click_action/url)

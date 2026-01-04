@@ -8,13 +8,41 @@ import { ConfigService } from '@nestjs/config';
 import { render } from '@react-email/render';
 
 // Import all templates
-import { ApplicationReceivedEmail, ApplicationStatusChangedEmail, ApplicationShortlistedEmail, ApplicationRejectedEmail, ApplicationHiredEmail, ApplicationDeadlineReminderEmail } from '../../infrastructure/providers/common/template/application-templates';
-import { InterviewScheduledEmail, InterviewReminderEmail, InterviewCancelledEmail, InterviewRescheduledEmail } from '../../infrastructure/providers/common/template/interview-templates';
-import { OfferSentEmail, OfferAcceptedEmail, OfferRejectedEmail } from '../../infrastructure/providers/common/template/offer-templates';
-import { NewMessageEmail, MentionEmail } from '../../infrastructure/providers/common/template/communication-templates';
+import {
+  ApplicationReceivedEmail,
+  ApplicationStatusChangedEmail,
+  ApplicationShortlistedEmail,
+  ApplicationRejectedEmail,
+  ApplicationHiredEmail,
+  ApplicationDeadlineReminderEmail,
+} from '../../infrastructure/providers/common/template/application-templates';
+import {
+  InterviewScheduledEmail,
+  InterviewReminderEmail,
+  InterviewCancelledEmail,
+  InterviewRescheduledEmail,
+} from '../../infrastructure/providers/common/template/interview-templates';
+import {
+  OfferSentEmail,
+  OfferAcceptedEmail,
+  OfferRejectedEmail,
+} from '../../infrastructure/providers/common/template/offer-templates';
+import {
+  NewMessageEmail,
+  MentionEmail,
+} from '../../infrastructure/providers/common/template/communication-templates';
 import { JobDeadlineApproachingEmail } from '../../infrastructure/providers/common/template/job-templates';
-import { ProfileViewedEmail, CvFeedbackEmail } from '../../infrastructure/providers/common/template/profile-templates';
-import { ReportCreatedEmail, ReportStatusChangedEmail, ReportAssignedEmail, ReportResolvedEmail, ReportDismissedEmail } from '../../infrastructure/providers/common/template/report-templates';
+import {
+  ProfileViewedEmail,
+  CvFeedbackEmail,
+} from '../../infrastructure/providers/common/template/profile-templates';
+import {
+  ReportCreatedEmail,
+  ReportStatusChangedEmail,
+  ReportAssignedEmail,
+  ReportResolvedEmail,
+  ReportDismissedEmail,
+} from '../../infrastructure/providers/common/template/report-templates';
 import { EmailVerifiedEmail } from '../../infrastructure/providers/common/template/system-templates';
 import JobAlertEmail from '../../infrastructure/providers/common/template/job-alert.template';
 
@@ -35,9 +63,14 @@ export class NotificationTemplateService {
   ): Promise<NotificationTemplate> {
     const eventData = event as any;
     const templateKey = `${type}_${channel}`;
-    const frontendUrl = this.configService.get<string>('FRONTEND_URL') || 'https://connect-career.vercel.app';
+    const frontendUrl =
+      this.configService.get<string>('FRONTEND_URL') ||
+      'https://connect-career.vercel.app';
 
-    const templates: Record<string, (data: any) => Promise<NotificationTemplate>> = {
+    const templates: Record<
+      string,
+      (data: any) => Promise<NotificationTemplate>
+    > = {
       // Application Related
       [`${NotificationType.APPLICATION_RECEIVED}_${NotificationChannel.EMAIL}`]:
         async (data) => {
@@ -46,8 +79,10 @@ export class NotificationTemplateService {
               userFirstname: data.userFirstname || data.firstName || 'there',
               jobTitle: data.jobTitle || 'the position',
               companyName: data.companyName || data.company || 'the company',
-              applicationUrl: data.applicationUrl || `${frontendUrl}/applications/${data.applicationId || ''}`,
-            })
+              applicationUrl:
+                data.applicationUrl ||
+                `${frontendUrl}/applications/${data.applicationId || ''}`,
+            }),
           );
           return {
             title: 'Application Submitted Successfully',
@@ -64,8 +99,10 @@ export class NotificationTemplateService {
               jobTitle: data.jobTitle || 'the position',
               companyName: data.companyName || data.company || 'the company',
               status: data.status || 'updated',
-              applicationUrl: data.applicationUrl || `${frontendUrl}/applications/${data.applicationId || ''}`,
-            })
+              applicationUrl:
+                data.applicationUrl ||
+                `${frontendUrl}/applications/${data.applicationId || ''}`,
+            }),
           );
           return {
             title: 'Application Status Updated',
@@ -81,8 +118,10 @@ export class NotificationTemplateService {
               userFirstname: data.userFirstname || data.firstName || 'there',
               jobTitle: data.jobTitle || 'the position',
               companyName: data.companyName || data.company || 'the company',
-              applicationUrl: data.applicationUrl || `${frontendUrl}/applications/${data.applicationId || ''}`,
-            })
+              applicationUrl:
+                data.applicationUrl ||
+                `${frontendUrl}/applications/${data.applicationId || ''}`,
+            }),
           );
           return {
             title: '🎉 Application Shortlisted!',
@@ -100,7 +139,7 @@ export class NotificationTemplateService {
               companyName: data.companyName || data.company || 'the company',
               feedback: data.feedback,
               browseJobsUrl: `${frontendUrl}/jobs`,
-            })
+            }),
           );
           return {
             title: 'Application Update',
@@ -117,8 +156,10 @@ export class NotificationTemplateService {
               jobTitle: data.jobTitle || 'the position',
               companyName: data.companyName || data.company || 'the company',
               offerDetails: data.offerDetails,
-              nextStepsUrl: data.nextStepsUrl || `${frontendUrl}/applications/${data.applicationId || ''}`,
-            })
+              nextStepsUrl:
+                data.nextStepsUrl ||
+                `${frontendUrl}/applications/${data.applicationId || ''}`,
+            }),
           );
           return {
             title: "🎊 Congratulations! You're Hired!",
@@ -135,8 +176,10 @@ export class NotificationTemplateService {
               jobTitle: data.jobTitle || 'the position',
               companyName: data.companyName || data.company || 'the company',
               deadline: data.deadline || 'soon',
-              applicationUrl: data.applicationUrl || `${frontendUrl}/applications/${data.applicationId || ''}`,
-            })
+              applicationUrl:
+                data.applicationUrl ||
+                `${frontendUrl}/applications/${data.applicationId || ''}`,
+            }),
           );
           return {
             title: '⏰ Application Deadline Reminder',
@@ -158,8 +201,10 @@ export class NotificationTemplateService {
               location: data.location,
               meetingLink: data.meetingLink || data.meetingUrl,
               interviewType: data.interviewType || 'Interview',
-              interviewUrl: data.interviewUrl || `${frontendUrl}/interviews/${data.interviewId || ''}`,
-            })
+              interviewUrl:
+                data.interviewUrl ||
+                `${frontendUrl}/interviews/${data.interviewId || ''}`,
+            }),
           );
           return {
             title: 'Interview Scheduled',
@@ -178,8 +223,10 @@ export class NotificationTemplateService {
               interviewDate: data.interviewDate || data.date || 'TBD',
               interviewTime: data.interviewTime || data.time || 'TBD',
               meetingLink: data.meetingLink || data.meetingUrl,
-              interviewUrl: data.interviewUrl || `${frontendUrl}/interviews/${data.interviewId || ''}`,
-            })
+              interviewUrl:
+                data.interviewUrl ||
+                `${frontendUrl}/interviews/${data.interviewId || ''}`,
+            }),
           );
           return {
             title: '⏰ Interview Reminder',
@@ -196,8 +243,10 @@ export class NotificationTemplateService {
               jobTitle: data.jobTitle || 'the position',
               companyName: data.companyName || data.company || 'the company',
               reason: data.reason,
-              rescheduleUrl: data.rescheduleUrl || `${frontendUrl}/interviews/${data.interviewId || ''}/reschedule`,
-            })
+              rescheduleUrl:
+                data.rescheduleUrl ||
+                `${frontendUrl}/interviews/${data.interviewId || ''}/reschedule`,
+            }),
           );
           return {
             title: 'Interview Cancelled',
@@ -218,8 +267,10 @@ export class NotificationTemplateService {
               newDate: data.newDate || data.interviewDate || 'new date',
               newTime: data.newTime || data.interviewTime || 'new time',
               meetingLink: data.meetingLink || data.meetingUrl,
-              interviewUrl: data.interviewUrl || `${frontendUrl}/interviews/${data.interviewId || ''}`,
-            })
+              interviewUrl:
+                data.interviewUrl ||
+                `${frontendUrl}/interviews/${data.interviewId || ''}`,
+            }),
           );
           return {
             title: 'Interview Rescheduled',
@@ -229,24 +280,26 @@ export class NotificationTemplateService {
         },
 
       // Offer Related
-      [`${NotificationType.OFFER_SENT}_${NotificationChannel.EMAIL}`]:
-        async (data) => {
-          const html = await render(
-            OfferSentEmail({
-              userFirstname: data.userFirstname || data.firstName || 'there',
-              jobTitle: data.jobTitle || 'the position',
-              companyName: data.companyName || data.company || 'the company',
-              offerDetails: data.offerDetails,
-              offerUrl: data.offerUrl || `${frontendUrl}/offers/${data.offerId || ''}`,
-              deadline: data.deadline,
-            })
-          );
-          return {
-            title: '🎉 Job Offer Received!',
-            message: `You've received a job offer for "${data.jobTitle || 'the position'}".`,
-            htmlContent: html,
-          };
-        },
+      [`${NotificationType.OFFER_SENT}_${NotificationChannel.EMAIL}`]: async (
+        data,
+      ) => {
+        const html = await render(
+          OfferSentEmail({
+            userFirstname: data.userFirstname || data.firstName || 'there',
+            jobTitle: data.jobTitle || 'the position',
+            companyName: data.companyName || data.company || 'the company',
+            offerDetails: data.offerDetails,
+            offerUrl:
+              data.offerUrl || `${frontendUrl}/offers/${data.offerId || ''}`,
+            deadline: data.deadline,
+          }),
+        );
+        return {
+          title: '🎉 Job Offer Received!',
+          message: `You've received a job offer for "${data.jobTitle || 'the position'}".`,
+          htmlContent: html,
+        };
+      },
 
       [`${NotificationType.OFFER_ACCEPTED}_${NotificationChannel.EMAIL}`]:
         async (data) => {
@@ -256,8 +309,10 @@ export class NotificationTemplateService {
               jobTitle: data.jobTitle || 'the position',
               companyName: data.companyName || data.company || 'the company',
               startDate: data.startDate,
-              nextStepsUrl: data.nextStepsUrl || `${frontendUrl}/offers/${data.offerId || ''}`,
-            })
+              nextStepsUrl:
+                data.nextStepsUrl ||
+                `${frontendUrl}/offers/${data.offerId || ''}`,
+            }),
           );
           return {
             title: '🎊 Offer Accepted!',
@@ -274,7 +329,7 @@ export class NotificationTemplateService {
               jobTitle: data.jobTitle || 'the position',
               companyName: data.companyName || data.company || 'the company',
               browseJobsUrl: `${frontendUrl}/jobs`,
-            })
+            }),
           );
           return {
             title: 'Offer Update',
@@ -284,45 +339,53 @@ export class NotificationTemplateService {
         },
 
       // Communication
-      [`${NotificationType.NEW_MESSAGE}_${NotificationChannel.EMAIL}`]:
-        async (data) => {
-          const html = await render(
-            NewMessageEmail({
-              userFirstname: data.userFirstname || data.firstName || 'there',
-              senderName: data.senderName || data.sender || 'someone',
-              messagePreview: data.messagePreview || data.message,
-              conversationUrl: data.conversationUrl || `${frontendUrl}/messages/${data.conversationId || ''}`,
-            })
-          );
-          return {
-            title: 'New Message',
-            message: `You have a new message from ${data.senderName || 'someone'}.`,
-            htmlContent: html,
-          };
-        },
+      [`${NotificationType.NEW_MESSAGE}_${NotificationChannel.EMAIL}`]: async (
+        data,
+      ) => {
+        const html = await render(
+          NewMessageEmail({
+            userFirstname: data.userFirstname || data.firstName || 'there',
+            senderName: data.senderName || data.sender || 'someone',
+            messagePreview: data.messagePreview || data.message,
+            conversationUrl:
+              data.conversationUrl ||
+              `${frontendUrl}/messages/${data.conversationId || ''}`,
+          }),
+        );
+        return {
+          title: 'New Message',
+          message: `You have a new message from ${data.senderName || 'someone'}.`,
+          htmlContent: html,
+        };
+      },
 
-      [`${NotificationType.MENTION}_${NotificationChannel.EMAIL}`]:
-        async (data) => {
-          const html = await render(
-            MentionEmail({
-              userFirstname: data.userFirstname || data.firstName || 'there',
-              mentionedBy: data.mentionedBy || data.sender || 'someone',
-              context: data.context,
-              mentionUrl: data.mentionUrl || `${frontendUrl}/messages/${data.conversationId || ''}`,
-            })
-          );
-          return {
-            title: 'You\'ve Been Mentioned',
-            message: `${data.mentionedBy || 'Someone'} mentioned you in a conversation.`,
-            htmlContent: html,
-          };
-        },
+      [`${NotificationType.MENTION}_${NotificationChannel.EMAIL}`]: async (
+        data,
+      ) => {
+        const html = await render(
+          MentionEmail({
+            userFirstname: data.userFirstname || data.firstName || 'there',
+            mentionedBy: data.mentionedBy || data.sender || 'someone',
+            context: data.context,
+            mentionUrl:
+              data.mentionUrl ||
+              `${frontendUrl}/messages/${data.conversationId || ''}`,
+          }),
+        );
+        return {
+          title: "You've Been Mentioned",
+          message: `${data.mentionedBy || 'Someone'} mentioned you in a conversation.`,
+          htmlContent: html,
+        };
+      },
 
       // Job Related
       [`${NotificationType.JOB_RECOMMENDATION}_${NotificationChannel.EMAIL}`]:
         async (data) => {
-          // If emailHtml is already rendered, use it
+          // Handle emailHtml - it could be a string, Promise, or function
+          console.log('emailHtml length:', data.emailHtml.toString().length);
           const emailHtml = data.emailHtml;
+
           if (emailHtml) {
             return {
               title: `${data.jobs?.length || 1} new job${(data.jobs?.length || 1) !== 1 ? 's' : ''} matching your profile`,
@@ -339,7 +402,7 @@ export class NotificationTemplateService {
               locationName: data.locationName || 'your area',
               jobs: data.jobs || [],
               viewAllJobsUrl: `${frontendUrl}/jobs`,
-            })
+            }),
           );
           return {
             title: `${data.jobs?.length || 1} new job${(data.jobs?.length || 1) !== 1 ? 's' : ''} matching your profile`,
@@ -357,7 +420,7 @@ export class NotificationTemplateService {
               companyName: data.companyName || data.company || 'the company',
               deadline: data.deadline || 'soon',
               jobUrl: data.jobUrl || `${frontendUrl}/jobs/${data.jobId || ''}`,
-            })
+            }),
           );
           return {
             title: '⏰ Application Deadline Approaching',
@@ -375,7 +438,7 @@ export class NotificationTemplateService {
               viewerName: data.viewerName,
               viewerCompany: data.viewerCompany || data.company,
               profileUrl: data.profileUrl || `${frontendUrl}/profile`,
-            })
+            }),
           );
           return {
             title: 'Your Profile Was Viewed',
@@ -384,21 +447,22 @@ export class NotificationTemplateService {
           };
         },
 
-      [`${NotificationType.CV_FEEDBACK}_${NotificationChannel.EMAIL}`]:
-        async (data) => {
-          const html = await render(
-            CvFeedbackEmail({
-              userFirstname: data.userFirstname || data.firstName || 'there',
-              feedback: data.feedback || 'No feedback provided.',
-              feedbackUrl: data.feedbackUrl || `${frontendUrl}/profile/cv`,
-            })
-          );
-          return {
-            title: 'CV Feedback Received',
-            message: 'You\'ve received feedback on your CV/resume.',
-            htmlContent: html,
-          };
-        },
+      [`${NotificationType.CV_FEEDBACK}_${NotificationChannel.EMAIL}`]: async (
+        data,
+      ) => {
+        const html = await render(
+          CvFeedbackEmail({
+            userFirstname: data.userFirstname || data.firstName || 'there',
+            feedback: data.feedback || 'No feedback provided.',
+            feedbackUrl: data.feedbackUrl || `${frontendUrl}/profile/cv`,
+          }),
+        );
+        return {
+          title: 'CV Feedback Received',
+          message: "You've received feedback on your CV/resume.",
+          htmlContent: html,
+        };
+      },
 
       // Report Related
       [`${NotificationType.REPORT_CREATED}_${NotificationChannel.EMAIL}`]:
@@ -408,8 +472,10 @@ export class NotificationTemplateService {
               userFirstname: data.userFirstname || data.firstName || 'there',
               reportType: data.reportType || 'report',
               reportId: data.reportId || data.id || 'N/A',
-              reportUrl: data.reportUrl || `${frontendUrl}/reports/${data.reportId || ''}`,
-            })
+              reportUrl:
+                data.reportUrl ||
+                `${frontendUrl}/reports/${data.reportId || ''}`,
+            }),
           );
           return {
             title: 'Report Created',
@@ -425,8 +491,10 @@ export class NotificationTemplateService {
               userFirstname: data.userFirstname || data.firstName || 'there',
               reportType: data.reportType || 'report',
               status: data.status || 'updated',
-              reportUrl: data.reportUrl || `${frontendUrl}/reports/${data.reportId || ''}`,
-            })
+              reportUrl:
+                data.reportUrl ||
+                `${frontendUrl}/reports/${data.reportId || ''}`,
+            }),
           );
           return {
             title: 'Report Status Updated',
@@ -442,8 +510,10 @@ export class NotificationTemplateService {
               userFirstname: data.userFirstname || data.firstName || 'there',
               reportType: data.reportType || 'report',
               assignedTo: data.assignedTo,
-              reportUrl: data.reportUrl || `${frontendUrl}/reports/${data.reportId || ''}`,
-            })
+              reportUrl:
+                data.reportUrl ||
+                `${frontendUrl}/reports/${data.reportId || ''}`,
+            }),
           );
           return {
             title: 'Report Assigned',
@@ -459,8 +529,10 @@ export class NotificationTemplateService {
               userFirstname: data.userFirstname || data.firstName || 'there',
               reportType: data.reportType || 'report',
               resolution: data.resolution,
-              reportUrl: data.reportUrl || `${frontendUrl}/reports/${data.reportId || ''}`,
-            })
+              reportUrl:
+                data.reportUrl ||
+                `${frontendUrl}/reports/${data.reportId || ''}`,
+            }),
           );
           return {
             title: 'Report Resolved',
@@ -476,8 +548,10 @@ export class NotificationTemplateService {
               userFirstname: data.userFirstname || data.firstName || 'there',
               reportType: data.reportType || 'report',
               reason: data.reason,
-              reportUrl: data.reportUrl || `${frontendUrl}/reports/${data.reportId || ''}`,
-            })
+              reportUrl:
+                data.reportUrl ||
+                `${frontendUrl}/reports/${data.reportId || ''}`,
+            }),
           );
           return {
             title: 'Report Dismissed',
@@ -493,7 +567,7 @@ export class NotificationTemplateService {
             EmailVerifiedEmail({
               userFirstname: data.userFirstname || data.firstName || 'there',
               profileUrl: data.profileUrl || `${frontendUrl}/profile`,
-            })
+            }),
           );
           return {
             title: 'Email Verified',
@@ -503,7 +577,8 @@ export class NotificationTemplateService {
         },
     };
 
-    const templateFn = templates[templateKey] || this.getDefaultTemplate(type, channel);
+    const templateFn =
+      templates[templateKey] || this.getDefaultTemplate(type, channel);
     return await templateFn(eventData);
   }
 

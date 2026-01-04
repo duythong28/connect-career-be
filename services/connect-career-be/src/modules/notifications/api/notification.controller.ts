@@ -424,7 +424,6 @@ export class NotificationsController {
       viewAllJobsUrl?: string;
     },
   ) {
-
     const emailHtml = await render(
       JobAlertEmail({
         userFirstname: body.userFirstname || 'John',

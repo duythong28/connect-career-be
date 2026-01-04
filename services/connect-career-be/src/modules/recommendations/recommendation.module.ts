@@ -21,11 +21,7 @@ import { HttpModule } from '@nestjs/axios';
       UserPreferences,
     ]),
   ],
-  providers: [
-    RecommendationService,
-  ],
-  exports: [
-    RecommendationService
-  ],
+  providers: [RecommendationService],
+  exports: [RecommendationService],
 })
 export class RecommendationModule {}

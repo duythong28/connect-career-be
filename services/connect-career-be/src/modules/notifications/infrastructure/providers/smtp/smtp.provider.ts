@@ -23,7 +23,27 @@ export class SmtpProvider implements INotificationProvider {
         this.logger.log('--------------------------------');
         return;
       }
-
+  
+      // Check if message contains HTML (including escaped HTML)
+      const hasHtmlTags = /<[a-z][\s\S]*>/i.test(message);
+      const hasEscapedHtml = /&lt;[a-z][\s\S]*&gt;/i.test(message);
+      
+      // If HTML is escaped, unescape it
+      let htmlContent = message;
+      if (hasEscapedHtml && !hasHtmlTags) {
+        // Unescape HTML entities
+        htmlContent = message
+          .replace(/&lt;/g, '<')
+          .replace(/&gt;/g, '>')
+          .replace(/&quot;/g, '"')
+          .replace(/&#39;/g, "'")
+          .replace(/&amp;/g, '&');
+        this.logger.log(`[SmtpProvider] Unescaped HTML content`);
+      }
+  
+      // Check again after unescaping
+      const isHtml = /<[a-z][\s\S]*>/i.test(htmlContent) || hasEscapedHtml;
+  
       const mailOptions = {
         from: {
           name:
@@ -34,16 +54,18 @@ export class SmtpProvider implements INotificationProvider {
         },
         to: recipient,
         subject: title,
-        html: message,
-        text: this.stripHtml(message),
+        // Always set HTML if we detected HTML (escaped or not)
+        html: isHtml ? htmlContent : undefined,
+        text: isHtml ? this.stripHtml(htmlContent) : htmlContent,
       };
-
+  
       const result = await this.transporter.sendMail(mailOptions);
       this.logger.log(
-        `Email sent successfully to ${recipient}. MessageId: ${result}`,
+        `Email sent successfully to ${recipient}. MessageId: ${result.messageId}`,
       );
     } catch (error) {
       this.logger.error(`Failed to send email to ${recipient}:`, error);
+      throw error; // Re-throw so the queue can retry
     }
   }
 

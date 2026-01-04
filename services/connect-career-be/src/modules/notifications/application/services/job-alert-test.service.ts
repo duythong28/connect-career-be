@@ -75,9 +75,10 @@ export class JobAlertTestService {
       }
 
       // Get user preferences
-      const preferences = await this.userNotificationPreferencesRepository.findOne({
-        where: { userId },
-      });
+      const preferences =
+        await this.userNotificationPreferencesRepository.findOne({
+          where: { userId },
+        });
 
       const userWithPrefs = {
         id: user.id,
@@ -87,9 +88,8 @@ export class JobAlertTestService {
       };
 
       // Get recommended jobs
-      const recommendedJobIds = await this.recommendationService.getRecommendations(
-        userId,
-      );
+      const recommendedJobIds =
+        await this.recommendationService.getRecommendations(userId);
 
       if (!recommendedJobIds || recommendedJobIds.length === 0) {
         return {

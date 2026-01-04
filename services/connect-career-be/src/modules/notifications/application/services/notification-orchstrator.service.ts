@@ -92,6 +92,18 @@ export class NotificationOrchestratorService {
     preferences: UserNotificationPreferences,
   ): Promise<void> {
     try {
+      const eventData = event as any;
+      if (config.metadata?.emailHtml && !eventData.emailHtml) {
+        eventData.emailHtml = config.metadata.emailHtml;
+      }
+      
+      // Also merge other metadata fields that might be needed
+      if (config.metadata?.jobs && !eventData.jobs) {
+        eventData.jobs = config.metadata.jobs;
+      }
+      if (config.metadata?.jobIds && !eventData.jobIds) {
+        eventData.jobIds = config.metadata.jobIds;
+      }  
       const template = await this.templateService.getTemplate(
         config.type,
         channel,
@@ -116,6 +128,21 @@ export class NotificationOrchestratorService {
       });
 
       await this.notificationRepository.save(notification);
+      const queueData = {
+        recipient: recipientIdentifier,
+        channel,
+        title: template.title,
+        message: template.message,
+        htmlContent: template.htmlContent || undefined,
+        type: config.type,
+        metadata: config.metadata,
+        notificationId: notification.id,
+      };
+      console.log(`Queuing ${channel} notification:`, {
+        hasHtmlContent: !!queueData.htmlContent,
+        htmlContentLength: queueData.htmlContent?.length || 0,
+        notificationId: notification.id,
+      });
 
       // Queue notification for async processing
       await this.notificationQueueService.queueNotification({
@@ -123,7 +150,6 @@ export class NotificationOrchestratorService {
         channel,
         title: template.title,
         message: template.message,
-        htmlContent: template.htmlContent || undefined,
         type: config.type,
         metadata: config.metadata,
         notificationId: notification.id,

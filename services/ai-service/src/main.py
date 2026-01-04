@@ -217,7 +217,7 @@ async def get_recommendations(request: RecommendationRequest):
         loop = asyncio.get_event_loop()
         job_ids, scores = await loop.run_in_executor(
             executor,
-            recommendation_service.get_recommendations,
+            recommendation_service.get_recommendations_optimized,
             request
         )
         return RecommendationResponse(jobIds=job_ids, scores=scores)
@@ -422,7 +422,7 @@ async def get_similar_jobs(job_id: str, request: SimilarJobsRequest = None):
         loop = asyncio.get_event_loop()
         job_ids, scores = await loop.run_in_executor(
             executor,
-            recommendation_service.get_similar_jobs,
+            recommendation_service.get_similar_jobs_optimized,
             job_id,
             request.limit,
             request.excludeJobId

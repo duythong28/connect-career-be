@@ -49,6 +49,39 @@ class RecommendationService:
             results = db.execute_query("SELECT id FROM jobs WHERE status = 'active' LIMIT 1000")
             return [str(row['id']) for row in results]
     
+    def get_candidate_jobs_optimized(self, user_id: str, preferences: UserPreferences = None) -> List[str]:
+        """Get candidate jobs with better filtering to reduce set size"""
+        query = """
+            SELECT j.id
+            FROM jobs j
+            WHERE j.status = 'active'
+            AND (j."deletedAt" IS NULL OR j."deletedAt" > NOW())
+            -- Only get jobs that have embeddings
+            AND EXISTS (
+                SELECT 1 FROM job_content_embeddings jce 
+                WHERE jce."jobId" = j.id
+            )
+        """
+        params = []
+        
+        if preferences:
+            if preferences.hiddenCompanyIds:
+                query += " AND j.\"organizationId\" != ALL(%s)"
+                params.append(preferences.hiddenCompanyIds)
+            
+            if preferences.preferredLocations:
+                query += " AND j.location = ANY(%s)"
+                params.append(preferences.preferredLocations)
+            
+            if preferences.minSalary:
+                query += " AND (j.\"salaryDetails\"->>'minAmount')::int >= %s"
+                params.append(preferences.minSalary)
+        
+        # Limit early to reduce memory usage
+        query += " LIMIT 200"  # Reduced from 500
+        
+        results = db.execute_query(query, tuple(params) if params else None)
+        return [str(row['id']) for row in results]
     def hybrid_score(self, user_id: str, job_id: str) -> float:
         """Compute hybrid score: content-based + collaborative filtering"""
         # Content-based score
@@ -129,7 +162,7 @@ class RecommendationService:
                 logger.info(f"Returning cached recommendations for user {request.userId}")
                 return cached_result
     
-        candidate_job_ids = self.get_candidate_jobs(request.userId, request.preferences)
+        candidate_job_ids = self.get_candidate_jobs_optimized(request.userId, request.preferences)
         
         if not candidate_job_ids:
             logger.warning(f"No candidate jobs found for user {request.userId}")
@@ -158,12 +191,11 @@ class RecommendationService:
         job_cf_factors = {}
         
         # Load job embeddings in batch
-        placeholders = ','.join(['%s'] * len(candidate_job_ids))
         try:
-            emb_query = f"""
+            emb_query = """
                 SELECT "jobId", embedding
                 FROM job_content_embeddings
-                WHERE "jobId" IN ({placeholders})
+                WHERE "jobId" = ANY(%s::uuid[])
             """
             emb_results = db.execute_query(emb_query, tuple(candidate_job_ids))
             for row in emb_results:
@@ -182,10 +214,10 @@ class RecommendationService:
         
         # Load job CF factors in batch
         try:
-            cf_query = f"""
+            cf_query = """
                 SELECT "jobId", factors
                 FROM job_cf_factors
-                WHERE "jobId" IN ({placeholders})
+                WHERE "jobId" = ANY(%s::uuid[])
             """
             cf_results = db.execute_query(cf_query, tuple(candidate_job_ids))
             for row in cf_results:
@@ -244,8 +276,99 @@ class RecommendationService:
         top_scores = [score for _, score in top_jobs]
         
         logger.info(f"Generated {len(top_job_ids)} recommendations for user {request.userId}")
+        self.cache.set_recommendations(request.userId, cache_key, top_job_ids, top_scores, ttl=300)
         return top_job_ids, top_scores
     
+    def get_recommendations_optimized(self, request: RecommendationRequest) -> Tuple[List[str], List[float]]:
+        """Optimized version using pgvector database-level search"""
+        
+        # Get user embedding once
+        user_emb = embedding_service.get_user_embedding(request.userId)
+        if user_emb is None:
+            return [], []
+        
+        # Convert to pgvector format: '[0.1,0.2,...]'
+        user_emb_str = '[' + ','.join(map(str, user_emb.tolist())) + ']'
+        
+        # Single query with database-level vector similarity search
+        query = """
+            WITH vector_similarity AS (
+                SELECT 
+                    j.id,
+                    j."organizationId",
+                    j.location,
+                    j."salaryDetails",
+                    -- Content-based score using pgvector cosine distance
+                    -- Cast jsonb to vector for pgvector operations
+                    1 - (jce.embedding::text::vector <=> %s::vector) AS content_score,
+                    -- Get CF factors if available
+                    jcf.factors AS cf_factors
+                FROM jobs j
+                INNER JOIN job_content_embeddings jce ON j.id = jce."jobId"
+                LEFT JOIN job_cf_factors jcf ON j.id = jcf."jobId"
+                WHERE j.status = 'active'
+                AND (j."deletedAt" IS NULL OR j."deletedAt" > NOW())
+                -- Apply preference filters
+                AND (%s::uuid[] IS NULL OR j."organizationId" != ALL(%s::uuid[]))
+                AND (%s::text[] IS NULL OR j.location = ANY(%s::text[]))
+                AND (%s::int IS NULL OR (j."salaryDetails"->>'minAmount')::int >= %s)
+                -- Use vector index for fast similarity search
+                -- Cast jsonb to vector for ordering
+                ORDER BY jce.embedding::text::vector <=> %s::vector
+                LIMIT 1000  -- Get more candidates for re-ranking
+            )
+            SELECT 
+                id,
+                content_score,
+                cf_factors
+            FROM vector_similarity
+            ORDER BY content_score DESC
+            LIMIT %s
+        """
+        
+        # Prepare parameters
+        hidden_companies = request.preferences.hiddenCompanyIds if request.preferences else None
+        preferred_locations = request.preferences.preferredLocations if request.preferences else None
+        min_salary = request.preferences.minSalary if request.preferences else None
+        
+        params = (
+            user_emb_str,  # vector query
+            hidden_companies, hidden_companies,
+            preferred_locations, preferred_locations,
+            min_salary, min_salary,
+            user_emb_str,  # vector query for ORDER BY
+            request.limit
+        )
+        
+        results = db.execute_query(query, params)
+        
+        # Process results and compute hybrid scores
+        user_cf = cf_service.get_user_cf_factors(request.userId)
+        scored_jobs = []
+        
+        for row in results:
+            job_id = str(row['id'])
+            content_score = float(row['content_score'])
+            
+            # CF score
+            if user_cf is not None and row['cf_factors']:
+                cf_factors = np.array(row['cf_factors'], dtype=np.float32)
+                cf_score = float(np.dot(user_cf, cf_factors))
+            else:
+                cf_score = 0.0
+            
+            # Hybrid score
+            final_score = self.alpha * content_score + (1 - self.alpha) * cf_score
+            scored_jobs.append((job_id, final_score))
+        
+        # Apply preference boosts
+        scored_jobs = self.apply_preference_boosts(scored_jobs, request.preferences)
+        scored_jobs.sort(key=lambda x: x[1], reverse=True)
+        
+        top_job_ids = [job_id for job_id, _ in scored_jobs]
+        top_scores = [score for _, score in scored_jobs]
+        
+        return top_job_ids, top_scores
     def get_similar_jobs(self, job_id: str, limit: int = 10, exclude_job_id: bool = True) -> Tuple[List[str], List[float]]:
         """Get similar jobs based on job embedding similarity with caching"""   
         try:
@@ -301,10 +424,10 @@ class RecommendationService:
             
             placeholders = ','.join(['%s'] * len(candidate_job_ids))
             try:
-                emb_query = f"""
+                emb_query =  """
                     SELECT "jobId", embedding
                     FROM job_content_embeddings
-                    WHERE "jobId" IN ({placeholders})
+                    WHERE "jobId" = ANY(%s::uuid[])
                 """
                 emb_results = db.execute_query(emb_query, tuple(candidate_job_ids))
                 for row in emb_results:
@@ -359,6 +482,52 @@ class RecommendationService:
             logger.error(f"Error getting similar jobs for {job_id}: {e}", exc_info=True)
             return [], []
         
+    def get_similar_jobs_optimized(self, job_id: str, limit: int = 10, exclude_job_id: bool = True) -> Tuple[List[str], List[float]]:
+        """Optimized using pgvector database-level search"""
+        
+        # Get source job embedding
+        source_emb = embedding_service.get_job_embedding(job_id)
+        if source_emb is None:
+            return [], []
+        
+        source_emb_str = '[' + ','.join(map(str, source_emb.tolist())) + ']'
+        
+        # Single query with vector similarity
+        # Cast jsonb to vector for pgvector operations
+        query = """
+            SELECT 
+                j.id,
+                1 - (jce.embedding::text::vector <=> %s::vector) AS similarity
+            FROM jobs j
+            INNER JOIN job_content_embeddings jce ON j.id = jce."jobId"
+            WHERE j.status = 'active'
+            AND (j."deletedAt" IS NULL OR j."deletedAt" > NOW())
+        """
+        
+        params = [source_emb_str]
+        
+        # Conditionally exclude the job_id
+        if exclude_job_id:
+            query += " AND j.id != %s"
+            params.append(job_id)
+        
+        query += """
+            ORDER BY jce.embedding::text::vector <=> %s::vector
+            LIMIT %s
+        """
+        params.extend([source_emb_str, limit])
+        
+        try:
+            results = db.execute_query(query, tuple(params))
+            
+            job_ids = [str(row['id']) for row in results]
+            scores = [float(row['similarity']) for row in results]
+            
+            return job_ids, scores
+        except Exception as e:
+            logger.error(f"Error in optimized similar jobs: {e}")
+            # Fallback to old method
+            return self.get_similar_jobs(job_id, limit, exclude_job_id=exclude_job_id)
     def _serialize_preferences(self, preferences: UserPreferences) -> dict:
         """Serialize preferences for cache key"""
         if not preferences:
@@ -369,11 +538,11 @@ class RecommendationService:
             'minSalary': preferences.minSalary,
         }
     def get_candidate_recommendations(
-        self, 
-        job_id: str, 
-        limit: int = 20, 
-        exclude_applied: bool = True,
-        min_score: float = None
+    self, 
+    job_id: str, 
+    limit: int = 20, 
+    exclude_applied: bool = True,
+    min_score: float = None
     ) -> Tuple[List[str], List[float]]:
         """Get candidate recommendations for a job (recruiter side)"""
         try:
@@ -383,20 +552,22 @@ class RecommendationService:
                 logger.warning(f"Job {job_id} has no embedding in database")
                 return [], []
             
-            # Get job CF factors for hybrid scoring
             job_cf = cf_service.get_job_cf_factors(job_id)
+            job_emb_norm = np.linalg.norm(job_emb)
             
-            # Get candidate user IDs (users with candidate profiles)
+            # OPTIMIZATION 1: Only get users who have embeddings (early filtering)
             query = """
-                SELECT DISTINCT cp."userId"
-                FROM candidate_profiles cp
-                WHERE cp."userId" IS NOT NULL
+                SELECT DISTINCT uce."userId"
+                FROM user_content_embeddings uce
+                INNER JOIN candidate_profiles cp ON uce."userId" = cp."userId"
+                WHERE uce.embedding IS NOT NULL
+                AND cp."userId" IS NOT NULL
             """
             
-            # Exclude users who already applied to this job
+            # Exclude users who already applied
             if exclude_applied:
                 query += """
-                    AND cp."userId" NOT IN (
+                    AND uce."userId" NOT IN (
                         SELECT DISTINCT ji."userId"
                         FROM job_interactions ji
                         WHERE ji."jobId" = %s
@@ -406,6 +577,9 @@ class RecommendationService:
                 params = (job_id,)
             else:
                 params = None
+            
+            # OPTIMIZATION 2: Limit early to reduce memory
+            query += " LIMIT 500"
             
             try:
                 results = db.execute_query(query, params)
@@ -418,74 +592,65 @@ class RecommendationService:
                 logger.warning("No candidate users found")
                 return [], []
             
-            # Limit candidates for performance
-            if len(candidate_user_ids) > 500:
-                candidate_user_ids = candidate_user_ids[:500]
-            
-            # Batch load all user embeddings
+            # OPTIMIZATION 3: Batch load embeddings using array parameter (more efficient)
             logger.info(f"Loading embeddings for {len(candidate_user_ids)} candidate users")
+            
+            # Use PostgreSQL array parameter instead of IN clause
+            emb_query = """
+                SELECT "userId", embedding
+                FROM user_content_embeddings
+                WHERE "userId" = ANY(%s::uuid[])
+            """
+            emb_results = db.execute_query(emb_query, (candidate_user_ids,))
+            
             user_embeddings = {}
+            for row in emb_results:
+                user_id = str(row['userId'])
+                emb_data = row['embedding']
+                if emb_data:
+                    if isinstance(emb_data, list):
+                        user_embeddings[user_id] = np.array(emb_data, dtype=np.float32)
+                    elif isinstance(emb_data, str):
+                        import json
+                        user_embeddings[user_id] = np.array(json.loads(emb_data), dtype=np.float32)
+                    else:
+                        user_embeddings[user_id] = np.array(emb_data, dtype=np.float32)
+            
+            # OPTIMIZATION 4: Batch load CF factors
+            cf_query = """
+                SELECT "userId", factors
+                FROM user_cf_factors
+                WHERE "userId" = ANY(%s::uuid[])
+            """
+            cf_results = db.execute_query(cf_query, (candidate_user_ids,))
+            
             user_cf_factors = {}
+            for row in cf_results:
+                user_id = str(row['userId'])
+                factors_data = row['factors']
+                if factors_data:
+                    if isinstance(factors_data, list):
+                        user_cf_factors[user_id] = np.array(factors_data, dtype=np.float32)
+                    elif isinstance(factors_data, str):
+                        import json
+                        user_cf_factors[user_id] = np.array(json.loads(factors_data), dtype=np.float32)
+                    else:
+                        user_cf_factors[user_id] = np.array(factors_data, dtype=np.float32)
             
-            placeholders = ','.join(['%s'] * len(candidate_user_ids))
-            try:
-                # Load user embeddings in batch
-                emb_query = f"""
-                    SELECT "userId", embedding
-                    FROM user_content_embeddings
-                    WHERE "userId" IN ({placeholders})
-                """
-                emb_results = db.execute_query(emb_query, tuple(candidate_user_ids))
-                for row in emb_results:
-                    user_id = str(row['userId'])
-                    emb_data = row['embedding']
-                    if emb_data:
-                        if isinstance(emb_data, list):
-                            user_embeddings[user_id] = np.array(emb_data, dtype=np.float32)
-                        elif isinstance(emb_data, str):
-                            import json
-                            user_embeddings[user_id] = np.array(json.loads(emb_data), dtype=np.float32)
-                        else:
-                            user_embeddings[user_id] = np.array(emb_data, dtype=np.float32)
-            except Exception as e:
-                logger.error(f"Error batch loading user embeddings: {e}")
-            
-            # Load user CF factors in batch
-            try:
-                cf_query = f"""
-                    SELECT "userId", factors
-                    FROM user_cf_factors
-                    WHERE "userId" IN ({placeholders})
-                """
-                cf_results = db.execute_query(cf_query, tuple(candidate_user_ids))
-                for row in cf_results:
-                    user_id = str(row['userId'])
-                    factors_data = row['factors']
-                    if factors_data:
-                        if isinstance(factors_data, list):
-                            user_cf_factors[user_id] = np.array(factors_data, dtype=np.float32)
-                        elif isinstance(factors_data, str):
-                            import json
-                            user_cf_factors[user_id] = np.array(json.loads(factors_data), dtype=np.float32)
-                        else:
-                            user_cf_factors[user_id] = np.array(factors_data, dtype=np.float32)
-            except Exception as e:
-                logger.error(f"Error batch loading user CF factors: {e}")
-            
-            # Compute similarity scores (hybrid: content-based + CF)
+            # OPTIMIZATION 5: Vectorized scoring (process all at once)
             scored_candidates = []
-            job_emb_norm = np.linalg.norm(job_emb)
             
             for user_id in candidate_user_ids:
                 try:
                     user_emb = user_embeddings.get(user_id)
                     user_cf = user_cf_factors.get(user_id)
                     
+                    # Skip if no embedding
+                    if user_emb is None:
+                        continue
+                    
                     # Content-based score (cosine similarity)
-                    if user_emb is not None:
-                        content_score = float(np.dot(job_emb, user_emb) / (job_emb_norm * np.linalg.norm(user_emb)))
-                    else:
-                        content_score = 0.0
+                    content_score = float(np.dot(job_emb, user_emb) / (job_emb_norm * np.linalg.norm(user_emb)))
                     
                     # Collaborative filtering score
                     if job_cf is not None and user_cf is not None:
@@ -493,10 +658,10 @@ class RecommendationService:
                     else:
                         cf_score = 0.0
                     
-                    # Hybrid combination (same alpha as user recommendations)
+                    # Hybrid combination
                     final_score = self.alpha * content_score + (1 - self.alpha) * cf_score
                     
-                    # Apply minimum score threshold if specified
+                    # Apply minimum score threshold
                     if min_score is not None and final_score < min_score:
                         continue
                     
@@ -515,99 +680,10 @@ class RecommendationService:
             
             logger.info(f"Generated {len(top_user_ids)} candidate recommendations for job {job_id}")
             return top_user_ids, top_scores
+            
         except Exception as e:
             logger.error(f"Error getting candidate recommendations for {job_id}: {e}", exc_info=True)
             return [], []
-            """Get similar jobs based on job embedding similarity"""
-            try:
-                # Get the source job's embedding
-                source_emb = embedding_service.get_job_embedding(job_id)
-                if source_emb is None:
-                    logger.warning(f"Job {job_id} has no embedding in database")
-                    return [], []
-                
-                # Get candidate jobs (active jobs only)
-                query = """
-                    SELECT j.id
-                    FROM jobs j
-                    WHERE j.status = 'active'
-                    AND (j."deletedAt" IS NULL OR j."deletedAt" > NOW())
-                """
-                if exclude_job_id:
-                    query += " AND j.id != %s"
-                    params = (job_id,)
-                else:
-                    params = None
-                
-                try:
-                    results = db.execute_query(query, params)
-                    candidate_job_ids = [str(row['id']) for row in results]
-                except Exception as e:
-                    logger.error(f"Error getting candidate jobs: {e}")
-                    return [], []
-                
-                if not candidate_job_ids:
-                    logger.warning("No candidate jobs found")
-                    return [], []
-                
-                # Limit candidates for performance
-                if len(candidate_job_ids) > 500:
-                    candidate_job_ids = candidate_job_ids[:500]
-                
-                # Batch load all job embeddings
-                logger.info(f"Loading embeddings for {len(candidate_job_ids)} candidate jobs")
-                job_embeddings = {}
-                
-                placeholders = ','.join(['%s'] * len(candidate_job_ids))
-                try:
-                    emb_query = f"""
-                        SELECT "jobId", embedding
-                        FROM job_content_embeddings
-                        WHERE "jobId" IN ({placeholders})
-                    """
-                    emb_results = db.execute_query(emb_query, tuple(candidate_job_ids))
-                    for row in emb_results:
-                        job_id_candidate = str(row['jobId'])
-                        emb_data = row['embedding']
-                        if emb_data:
-                            if isinstance(emb_data, list):
-                                job_embeddings[job_id_candidate] = np.array(emb_data, dtype=np.float32)
-                            elif isinstance(emb_data, str):
-                                import json
-                                job_embeddings[job_id_candidate] = np.array(json.loads(emb_data), dtype=np.float32)
-                            else:
-                                job_embeddings[job_id_candidate] = np.array(emb_data, dtype=np.float32)
-                except Exception as e:
-                    logger.error(f"Error batch loading job embeddings: {e}")
-                
-                # Compute similarity scores
-                scored_jobs = []
-                source_emb_norm = np.linalg.norm(source_emb)
-                
-                for candidate_id in candidate_job_ids:
-                    try:
-                        candidate_emb = job_embeddings.get(candidate_id)
-                        if candidate_emb is not None:
-                            # Compute cosine similarity
-                            similarity = float(np.dot(source_emb, candidate_emb) / (source_emb_norm * np.linalg.norm(candidate_emb)))
-                            scored_jobs.append((candidate_id, similarity))
-                    except Exception as e:
-                        logger.error(f"Error computing similarity for job {candidate_id}: {e}")
-                        continue
-                
-                # Sort by similarity (descending)
-                scored_jobs.sort(key=lambda x: x[1], reverse=True)
-                
-                # Return top N
-                top_jobs = scored_jobs[:limit]
-                top_job_ids = [job_id for job_id, _ in top_jobs]
-                top_scores = [score for _, score in top_jobs]
-                
-                logger.info(f"Generated {len(top_job_ids)} similar jobs for job {job_id}")
-                return top_job_ids, top_scores
-            except Exception as e:
-                logger.error(f"Error getting similar jobs for {job_id}: {e}", exc_info=True)
-                return [], []
 
     def get_search_recommendations(self, request: RecommendationRequest) -> Tuple[List[str], List[float]]:
         """
@@ -616,7 +692,7 @@ class RecommendationService:
         """
         try:
             # First, get candidate jobs with all filters applied (including searchTerm, skillsLike, etc.)
-            candidate_job_ids = self.get_candidate_jobs(
+            candidate_job_ids = self.get_candidate_jobs_optimized(
                 request.userId, 
                 request.preferences,
             )
@@ -890,4 +966,34 @@ class RecommendationService:
         except Exception as e:
             logger.error(f"Error in semantic search fallback: {e}", exc_info=True)
             return [], []
+        
+    # Optimized version using PostgreSQL array
+    def batch_load_embeddings(self, job_ids: List[str]) -> dict[str, np.ndarray]:
+        """Optimized batch loading using array parameters"""
+        if not job_ids:
+            return {}
+        
+        # Use PostgreSQL array parameter (more efficient than IN clause)
+        query = """
+            SELECT "jobId", embedding
+            FROM job_content_embeddings
+            WHERE "jobId" = ANY(%s::uuid[])
+        """
+        
+        results = db.execute_query(query, (job_ids,))
+        
+        embeddings = {}
+        for row in results:
+            job_id = str(row['jobId'])
+            emb_data = row['embedding']
+            if emb_data:
+                if isinstance(emb_data, list):
+                    embeddings[job_id] = np.array(emb_data, dtype=np.float32)
+                elif isinstance(emb_data, str):
+                    import json
+                    embeddings[job_id] = np.array(json.loads(emb_data), dtype=np.float32)
+                else:
+                    embeddings[job_id] = np.array(emb_data, dtype=np.float32)
+        
+        return embeddings
 recommendation_service = RecommendationService()

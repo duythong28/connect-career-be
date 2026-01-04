@@ -20,7 +20,7 @@ export interface SendNotificationJobData {
   htmlContent?: string;
   type?: string;
   metadata?: Record<string, any>;
-  notificationId?: string; // If updating existing notification
+  notificationId?: string;
 }
 
 @Processor('notifications')
@@ -42,12 +42,12 @@ export class NotificationProcessor extends WorkerHost {
       channel,
       title,
       message,
-      htmlContent,
+      htmlContent: jobHtmlContent,
       type,
       metadata,
       notificationId,
     } = job.data;
-
+  
     this.logger.log(
       `Processing notification job ${job.id} for recipient ${recipient} via ${channel}`,
     );
@@ -55,7 +55,10 @@ export class NotificationProcessor extends WorkerHost {
     try {
       // Get or create notification record
       let notification: NotificationEntity;
+      let htmlContent = jobHtmlContent; // Start with job data (might be undefined)
 
+      // ALWAYS fetch from database if notificationId exists
+      // This ensures we get the full htmlContent even if it wasn't serialized in the queue
       if (notificationId) {
         const foundNotification =
           await this.notificationRepository.findById(notificationId);
@@ -63,6 +66,20 @@ export class NotificationProcessor extends WorkerHost {
           throw new Error(`Notification ${notificationId} not found`);
         }
         notification = foundNotification;
+        
+        // Use htmlContent from database (it's always there and complete)
+        if (notification.htmlContent) {
+          htmlContent = notification.htmlContent;
+          this.logger.log(
+            `Using htmlContent from database (length: ${htmlContent.length})`,
+          );
+        } else if (jobHtmlContent) {
+          // Fallback to job data if database doesn't have it
+          htmlContent = jobHtmlContent;
+          this.logger.log(
+            `Using htmlContent from job data (length: ${htmlContent.length})`,
+          );
+        }
       } else {
         // Create notification record with PENDING status
         notification = await this.notificationRepository.create({
@@ -75,17 +92,28 @@ export class NotificationProcessor extends WorkerHost {
           metadata,
           status: NotificationStatus.PENDING,
         });
-      }
+      }  
 
       // Get provider and send notification
       const provider = this.providerFactory.createProvider(channel);
-      await provider.send(recipient, title, message);
-
+      const contentToSend =
+        channel === NotificationChannel.EMAIL && htmlContent
+          ? htmlContent
+          : message;
+      
+      if (channel === NotificationChannel.EMAIL) {
+        this.logger.log(
+          `Sending EMAIL with htmlContent length: ${htmlContent?.length || 0}`,
+        );
+      }
+      
+      await provider.send(recipient, title, contentToSend);
+  
       // Update notification status to SENT
       notification.status = NotificationStatus.SENT;
       notification.sentAt = new Date();
       await this.notificationRepository.save(notification);
-
+  
       this.logger.log(
         `Successfully sent notification ${notification.id} to ${recipient} via ${channel}`,
       );
@@ -94,7 +122,7 @@ export class NotificationProcessor extends WorkerHost {
         `Failed to send notification to ${recipient} via ${channel}`,
         error,
       );
-
+  
       // Update notification status to FAILED if it exists
       if (notificationId) {
         try {
@@ -111,7 +139,7 @@ export class NotificationProcessor extends WorkerHost {
           );
         }
       }
-
+  
       throw error; // Re-throw to trigger retry mechanism
     }
   }

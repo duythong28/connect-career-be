@@ -29,6 +29,12 @@ import { RegisterPushTokenDto } from '../application/dtos/register-push-token.dt
 import { NotificationQueueService } from 'src/shared/infrastructure/queue/services/notification-queue.service';
 import { PushProvider } from '../infrastructure/providers/push/push.provider';
 import * as admin from 'firebase-admin';
+import { NotificationChannel } from '../domain/entities/notification.entity';
+import { ProviderFactory } from '../infrastructure/providers/common/provider.factory';
+import { JobAlertEmail } from '../infrastructure/providers/common/template/job-alert.template';
+import { render } from '@react-email/components';
+import { JobAlertScheduler } from '../infrastructure/schedulers/job-alert.scheduler';
+import { JobAlertTestService } from '../application/services/job-alert-test.service';
 
 @ApiTags('Notifications')
 @Controller('v1/notifications')
@@ -37,9 +43,12 @@ import * as admin from 'firebase-admin';
 export class NotificationsController {
   constructor(
     private readonly commandBus: CommandBus,
+    private readonly providerFactory: ProviderFactory,
     private readonly notificationService: NotificationService,
     private readonly notificationQueueService: NotificationQueueService,
     private readonly pushProvider: PushProvider,
+    private readonly jobAlertScheduler: JobAlertScheduler,
+    private readonly jobAlertTestService: JobAlertTestService,
   ) {}
 
   @Post('send')
@@ -139,7 +148,7 @@ export class NotificationsController {
   async getQueueStats() {
     return this.notificationQueueService.getQueueStats();
   }
-  
+
   @Get('push/test-connection')
   @decorators.Public()
   @ApiOperation({ summary: 'Test FCM connection and credentials' })
@@ -164,7 +173,7 @@ export class NotificationsController {
     try {
       // Check if user has registered push tokens
       const tokens = await this.notificationService.getPushTokens(user.sub);
-      
+
       if (tokens.length === 0) {
         throw new BadRequestException(
           'No push tokens registered. Please register a push token first using POST /v1/notifications/push-token',
@@ -198,7 +207,9 @@ export class NotificationsController {
   }
 
   @Post('push/test/:userId')
-  @ApiOperation({ summary: 'Send test push notification to specific user (Admin)' })
+  @ApiOperation({
+    summary: 'Send test push notification to specific user (Admin)',
+  })
   @ApiResponse({ status: 200, description: 'Test notification sent' })
   async testPushNotificationToUser(
     @Param('userId') userId: string,
@@ -206,7 +217,7 @@ export class NotificationsController {
   ) {
     try {
       const tokens = await this.notificationService.getPushTokens(userId);
-      
+
       if (tokens.length === 0) {
         throw new BadRequestException(
           `No push tokens registered for user ${userId}`,
@@ -238,10 +249,14 @@ export class NotificationsController {
   }
 
   @Post('push/test-direct')
-  @ApiOperation({ summary: 'Send test push notification directly to FCM token (for testing/debugging)' })
+  @ApiOperation({
+    summary:
+      'Send test push notification directly to FCM token (for testing/debugging)',
+  })
   @ApiResponse({ status: 200, description: 'Test notification sent' })
   async testPushNotificationDirect(
-    @Body() body: {
+    @Body()
+    body: {
       fcmToken: string;
       title?: string;
       message?: string;
@@ -260,7 +275,7 @@ export class NotificationsController {
 
       // Send directly using Firebase Admin SDK
       const messaging = admin.messaging();
-      
+
       const message = {
         token: body.fcmToken,
         notification: {
@@ -303,18 +318,22 @@ export class NotificationsController {
         error: errorMessage,
         errorCode,
         message: 'Failed to send test push notification',
-        details: errorCode === 'messaging/registration-token-not-registered' 
-          ? 'The FCM token is not registered or has expired. Make sure the token is valid and the user has the app/browser open.'
-          : errorMessage,
+        details:
+          errorCode === 'messaging/registration-token-not-registered'
+            ? 'The FCM token is not registered or has expired. Make sure the token is valid and the user has the app/browser open.'
+            : errorMessage,
       };
     }
   }
 
   @Post('push/test-batch')
-  @ApiOperation({ summary: 'Send test push notification to multiple FCM tokens at once' })
+  @ApiOperation({
+    summary: 'Send test push notification to multiple FCM tokens at once',
+  })
   @ApiResponse({ status: 200, description: 'Test notifications sent' })
   async testPushNotificationBatch(
-    @Body() body: {
+    @Body()
+    body: {
       fcmTokens: string[];
       title?: string;
       message?: string;
@@ -322,8 +341,14 @@ export class NotificationsController {
     },
   ) {
     try {
-      if (!body.fcmTokens || !Array.isArray(body.fcmTokens) || body.fcmTokens.length === 0) {
-        throw new BadRequestException('fcmTokens array is required and must not be empty');
+      if (
+        !body.fcmTokens ||
+        !Array.isArray(body.fcmTokens) ||
+        body.fcmTokens.length === 0
+      ) {
+        throw new BadRequestException(
+          'fcmTokens array is required and must not be empty',
+        );
       }
 
       if (body.fcmTokens.length > 500) {
@@ -385,5 +410,94 @@ export class NotificationsController {
         message: 'Failed to send batch test push notifications',
       };
     }
+  }
+  @Post('email/test-job-alert')
+  @ApiOperation({ summary: 'Send test job alert email' })
+  async testJobAlertEmail(
+    @Body()
+    body: {
+      recipient: string;
+      userFirstname?: string;
+      jobTitle?: string;
+      locationName?: string;
+      jobs?: any[];
+      viewAllJobsUrl?: string;
+    },
+  ) {
+    const emailHtml = await render(
+      JobAlertEmail({
+        userFirstname: body.userFirstname || 'John',
+        jobTitle: body.jobTitle || 'Software Engineer',
+        locationName: body.locationName || 'Ho Chi Minh City',
+        viewAllJobsUrl: body.viewAllJobsUrl || 'https://connectcareer.com/jobs',
+        jobs: body.jobs || [
+          {
+            id: '1',
+            title: 'Senior Full-Stack Developer',
+            company: 'KMS Technology, Inc.',
+            location: 'Ho Chi Minh City, Vietnam (Hybrid)',
+            logoUrl: 'https://placehold.co/56x56/47699d/white?text=KMS',
+            salary: '$1,500 - $2,500',
+            jobType: 'Full-time',
+            seniorityLevel: 'Senior',
+            jobUrl: 'https://connectcareer.com/jobs/1',
+            matchScore: 95,
+            postedDate: '2 days ago',
+          },
+          {
+            id: '2',
+            title: 'Frontend Developer (React)',
+            company: 'Hitachi Digital Services',
+            location: 'Ho Chi Minh City Metropolitan Area (Remote)',
+            logoUrl: 'https://placehold.co/56x56/f8a600/white?text=H',
+            salary: '$1,200 - $2,000',
+            jobType: 'Full-time',
+            seniorityLevel: 'Mid-level',
+            jobUrl: 'https://connectcareer.com/jobs/2',
+            matchScore: 88,
+            postedDate: '1 day ago',
+          },
+        ],
+      }),
+    );
+
+    const provider = this.providerFactory.createProvider(
+      NotificationChannel.EMAIL,
+    );
+    await provider.send(
+      body.recipient,
+      'New Jobs Matching Your Profile - ConnectCareer',
+      emailHtml,
+    );
+
+    return {
+      success: true,
+      message: 'Test job alert email sent successfully',
+    };
+  }
+
+  @Post('job-alert/trigger')
+  @ApiOperation({ summary: 'Manually trigger job alert scheduler' })
+  async triggerJobAlert() {
+    await this.jobAlertScheduler.executeJobAlerts();
+    return { success: true, message: 'Job alerts triggered' };
+  }
+
+  @Post('job-alert/test/:userId')
+  @ApiOperation({
+    summary: 'Test job recommendation alert for specific user (Admin/Test)',
+    description:
+      'Sends job recommendation push notification (and email if enabled) to a specific user by userId',
+  })
+  @ApiResponse({ status: 200, description: 'Job alert sent successfully' })
+  @ApiResponse({
+    status: 400,
+    description: 'User not found or no recommendations available',
+  })
+  async testJobAlertForUser(
+    @Param('userId') userId: string,
+    @Body() body?: { sendEmail?: boolean; sendPush?: boolean; limit?: number },
+  ) {
+    return await this.jobAlertTestService.testJobAlertForUser(userId, body);
   }
 }

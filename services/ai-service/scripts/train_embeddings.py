@@ -80,7 +80,10 @@ def build_job_text(job_data: dict) -> str:
 
 
 def train_job_embeddings():
-    """Generate embeddings for all active jobs"""
+    """Generate embeddings for all active jobs - regenerates all embeddings"""
+    import time
+    from google.api_core import exceptions
+    
     logger.info("Starting job embeddings training...")
     embedding_svc = EmbeddingService()
     
@@ -110,49 +113,91 @@ def train_job_embeddings():
         """
         
         jobs = db.execute_query(query)
-        logger.info(f"Processing {len(jobs)} jobs")
+        logger.info(f"Processing {len(jobs)} jobs - regenerating all embeddings")
         
         processed = 0
         failed = 0
         
-        for job_row in jobs:
-            try:
-                job_id = str(job_row['id'])
-                
-                # Build text representation
-                job_text = build_job_text(dict(job_row))
-                
-                if not job_text.strip():
-                    logger.warning(f"Job {job_id} has no text content, skipping")
-                    continue
-                
-                # Generate embedding
-                embedding = embedding_svc.encode_text(job_text)
-                
-                # Upsert into database (using camelCase column name as per entity)
-                upsert_query = """
-                    INSERT INTO job_content_embeddings ("jobId", embedding)
-                    VALUES (%s, %s::jsonb)
-                    ON CONFLICT ("jobId") 
-                    DO UPDATE SET embedding = EXCLUDED.embedding
-                """
-                db.execute_update(upsert_query, (job_id, json.dumps(embedding.tolist())))
-                
-                processed += 1
-                if processed % 100 == 0:
-                    logger.info(f"Processed {processed}/{len(jobs)} jobs...")
+        # Chunking and rate limiting configuration
+        chunk_size = 5  # Reduced from 10 to 5
+        delay_between_chunks = 30.0  # Increased from 15 to 30 seconds
+        delay_between_jobs = 3.0  # Increased from 2 to 3 seconds
+        quota_wait_time = 120  # Increased from 60 to 120 seconds
+        max_quota_errors = 3 
+        
+        quota_error_count = 0
+        consecutive_quota_errors = 0
+        
+        for chunk_start in range(0, len(jobs), chunk_size):
+            chunk = jobs[chunk_start:chunk_start + chunk_size]
+            chunk_num = chunk_start // chunk_size + 1
+            total_chunks = (len(jobs) + chunk_size - 1) // chunk_size
+            logger.info(f"Processing chunk {chunk_num}/{total_chunks} ({len(chunk)} jobs)")
+            
+            chunk_quota_hit = False
+            
+            for job_row in chunk:
+                try:
+                    job_id = str(job_row['id'])
                     
-            except Exception as e:
-                failed += 1
-                logger.error(f"Error processing job {job_row.get('id')}: {e}")
-                continue
+                    # Build text representation
+                    job_text = build_job_text(dict(job_row))
+                    
+                    if not job_text.strip():
+                        logger.warning(f"Job {job_id} has no text content, skipping")
+                        failed += 1
+                        continue
+                    
+                    embedding = embedding_svc.encode_text(job_text)
+                    
+                    upsert_query = """
+                        INSERT INTO job_content_embeddings ("jobId", embedding)
+                        VALUES (%s, %s::jsonb)
+                        ON CONFLICT ("jobId") 
+                        DO UPDATE SET embedding = EXCLUDED.embedding
+                    """
+                    db.execute_update(upsert_query, (job_id, json.dumps(embedding.tolist())))
+                    
+                    processed += 1
+                    quota_error_count = 0  # Reset on success
+                    
+                    if processed % 10 == 0:
+                        logger.info(f"Processed {processed}/{len(jobs)} jobs... (Failed: {failed})")
+                    
+                    # Small delay between jobs to respect rate limits
+                    time.sleep(delay_between_jobs)
+                    
+                except exceptions.ResourceExhausted as e:
+                    failed += 1
+                    quota_error_count += 1
+                    chunk_quota_hit = True
+                    logger.error(f"Quota exceeded for job {job_id}: {e}")
+                    
+                    # Exponential backoff on quota errors
+                    wait_time = min(quota_wait_time * (2 ** (quota_error_count - 1)), 300)
+                    logger.warning(f"Waiting {wait_time} seconds before continuing due to quota limit (error #{quota_error_count})...")
+                    time.sleep(wait_time)
+                    break  # Exit chunk on quota error
+                    
+                except Exception as e:
+                    failed += 1
+                    logger.error(f"Error processing job {job_row.get('id')}: {e}", exc_info=True)
+                    continue
+            
+            # Delay between chunks (longer if quota was hit)
+            if chunk_quota_hit:
+                wait_time = 60
+                logger.warning(f"Quota exceeded in chunk {chunk_num}. Waiting {wait_time}s before next chunk...")
+                time.sleep(wait_time)
+            elif chunk_start + chunk_size < len(jobs):
+                logger.info(f"Chunk complete. Waiting {delay_between_chunks}s before next chunk...")
+                time.sleep(delay_between_chunks)
         
         logger.info(f"Job embeddings training complete! Processed: {processed}, Failed: {failed}")
     
     except Exception as e:
         logger.error(f"Error training job embeddings: {e}", exc_info=True)
         raise
-
 
 def build_user_text(user_data: dict) -> str:
     """Build text representation of user for embedding"""

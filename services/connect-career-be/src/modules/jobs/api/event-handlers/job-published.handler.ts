@@ -38,6 +38,12 @@ export class JobPublishedHandler implements IEventHandler<JobPublishedEvent> {
         `Found ${matchingCandidates.length} matching candidates for job ${event.jobId}`,
       );
 
+      // Get frontend URL for deep linking
+      const frontendUrl =
+        this.configService.get<string>('FRONTEND_URL') ||
+        'https://connect-career.vercel.app';
+      const jobDeepLink = `${frontendUrl}/jobs/${event.jobId}`;
+
       // Send notifications to matching candidates
       for (const candidateId of matchingCandidates) {
         try {
@@ -54,6 +60,7 @@ export class JobPublishedHandler implements IEventHandler<JobPublishedEvent> {
                 jobId: event.jobId,
                 jobTitle: event.jobTitle,
                 organizationId: event.organizationId,
+                deepLink: jobDeepLink, // Add deep link for push notifications
               },
             },
             event,
@@ -85,9 +92,9 @@ export class JobPublishedHandler implements IEventHandler<JobPublishedEvent> {
 
       const { data } = await firstValueFrom(
         this.httpService.post<{ userIds: string[]; scores: number[] }>(
-          `${aiUrl}/v1/jobs/${jobId}/candidates`,
+          `${aiUrl}/api/v1/jobs/${jobId}/candidates`,
           {
-            limit: 50,
+            limit: 100,
             excludeApplied: true,
             minScore: 0.5,
           },

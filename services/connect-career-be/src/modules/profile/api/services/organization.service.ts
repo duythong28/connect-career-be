@@ -40,10 +40,6 @@ export class OrganizationService {
     userId: string,
     dto: CreateOrganizationDto,
   ): Promise<Organization> {
-    const existingOrg = await this.organizationRepository.findByUserId(userId);
-    if (existingOrg) {
-      throw new BadRequestException('Organization already exists');
-    }
     return this.organizationRBACService.createOrganizationWithOwner(
       userId,
       dto,

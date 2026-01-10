@@ -1,4 +1,4 @@
-import { Injectable } from '@nestjs/common';
+import { Injectable, Logger } from '@nestjs/common';
 import { IEventHandler, EventsHandler } from '@nestjs/cqrs';
 import { ProviderFactory } from '../../infrastructure/providers/common/provider.factory';
 import { NotificationChannel } from '../../domain/entities/notification.entity';
@@ -16,6 +16,7 @@ export class UserRegisteredHandler
   implements IEventHandler<UserRegisteredEvent>
 {
   constructor(
+    private readonly logger = new Logger(UserRegisteredHandler.name),
     private readonly providerFactory: ProviderFactory,
     private readonly configService: ConfigService,
     @InjectRepository(UserNotificationPreferences)
@@ -29,20 +30,34 @@ export class UserRegisteredHandler
       'https://connect-career.vercel.app';
     const verifyUrl = `${appWebUrl}/verify-email?token=${encodeURIComponent(event.token)}`;
 
-    const provider = this.providerFactory.createProvider(
-      NotificationChannel.EMAIL,
-    );
-    // Render the React email template to HTML
-    const emailHtml = await render(
-      WelcomeEmail({
-        userFirstname: event.firstName,
-        url: verifyUrl,
-      }),
-    );
+    try {
+      const provider = this.providerFactory.createProvider(
+        NotificationChannel.EMAIL,
+      );
+      
+      if (provider) {
+        // Render the React email template to HTML
+        const emailHtml = await render(
+          WelcomeEmail({
+            userFirstname: event.firstName,
+            url: verifyUrl,
+          }),
+        );
 
-    const title = '[CONNECTCAREER] Verify your email';
-
-    await provider.send(event.email, title, emailHtml);
+        const title = '[CONNECTCAREER] Verify your email';
+        await provider.send(event.email, title, emailHtml);
+        this.logger.log(`Verification email sent successfully to ${event.email}`);
+      } else {
+        this.logger.warn('Email provider not configured, skipping email send');
+      }
+    } catch (error) {
+      // Log error but don't fail the handler - preferences should still be created
+      this.logger.error(
+        `Failed to send verification email to ${event.email}:`,
+        error.message || error,
+      );
+      // Optionally, you could queue a retry here or send to a dead letter queue
+    }
 
     await this.createDefaultPreferences(event.userId);
   }

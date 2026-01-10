@@ -216,7 +216,21 @@ jobs:
             export CC_BE_TAG=${BACKEND_TAG}
             export AI_SERVICE_TAG=${AI_SERVICE_TAG}
             export ENVIRONMENT=${ENVIRONMENT}
+            
+            # Option A: Source it from .bashrc if it's there
+            if [ -f ~/.bashrc ]; then
+              source ~/.bashrc
+            fi
 
+            if [ ! -f \"\$GOOGLE_CREDENTIALS_PATH\" ]; then
+              echo \"❌ ERROR: Credentials file not found at \$GOOGLE_CREDENTIALS_PATH\"
+              echo \"Checking common locations...\"
+              ls -la /opt/credentials/ 2>/dev/null || echo '  /opt/credentials/ does not exist'
+              ls -la ~/credentials/ 2>/dev/null || echo '  ~/credentials/ does not exist'
+              exit 1
+            fi
+            
+            echo \"✅ Using credentials: \$GOOGLE_CREDENTIALS_PATH\"
             echo 'Checking disk space...'
             AVAILABLE_SPACE=\$(df -BG / | awk 'NR==2 {print \$4}' | sed 's/G//')
             MIN_REQUIRED=5

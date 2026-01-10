@@ -242,7 +242,10 @@ jobs:
             
             echo \"✅ Credentials file verified: \$GOOGLE_CREDENTIALS_PATH\"
             echo \"   File size: \$(stat -c%s \"\$GOOGLE_CREDENTIALS_PATH\") bytes\"
+            echo 'Stopping old containers...'
+            docker compose -f docker-compose.base.yml -f docker-compose.override.yml down -v || true
             echo 'Checking disk space...'
+            
             AVAILABLE_SPACE=\$(df -BG / | awk 'NR==2 {print \$4}' | sed 's/G//')
             MIN_REQUIRED=5
             echo \"Current available space: \${AVAILABLE_SPACE}GB\"

@@ -218,19 +218,30 @@ jobs:
             export ENVIRONMENT=${ENVIRONMENT}
             
             # Option A: Source it from .bashrc if it's there
-            if [ -f ~/.bashrc ]; then
-              source ~/.bashrc
-            fi
-
-            if [ ! -f \"\$GOOGLE_CREDENTIALS_PATH\" ]; then
-              echo \"❌ ERROR: Credentials file not found at \$GOOGLE_CREDENTIALS_PATH\"
-              echo \"Checking common locations...\"
-              ls -la /opt/credentials/ 2>/dev/null || echo '  /opt/credentials/ does not exist'
-              ls -la ~/credentials/ 2>/dev/null || echo '  ~/credentials/ does not exist'
+            if [ -d /opt/credentials ]; then
+              CREDENTIALS_FILE=\$(find /opt/credentials -name '*-ac884452d866.json' -type f | head -n 1)
+              if [ -n \"\$CREDENTIALS_FILE\" ] && [ -f \"\$CREDENTIALS_FILE\" ]; then
+                export GOOGLE_CREDENTIALS_PATH=\"\$CREDENTIALS_FILE\"
+                echo \"✅ Found credentials file: \$GOOGLE_CREDENTIALS_PATH\"
+              else
+                echo \"❌ ERROR: No credentials file found matching pattern *-ac884452d866.json in /opt/credentials/\"
+                ls -la /opt/credentials/
+                exit 1
+              fi
+            else
+              echo \"❌ ERROR: /opt/credentials directory does not exist\"
               exit 1
             fi
             
-            echo \"✅ Using credentials: \$GOOGLE_CREDENTIALS_PATH\"
+            # Verify it's a file (not directory)
+            if [ ! -f \"\$GOOGLE_CREDENTIALS_PATH\" ]; then
+              echo \"❌ ERROR: \$GOOGLE_CREDENTIALS_PATH is not a file (might be a directory)\"
+              ls -la \"\$GOOGLE_CREDENTIALS_PATH\"
+              exit 1
+            fi
+            
+            echo \"✅ Credentials file verified: \$GOOGLE_CREDENTIALS_PATH\"
+            echo \"   File size: \$(stat -c%s \"\$GOOGLE_CREDENTIALS_PATH\") bytes\"
             echo 'Checking disk space...'
             AVAILABLE_SPACE=\$(df -BG / | awk 'NR==2 {print \$4}' | sed 's/G//')
             MIN_REQUIRED=5

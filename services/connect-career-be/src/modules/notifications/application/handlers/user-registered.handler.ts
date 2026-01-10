@@ -15,8 +15,8 @@ import { UserNotificationPreferences } from '../../domain/entities/user-notifica
 export class UserRegisteredHandler
   implements IEventHandler<UserRegisteredEvent>
 {
+  private readonly logger = new Logger(UserRegisteredHandler.name);
   constructor(
-    private readonly logger = new Logger(UserRegisteredHandler.name),
     private readonly providerFactory: ProviderFactory,
     private readonly configService: ConfigService,
     @InjectRepository(UserNotificationPreferences)

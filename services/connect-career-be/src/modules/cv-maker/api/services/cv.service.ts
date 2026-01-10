@@ -40,6 +40,7 @@ export class CVService {
       'application/vnd.openxmlformats-officedocument.wordprocessingml.document',
       'text/plain',
       'application/rtf',
+      'application/octet-stream'
     ];
 
     if (!allowedMimeTypes.includes(file.mimeType)) {

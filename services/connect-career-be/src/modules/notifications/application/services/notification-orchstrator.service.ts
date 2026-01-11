@@ -47,7 +47,7 @@ export class NotificationOrchestratorService {
       }
 
       const recipients = await this.getRecipients(event);
-      
+
       for (const recipient of recipients) {
         await this.sendToRecipient(recipient, notificationConfig, event);
       }
@@ -66,13 +66,20 @@ export class NotificationOrchestratorService {
     event: IDomainEvent,
   ): Promise<void> {
     const preferences = await this.getOrCreatePreferences(userId);
-    const channels = this.selectChannels(config.type, config.channels, preferences);
+    const channels = this.selectChannels(
+      config.type,
+      config.channels,
+      preferences,
+    );
 
     for (const channel of channels) {
       try {
         await this.sendViaChannel(userId, channel, config, event, preferences);
       } catch (error) {
-        this.logger.error(`Failed to send via ${channel} to user ${userId}`, error);
+        this.logger.error(
+          `Failed to send via ${channel} to user ${userId}`,
+          error,
+        );
       }
     }
   }
@@ -85,13 +92,28 @@ export class NotificationOrchestratorService {
     preferences: UserNotificationPreferences,
   ): Promise<void> {
     try {
+      const eventData = event as any;
+      if (config.metadata?.emailHtml && !eventData.emailHtml) {
+        eventData.emailHtml = config.metadata.emailHtml;
+      }
+      
+      // Also merge other metadata fields that might be needed
+      if (config.metadata?.jobs && !eventData.jobs) {
+        eventData.jobs = config.metadata.jobs;
+      }
+      if (config.metadata?.jobIds && !eventData.jobIds) {
+        eventData.jobIds = config.metadata.jobIds;
+      }  
       const template = await this.templateService.getTemplate(
         config.type,
         channel,
         event,
       );
 
-      const recipientIdentifier = await this.getRecipientIdentifier(userId, channel);
+      const recipientIdentifier = await this.getRecipientIdentifier(
+        userId,
+        channel,
+      );
 
       // Create notification record
       const notification = this.notificationRepository.create({
@@ -106,9 +128,7 @@ export class NotificationOrchestratorService {
       });
 
       await this.notificationRepository.save(notification);
-
-      // Queue notification for async processing
-      await this.notificationQueueService.queueNotification({
+      const queueData = {
         recipient: recipientIdentifier,
         channel,
         title: template.title,
@@ -117,17 +137,37 @@ export class NotificationOrchestratorService {
         type: config.type,
         metadata: config.metadata,
         notificationId: notification.id,
+      };
+      console.log(`Queuing ${channel} notification:`, {
+        hasHtmlContent: !!queueData.htmlContent,
+        htmlContentLength: queueData.htmlContent?.length || 0,
+        notificationId: notification.id,
+      });
+
+      // Queue notification for async processing
+      await this.notificationQueueService.queueNotification({
+        recipient: recipientIdentifier,
+        channel,
+        title: template.title,
+        message: template.message,
+        type: config.type,
+        metadata: config.metadata,
+        notificationId: notification.id,
       });
     } catch (error) {
-      this.logger.error(`Error sending notification via channel: ${channel}`, error);
+      this.logger.error(
+        `Error sending notification via channel: ${channel}`,
+        error,
+      );
       throw error;
     }
   }
 
-
-  private mapEventToNotification(event: IDomainEvent): NotificationConfig | null {
+  private mapEventToNotification(
+    event: IDomainEvent,
+  ): NotificationConfig | null {
     const eventName = event.constructor.name;
-    
+
     // Map domain events to notification types
     const eventMapping: Record<string, NotificationConfig> = {
       ApplicationCreatedEvent: {
@@ -136,11 +176,19 @@ export class NotificationOrchestratorService {
       },
       ApplicationStatusChangedEvent: {
         type: NotificationType.APPLICATION_STATUS_CHANGED,
-        channels: [NotificationChannel.EMAIL, NotificationChannel.WEBSOCKET, NotificationChannel.PUSH],
+        channels: [
+          NotificationChannel.EMAIL,
+          NotificationChannel.WEBSOCKET,
+          NotificationChannel.PUSH,
+        ],
       },
       InterviewScheduledEvent: {
         type: NotificationType.INTERVIEW_SCHEDULED,
-        channels: [NotificationChannel.EMAIL, NotificationChannel.WEBSOCKET, NotificationChannel.PUSH],
+        channels: [
+          NotificationChannel.EMAIL,
+          NotificationChannel.WEBSOCKET,
+          NotificationChannel.PUSH,
+        ],
       },
       // Add more mappings as needed
     };
@@ -151,11 +199,11 @@ export class NotificationOrchestratorService {
   private async getRecipients(event: IDomainEvent): Promise<string[]> {
     // Extract recipient IDs from event
     const eventData = event as any;
-    
+
     if (eventData.userId) {
       return [eventData.userId];
     }
-    
+
     if (eventData.recipientIds) {
       return eventData.recipientIds;
     }
@@ -169,23 +217,33 @@ export class NotificationOrchestratorService {
     preferences: UserNotificationPreferences,
   ): NotificationChannel[] {
     const typeKey = type.toLowerCase();
-    const typePreferences = preferences.preferences[typeKey as keyof typeof preferences.preferences];
-    
+    const typePreferences =
+      preferences.preferences[typeKey as keyof typeof preferences.preferences];
+
     if (!typePreferences) {
       return suggestedChannels;
     }
 
     const enabledChannels: NotificationChannel[] = [];
-    
-    if (preferences.preferences.email?.enabled && suggestedChannels.includes(NotificationChannel.EMAIL)) {
+
+    if (
+      preferences.preferences.email?.enabled &&
+      suggestedChannels.includes(NotificationChannel.EMAIL)
+    ) {
       enabledChannels.push(NotificationChannel.EMAIL);
     }
-    
-    if (preferences.preferences.push?.enabled && suggestedChannels.includes(NotificationChannel.PUSH)) {
+
+    if (
+      preferences.preferences.push?.enabled &&
+      suggestedChannels.includes(NotificationChannel.PUSH)
+    ) {
       enabledChannels.push(NotificationChannel.PUSH);
     }
-    
-    if (preferences.preferences.inApp?.enabled && suggestedChannels.includes(NotificationChannel.WEBSOCKET)) {
+
+    if (
+      preferences.preferences.inApp?.enabled &&
+      suggestedChannels.includes(NotificationChannel.WEBSOCKET)
+    ) {
       enabledChannels.push(NotificationChannel.WEBSOCKET);
     }
 
@@ -207,7 +265,7 @@ export class NotificationOrchestratorService {
           throw new Error(`User ${userId} not found or has no email address`);
         }
         return user.email;
-      
+
       case NotificationChannel.SMS:
         const userForSms = await this.userRepository.findOne({
           where: { id: userId },
@@ -218,18 +276,20 @@ export class NotificationOrchestratorService {
           throw new Error(`User ${userId} not found or has no phone number`);
         }
         return userForSms.phoneNumber;
-      
+
       case NotificationChannel.WEBSOCKET:
       case NotificationChannel.PUSH:
         // For WebSocket and Push, we can use userId directly
         return userId;
-      
+
       default:
         return userId;
     }
   }
 
-  private async getOrCreatePreferences(userId: string): Promise<UserNotificationPreferences> {
+  private async getOrCreatePreferences(
+    userId: string,
+  ): Promise<UserNotificationPreferences> {
     let preferences = await this.userNotificationPreferencesRepository.findOne({
       where: { userId },
     });

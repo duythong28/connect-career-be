@@ -18,15 +18,25 @@ class Database:
         try:
             conn = psycopg2.connect(self.dsn)
             yield conn
-            conn.commit()
+            # Only commit if connection is still open
+            if conn and not conn.closed:
+                conn.commit()
         except Exception as e:
-            if conn:
-                conn.rollback()
+            # Only rollback if connection is still open
+            if conn and not conn.closed:
+                try:
+                    conn.rollback()
+                except Exception as rollback_error:
+                    logger.warning(f"Error during rollback: {rollback_error}")
             logger.error(f"Database error: {e}", exc_info=True)
             raise
         finally:
-            if conn:
-                conn.close()
+            # Only close if connection is still open
+            if conn and not conn.closed:
+                try:
+                    conn.close()
+                except Exception as close_error:
+                    logger.warning(f"Error closing connection: {close_error}")
     
     def execute_query(self, query: str, params: tuple = None) -> List[Dict[str, Any]]:
         with self.get_connection() as conn:
@@ -35,10 +45,21 @@ class Database:
                 return cur.fetchall()
     
     def execute_update(self, query: str, params: tuple = None) -> None:
-        with self.get_connection() as conn:
+        """Execute an update query with immediate commit"""
+        conn = None
+        try:
+            conn = psycopg2.connect(self.dsn)
+            conn.autocommit = True  # Enable autocommit for immediate commit
+            
             with conn.cursor() as cur:
                 cur.execute(query, params)
-                conn.commit()
+                # With autocommit=True, changes are committed immediately
+        except Exception as e:
+            logger.error(f"Error executing update: {e}")
+            raise
+        finally:
+            if conn and not conn.closed:
+                conn.close()
 
 
 db = Database()

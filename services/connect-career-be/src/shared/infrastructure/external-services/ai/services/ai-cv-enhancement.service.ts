@@ -66,7 +66,7 @@ export class AICVEnhancementService {
         },
       ],
       temperature: prompt.temperature ?? 0.3,
-      max_completion_tokens: prompt.maxOutputTokens ?? 8192,
+      max_completion_tokens: prompt.maxOutputTokens ?? 32768,
     });
     const content = response.choices[0]?.message?.content;
     if (!content || content.trim() === '') {

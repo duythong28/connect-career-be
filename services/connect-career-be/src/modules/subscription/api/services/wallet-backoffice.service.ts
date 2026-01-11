@@ -18,6 +18,8 @@ import {
   WalletListQueryDto,
   WalletTransactionsQueryDto,
 } from '../dtos/wallet-backoffice.dto';
+import { PaymentTransaction } from '../../domain/entities/payment-transaction.entity';
+import { Refund } from '../../domain/entities/refund.entity';
 
 @Injectable()
 export class WalletBackofficeService {
@@ -28,6 +30,10 @@ export class WalletBackofficeService {
     private transactionRepository: Repository<WalletTransaction>,
     @InjectRepository(UsageLedger)
     private usageLedgerRepository: Repository<UsageLedger>,
+    @InjectRepository(PaymentTransaction)
+    private paymentTransactionRepository: Repository<PaymentTransaction>,
+    @InjectRepository(Refund)
+    private refundRepository: Repository<Refund>,
   ) {}
 
   async getWallets(query: WalletListQueryDto): Promise<{
@@ -144,6 +150,7 @@ export class WalletBackofficeService {
       };
     }
 
+    // Remove the left joins - they don't work without proper relations
     const queryBuilder = this.transactionRepository
       .createQueryBuilder('transaction')
       .where('transaction.walletId = :walletId', { walletId: wallet.id });
@@ -177,14 +184,107 @@ export class WalletBackofficeService {
       .take(query.pageSize)
       .getManyAndCount();
 
+    // Collect all unique IDs to load in batch
+    const usageLedgerIds = [
+      ...new Set(
+        data
+          .map((t) => t.relatedUsageLedgerId)
+          .filter((id): id is string => !!id),
+      ),
+    ];
+    const paymentTransactionIds = [
+      ...new Set(
+        data
+          .map((t) => t.relatedPaymentTransactionId)
+          .filter((id): id is string => !!id),
+      ),
+    ];
+    const refundIds = [
+      ...new Set(
+        data.map((t) => t.relatedRefundId).filter((id): id is string => !!id),
+      ),
+    ];
+
+    // Load all related entities in parallel
+    const [usageLedgers, paymentTransactions, refunds] = await Promise.all([
+      usageLedgerIds.length > 0
+        ? this.usageLedgerRepository.find({
+            where: usageLedgerIds.map((id) => ({ id })),
+            relations: ['action'],
+          })
+        : [],
+      paymentTransactionIds.length > 0
+        ? this.paymentTransactionRepository.find({
+            where: paymentTransactionIds.map((id) => ({ id })),
+          })
+        : [],
+      refundIds.length > 0
+        ? this.refundRepository.find({
+            where: refundIds.map((id) => ({ id })),
+            relations: ['paymentTransaction'],
+          })
+        : [],
+    ]);
+
+    // Create maps for quick lookup
+    const usageMap = new Map<string, UsageLedger>(
+      usageLedgers.map((u) => [u.id, u] as [string, UsageLedger]),
+    );
+    const paymentMap = new Map<string, PaymentTransaction>(
+      paymentTransactions.map((p) => [p.id, p] as [string, PaymentTransaction]),
+    );
+    const refundMap = new Map<string, Refund>(
+      refunds.map((r) => [r.id, r] as [string, Refund]),
+    );
+    // Map transactions with related entities using correct field names
+    const transactionsWithRelations = data.map((transaction) => {
+      const result: any = { ...transaction };
+
+      // Add related usage ledger with correct field name
+      if (transaction.relatedUsageLedgerId) {
+        result.relatedUsageLedger =
+          usageMap.get(transaction.relatedUsageLedgerId) || null;
+      }
+
+      // Add related payment transaction with correct field name
+      if (transaction.relatedPaymentTransactionId) {
+        result.relatedPaymentTransaction =
+          paymentMap.get(transaction.relatedPaymentTransactionId) || null;
+      }
+
+      // Add related refund
+      if (transaction.relatedRefundId) {
+        result.relatedRefund =
+          refundMap.get(transaction.relatedRefundId) || null;
+      }
+
+      return result;
+    });
+
     return {
-      data,
+      data: transactionsWithRelations,
       total,
       page: query.pageNumber,
       limit: query.pageSize,
       totalPages: Math.ceil(total / query.pageSize),
       currentBalance: wallet.creditBalance,
     };
+  }
+  async getWalletTransactionById(
+    transactionId: string,
+  ): Promise<WalletTransaction> {
+    const transaction = await this.transactionRepository.findOne({
+      where: { id: transactionId },
+      relations: ['wallet'],
+    });
+
+    if (!transaction) {
+      throw new NotFoundException(
+        'Wallet transaction not found or you do not have access to it',
+      );
+    }
+
+    return transaction;
   }
 
   async getUsageHistory(userId: string, query: UsageHistoryQueryDto) {

@@ -3,11 +3,13 @@ import {
   Button,
   Container,
   Head,
+  Heading,
   Html,
   Preview,
   Section,
   Text,
 } from '@react-email/components';
+import * as React from 'react';
 
 interface WelcomeEmailProps {
   userFirstname: string;
@@ -21,31 +23,35 @@ export const WelcomeEmail = ({
   <Html>
     <Head />
     <Preview>
-      The sales intelligence platform that helps you uncover qualified leads.
+      Welcome to CareerHub - The platform to accelerate your career.
     </Preview>
     <Body style={main}>
-      <Container style={container}>
-        <Text style={paragraphTitle}>
-          [CONNECTCAREER] CHÀO MỪNG BẠN ĐẾN VỚI CONNECTCAREER
+      <Container style={containerCard}>
+        <Heading style={heading}>
+          [CAREERHUB] WELCOME TO CAREERHUB
+        </Heading>
+
+        <Text style={paragraph}>Hi {userFirstname},</Text>
+        
+        <Text style={paragraph}>
+          Thank you for joining our community! This is a registration confirmation email. 
+          Please click the verification button below to continue setting up your account.
         </Text>
 
-        <Text style={paragraph}>Xin chào {userFirstname},</Text>
-        <Text style={paragraph}>
-          Đây là email xác nhận đăng ký, vui lòng nhấn vào nút xác thưc bên dưới
-          để tiếp tục.
-        </Text>
         <Section style={btnContainer}>
-          <Button style={button} href={url}>
-            Xác thực
+          <Button style={buttonPrimary} href={url}>
+            Verify Account
           </Button>
         </Section>
+
         <Text style={paragraph}>
-          <strong style={{ color: '#47699d' }}>CONNECTCAREER</strong> xin gửi lời cảm
-          ơn đến bạn đã đăng ký tham gia website
+          <strong style={brandHighlight}>CareerHub</strong> would like to thank 
+          you for registering on our platform. We are excited to help you find your next opportunity.
         </Text>
+
         <Text style={footer}>
-          Trân trọng, <br />
-          <strong style={{ color: '#47699d' }}>Admin CONNECTCAREER</strong>
+          Best regards, <br />
+          <strong style={brandHighlight}>CareerHub Admin</strong>
         </Text>
       </Container>
     </Body>
@@ -54,47 +60,71 @@ export const WelcomeEmail = ({
 
 WelcomeEmail.PreviewProps = {
   userFirstname: 'Alan',
+  url: 'https://connectcareer.work/verify',
 } as WelcomeEmailProps;
 
 export default WelcomeEmail;
 
+
 const main = {
-  backgroundColor: '#ffffff',
-  fontFamily:
-    '-apple-system,BlinkMacSystemFont,"Segoe UI",Roboto,Oxygen-Sans,Ubuntu,Cantarell,"Helvetica Neue",sans-serif',
+  backgroundColor: '#F8F9FB',
+  padding: '64px 0',
 };
 
-const container = {
+const containerCard = {
+  backgroundColor: '#ffffff',
+  border: '1px solid #E2E8F0',
+  borderRadius: '24px',
   margin: '0 auto',
-  padding: '20px 0 48px',
+  padding: '40px',
+  width: '560px',
+};
+
+const heading = {
+  fontSize: '24px', // text-2xl
+  fontWeight: '700', // font-bold
+  color: '#0F172A', // text-foreground
+  lineHeight: '32px',
+  textAlign: 'center' as const,
+  margin: '0 0 24px 0',
+  textTransform: 'uppercase' as const,
 };
 
 const paragraph = {
   fontSize: '16px',
   lineHeight: '26px',
+  color: '#475569', // text-slate-600
+  margin: '16px 0',
 };
-const paragraphTitle = {
-  fontSize: '16px',
-  lineHeight: '26px',
-  fontWeight: 'bold' as const,
+
+const brandHighlight = {
+  color: '#2563EB', // text-primary (Solid Blue)
 };
 
 const btnContainer = {
   textAlign: 'center' as const,
+  margin: '32px 0',
 };
 
-const button = {
-  backgroundColor: '#f8a600',
-  borderRadius: '3px',
-  color: '#fff',
-  fontSize: '16px',
+const buttonPrimary = {
+  backgroundColor: '#2563EB', // variant="default"
+  borderRadius: '12px', // rounded-xl
+  color: '#ffffff',
+  fontSize: '14px',
+  fontWeight: '600',
   textDecoration: 'none',
   textAlign: 'center' as const,
-  display: 'block',
-  padding: '12px',
+  display: 'inline-block',
+  height: '40px', // h-10
+  lineHeight: '40px',
+  padding: '0 32px',
 };
 
 const footer = {
-  fontSize: '16px',
-  lineHeight: '26px',
+  fontSize: '14px',
+  lineHeight: '24px',
+  color: '#64748B',
+  marginTop: '32px',
+  borderTop: '1px solid #E2E8F0',
+  paddingTop: '24px',
 };

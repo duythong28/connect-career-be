@@ -302,10 +302,7 @@ def get_cache() -> Optional[EmbeddingCache]:
     - Disabled cleanly via config
     """
     global _embedding_cache
-    
-    # TEMPORARY: Force disable cache until Redis connections are cleared
-    return None  # Add this line temporarily
-    
+        
     if not settings.embedding_cache_enabled:
         return None
 

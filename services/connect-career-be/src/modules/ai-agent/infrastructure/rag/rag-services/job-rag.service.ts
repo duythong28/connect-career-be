@@ -36,8 +36,11 @@ export class JobRagService {
     },
   ): Promise<DocumentChunk[]> {
     try {
+      const limit = Math.min(options?.limit || 10, 10); // Hard limit to 10
+
       // Normalize query
       const normalizedQuery = this.queryNormalizer.normalizeQuery(query);
+      console.log('normalizedQuery', normalizedQuery);
 
       // Rewrite query for better retrieval
       const rewrittenQuery = await this.queryRewriter.rewriteQuery(
@@ -47,29 +50,23 @@ export class JobRagService {
           domain: 'job',
         },
       );
+      console.log('rewrittenQuery', rewrittenQuery);
 
-      // Expand query for better coverage
-      const expandedQueries = await this.queryExpander.expandQuery(
-        rewrittenQuery,
-        {
-          maxExpansions: 2,
-          domain: 'job',
-        },
-      );
+      // SKIP query expansion to save 1 AI call
+      // const expandedQueries = await this.queryExpander.expandQuery(...);
 
-      // Retrieve from all query variations
+      // Retrieve from rewritten query only
       const allResults: DocumentChunk[] = [];
       const uniqueIds = new Set<string>();
 
-      // Retrieve with rewritten query
+      // Retrieve with rewritten query - get more than needed for reranking
       const rewrittenResults = await this.jobRetriever.retrieveJobs(
         rewrittenQuery,
         {
-          limit: options?.limit || 10,
+          limit: limit * 2, // Get 20 for reranking, then limit to 10
           filters: options?.filters,
         },
       );
-
       for (const result of rewrittenResults) {
         if (!uniqueIds.has(result.id)) {
           uniqueIds.add(result.id);
@@ -77,35 +74,31 @@ export class JobRagService {
         }
       }
 
-      // Retrieve with expanded queries
-      for (const expandedQuery of expandedQueries) {
-        const expandedResults = await this.jobRetriever.retrieveJobs(
-          expandedQuery,
-          {
-            limit: 5,
-            filters: options?.filters,
-          },
-        );
+      // SKIP expanded queries to save retrieval time
+      // for (const expandedQuery of expandedQueries) { ... }
 
-        for (const result of expandedResults) {
-          if (!uniqueIds.has(result.id)) {
-            uniqueIds.add(result.id);
-            allResults.push(result);
-          }
-        }
-      }
+      // Re-rank with cross-encoder - but limit to top 15 to save AI calls
+      const maxRerank = Math.min(allResults.length, 15); // Only rerank top 15
+      const resultsToRerank = allResults.slice(0, maxRerank);
 
-      // Re-rank with cross-encoder
       const reranked = await this.crossEncoderRanker.rerank(
         rewrittenQuery,
-        allResults,
-        (options?.limit || 10) * 2,
+        resultsToRerank,
+        limit,
       );
 
-      // Fuse scores
-      const fused = this.scoreFusion.fuseScores(reranked);
+      // Add remaining results that weren't reranked (with original scores)
+      const remaining = allResults.slice(maxRerank);
+      const finalResults = [
+        ...reranked,
+        ...remaining.slice(0, limit - reranked.length),
+      ];
 
-      return fused.slice(0, options?.limit || 10);
+      // Fuse scores
+      const fused = this.scoreFusion.fuseScores(finalResults);
+
+      // Return exactly 10 jobs
+      return fused.slice(0, limit);
     } catch (error) {
       this.logger.error(
         `Job RAG retrieval failed: ${error}`,

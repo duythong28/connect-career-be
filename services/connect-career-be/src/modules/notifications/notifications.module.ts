@@ -35,6 +35,15 @@ import { ScheduledNotificationScheduler } from 'src/shared/infrastructure/queue/
 import { NotificationQueueService } from 'src/shared/infrastructure/queue/services/notification-queue.service';
 import { jwtConfig } from '../identity/infrastructure/config/jwt.config';
 import { User } from '../identity/domain/entities';
+import { PasswordResetRequestedHandler } from './application/handlers/password-reset-requested.handler';
+import { JobPublishedHandler } from '../jobs/api/event-handlers/job-published.handler';
+import { HttpModule } from '@nestjs/axios';
+import { PushProvider } from './infrastructure/providers/push/push.provider';
+import { Job } from '../jobs/domain/entities/job.entity';
+import { RecommendationModule } from '../recommendations/recommendation.module';
+import { JobsModule } from '../jobs/jobs.module';
+import { JobAlertScheduler } from './infrastructure/schedulers/job-alert.scheduler';
+import { JobAlertTestService } from './application/services/job-alert-test.service';
 
 const Handlers = [
   SendNotificationHandler,
@@ -48,16 +57,20 @@ const Handlers = [
   OfferSentHandler,
   OfferAcceptedHandler,
   OfferRejectedHandler,
+  PasswordResetRequestedHandler,
+  JobPublishedHandler,
 ];
 
 @Module({
   imports: [
     CqrsModule,
+    HttpModule,
     TypeOrmModule.forFeature([
       NotificationEntity,
       UserNotificationPreferences,
       PushNotificationToken,
-      User
+      User,
+      Job,
     ]),
     BullModule.registerQueue({
       name: 'notifications',
@@ -67,6 +80,8 @@ const Handlers = [
       useFactory: jwtConfig,
       inject: [ConfigService],
     }),
+    RecommendationModule,
+    JobsModule,
   ],
   controllers: [NotificationsController],
   providers: [
@@ -79,6 +94,9 @@ const Handlers = [
     NotificationQueueService,
     ScheduledNotificationScheduler,
     NodemailerProvider,
+    PushProvider,
+    JobAlertScheduler,
+    JobAlertTestService,
     {
       provide: NOTIFICATION_REPOSITORY,
       useClass: NotificationTypeOrmRepository,
@@ -95,8 +113,18 @@ const Handlers = [
       provide: 'WebSocketProvider',
       useClass: WebSocketProvider,
     },
+    {
+      provide: 'PushProvider',
+      useClass: PushProvider,
+    },
     ProviderFactory,
   ],
-  exports: [...Handlers, NotificationService, NotificationOrchestratorService, NotificationQueueService],
+  exports: [
+    ...Handlers,
+    NotificationService,
+    NotificationOrchestratorService,
+    NotificationQueueService,
+    JobAlertTestService,
+  ],
 })
 export class NotificationsModule {}

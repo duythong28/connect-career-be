@@ -1,28 +1,29 @@
-import { IsString, IsOptional, IsObject, IsArray } from 'class-validator';
-import { ApiProperty, ApiPropertyOptional } from '@nestjs/swagger';
+import {
+  IsString,
+  IsOptional,
+  IsObject,
+  IsArray,
+  ValidateNested,
+} from 'class-validator';
+import { Type } from 'class-transformer';
+import { ApiPropertyOptional } from '@nestjs/swagger';
+import { MediaAttachmentDto } from './media-attachment.dto';
 
 export class ChatRequestDto {
-  @ApiProperty({ description: 'User message content' })
-  @IsString()
-  message: string;
-
-  @ApiPropertyOptional({ description: 'User ID' })
+  @ApiPropertyOptional({ description: 'User message content' })
   @IsString()
   @IsOptional()
-  userId?: string;
+  message?: string;
 
-  @ApiPropertyOptional({ description: 'Session ID for conversation tracking' })
-  @IsString()
-  @IsOptional()
-  sessionId?: string;
-
-  @ApiPropertyOptional({ description: 'Conversation history' })
+  @ApiPropertyOptional({
+    description: 'Media attachments',
+    type: [MediaAttachmentDto],
+  })
   @IsArray()
+  @ValidateNested({ each: true })
+  @Type(() => MediaAttachmentDto)
   @IsOptional()
-  conversationHistory?: Array<{
-    role: 'user' | 'assistant' | 'system';
-    content: string;
-  }>;
+  attachments?: MediaAttachmentDto[];
 
   @ApiPropertyOptional({ description: 'Additional context metadata' })
   @IsObject()

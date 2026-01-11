@@ -10,6 +10,10 @@ import { FavoriteJob } from '../../domain/entities/favorite-job.entity';
 import { Job } from '../../domain/entities/job.entity';
 import { Application } from 'src/modules/applications/domain/entities/application.entity';
 import { PaginatedResult } from 'src/shared/domain/interfaces/base.repository';
+import {
+  JobInteraction,
+  JobInteractionType,
+} from 'src/modules/recommendations/domain/entities/job-interaction.entity';
 
 @Injectable()
 export class SavedJobService {
@@ -22,6 +26,8 @@ export class SavedJobService {
     private readonly jobRepository: Repository<Job>,
     @InjectRepository(Application)
     private readonly applicationRepository: Repository<Application>,
+    @InjectRepository(JobInteraction)
+    private readonly jobInteractionRepository: Repository<JobInteraction>,
   ) {}
 
   // ==================== SAVED JOBS ====================
@@ -62,6 +68,14 @@ export class SavedJobService {
       job.savedByUserIds.push(userId);
       await this.jobRepository.save(job);
     }
+
+    const interaction = this.jobInteractionRepository.create({
+      userId,
+      jobId,
+      type: JobInteractionType.SAVE,
+      weight: 2.0,
+    });
+    await this.jobInteractionRepository.save(interaction);
 
     return saved;
   }
@@ -171,6 +185,14 @@ export class SavedJobService {
       userId,
       jobId,
     });
+
+    const interaction = this.jobInteractionRepository.create({
+      userId,
+      jobId,
+      type: JobInteractionType.FAVORITE,
+      weight: 3.0,
+    });
+    await this.jobInteractionRepository.save(interaction);
 
     return this.favoriteJobRepository.save(favoriteJob);
   }

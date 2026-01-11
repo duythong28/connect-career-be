@@ -11,7 +11,6 @@ import { AiAgentController } from './apis/controllers/ai-agent.controller';
 import { ChatService } from './application/chat.service';
 import { AiAgentService } from './application/ai-agent.service';
 import { SuggestionService } from './application/suggestion.service';
-import { AgentLogService } from './application/agent-log.service';
 import { MediaService } from './application/media.service';
 
 // Orchestration Layer
@@ -19,15 +18,22 @@ import { IntentDetectorService } from './infrastructure/orchestration/intent-det
 import { AgentRouterService } from './infrastructure/orchestration/agent-router.service';
 import { WorkflowEngineService } from './infrastructure/orchestration/workflow-engine.service';
 import { ResponseSynthesizerService } from './infrastructure/orchestration/response-synthesizer.service';
+import { RoleDetectorService } from './infrastructure/orchestration/role-detector.service';
+import { GraphBuilderService } from './infrastructure/orchestration/graph-builder.service';
 
 // Domain Layer - Entities
 import { AgentExecutionEntity } from './domain/entities/agent-execution.entity';
 import { ConversationEntity } from './domain/entities/conversation.entity';
-import { AgentLogEntity } from './domain/entities/agent-log.entity';
+import { SessionEntity } from './domain/entities/session.entity';
+import { MessageEntity } from './domain/entities/message.entity';
+import { AttachmentEntity } from './domain/entities/attachment.entity';
 
 // Domain Layer - Repositories
 import { AgentExecutionRepository } from './domain/repositories/agent-execution.repository';
 import { ConversationRepository } from './domain/repositories/conversation.repository';
+import { SessionRepository } from './domain/repositories/session.repository';
+import { MessageRepository } from './domain/repositories/message.repository';
+import { AttachmentRepository } from './domain/repositories/attachment.repository';
 
 // Domain Layer - Agents
 import { OrchestratorAgent } from './domain/agents/orchestrator/orchestrator.agent';
@@ -57,6 +63,16 @@ import { ProceduralMemoryService } from './infrastructure/memory/procedural-memo
 import { AgentMonitoringService } from './infrastructure/monitoring/agent-monitoring.service';
 import { AnalyticsService } from './infrastructure/monitoring/analytics.service';
 import { ExecutionLoggerService } from './infrastructure/monitoring/execution-log.service';
+import { LangSmithService } from './application/langsmith.service';
+
+// Infrastructure Layer - Prompts
+import { PromptService } from './infrastructure/prompts/prompt.service';
+import { User } from '../identity/domain/entities';
+import { CandidateProfile } from '../profile/domain/entities/candidate-profile.entity';
+import { LearningPlanAgent } from './domain/agents/learning-plans/learning-plan.agent';
+import { CvEnhancementAgent } from './domain/agents/cv-enhancement/cv-enhancement.agent';
+import { OrganizationCultureAgent } from './domain/agents/organization-culture/organization-culture.agent';
+import { JobsModule } from '../jobs/jobs.module';
 @Module({
   imports: [
     ConfigModule,
@@ -65,8 +81,13 @@ import { ExecutionLoggerService } from './infrastructure/monitoring/execution-lo
     TypeOrmModule.forFeature([
       AgentExecutionEntity,
       ConversationEntity,
-      AgentLogEntity,
+      SessionEntity,
+      MessageEntity,
+      AttachmentEntity,
+      User,
+      CandidateProfile,
     ]),
+    JobsModule,
   ],
   controllers: [AiAgentController],
   providers: [
@@ -74,14 +95,17 @@ import { ExecutionLoggerService } from './infrastructure/monitoring/execution-lo
     ChatService,
     AiAgentService,
     SuggestionService,
-    AgentLogService,
+    // AgentLogService, // TODO: Uncomment when service is created
     MediaService,
+    LangSmithService,
 
     // Orchestration Services
     IntentDetectorService,
     AgentRouterService,
     WorkflowEngineService,
     ResponseSynthesizerService,
+    RoleDetectorService,
+    GraphBuilderService,
 
     // Infrastructure Services - LLM
     ChainsService,
@@ -103,9 +127,15 @@ import { ExecutionLoggerService } from './infrastructure/monitoring/execution-lo
     AnalyticsService,
     ExecutionLoggerService,
 
+    // Infrastructure Services - Prompts
+    PromptService,
+
     // Domain Repositories
     AgentExecutionRepository,
     ConversationRepository,
+    SessionRepository,
+    MessageRepository,
+    AttachmentRepository,
 
     // Agents
     OrchestratorAgent,
@@ -115,6 +145,9 @@ import { ExecutionLoggerService } from './infrastructure/monitoring/execution-lo
     MatchingAgent,
     AnalysisAgent,
     InformationGatheringAgent,
+    LearningPlanAgent,
+    CvEnhancementAgent,
+    OrganizationCultureAgent,
 
     // Agent registration - register agents after instantiation
     {
@@ -129,6 +162,9 @@ import { ExecutionLoggerService } from './infrastructure/monitoring/execution-lo
         analysisAgent: AnalysisAgent,
         informationGatheringAgent: InformationGatheringAgent,
         toolRegistry: ToolRegistryService,
+        learningPlanAgent: LearningPlanAgent,
+        cvEnhancementAgent: CvEnhancementAgent,
+        organizationCultureAgent: OrganizationCultureAgent,
         jobTools: JobToolsService,
         cvTools: CvToolsService,
         learningTools: LearningToolsService,
@@ -156,6 +192,9 @@ import { ExecutionLoggerService } from './infrastructure/monitoring/execution-lo
         agentRouter.registerAgent(matchingAgent);
         agentRouter.registerAgent(analysisAgent);
         agentRouter.registerAgent(informationGatheringAgent);
+        agentRouter.registerAgent(learningPlanAgent);
+        agentRouter.registerAgent(cvEnhancementAgent);
+        agentRouter.registerAgent(organizationCultureAgent);
         return true;
       },
       inject: [
@@ -168,6 +207,9 @@ import { ExecutionLoggerService } from './infrastructure/monitoring/execution-lo
         AnalysisAgent,
         InformationGatheringAgent,
         ToolRegistryService,
+        LearningPlanAgent,
+        CvEnhancementAgent,
+        OrganizationCultureAgent,
         JobToolsService,
         CvToolsService,
         LearningToolsService,

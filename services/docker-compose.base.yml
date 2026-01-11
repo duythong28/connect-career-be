@@ -6,10 +6,15 @@ services:
     environment:
       KONG_DATABASE: "off"
       KONG_DECLARATIVE_CONFIG: /kong/declarative/kong.yml
-      KONG_PROXY_LISTEN: "0.0.0.0:8000"
+      KONG_PROXY_LISTEN: "0.0.0.0:8000, 0.0.0.0:8443 ssl"
       KONG_ADMIN_LISTEN: "0.0.0.0:8001"
+      KONG_SSL_CERT: /etc/ssl/certs/fullchain.pem
+      KONG_SSL_CERT_KEY: /etc/ssl/certs/privkey.pem
+      KONG_PLUGINS: bundled
     volumes:
       - ./api-gateway/kong.yml:/kong/declarative/kong.yml:ro
+      - /opt/kong-ssl/${DOMAIN}/fullchain.pem:/etc/ssl/certs/fullchain.pem:ro
+      - /opt/kong-ssl/${DOMAIN}/privkey.pem:/etc/ssl/certs/privkey.pem:ro
     depends_on:
       - connect-career-be
       - ai-service
@@ -18,8 +23,17 @@ services:
     image: connect-career-be:${CC_BE_TAG:-latest}
     env_file:
       - ./connect-career-be/.env
+    volumes:
+      - ${GOOGLE_CREDENTIALS_PATH:-../connect-career-be/src/credentials/scientific-host-472000-u8-ac884452d866.json}:/app/credentials.json:ro
+      - ./connect-career-be/credentials:/app/src/credentials:ro
+    environment:
+      - GOOGLE_APPLICATION_CREDENTIALS=/app/credentials.json
 
   ai-service:
     image: ai-service:${AI_SERVICE_TAG:-latest}
     env_file:
       - ./ai-service/.env
+    volumes:
+      - ${GOOGLE_CREDENTIALS_PATH:-../connect-career-be/src/credentials/scientific-host-472000-u8-ac884452d866.json}:/app/credentials.json:ro
+    environment:
+      - GOOGLE_APPLICATION_CREDENTIALS=/app/credentials.json

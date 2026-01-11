@@ -178,6 +178,7 @@ export class WalletService {
       balanceAfter,
       status: TransactionStatus.COMPLETED,
       description: description || 'Wallet credit',
+      relatedPaymentTransactionId: metadata?.paymentTransactionId as string,
       metadata,
     });
 
@@ -202,5 +203,124 @@ export class WalletService {
       throw new NotFoundException('Action not found');
     }
     return action.actionName;
+  }
+
+  async getRecentTransactions(
+    userId: string,
+    limit: number = 10,
+  ): Promise<WalletTransaction[]> {
+    const wallet = await this.getOrCreateWallet(userId);
+
+    return this.walletTransactionRepository.find({
+      where: { walletId: wallet.id },
+      order: { createdAt: 'DESC' },
+      take: Math.min(Math.max(1, limit), 50), // Ensure limit is between 1 and 50
+    });
+  }
+
+  async getRecentUsageHistory(
+    userId: string,
+    limit: number = 10,
+  ): Promise<UsageLedger[]> {
+    return this.usageLedgerRepository.find({
+      where: { userId },
+      relations: ['action'],
+      order: { timestamp: 'DESC' },
+      take: Math.min(Math.max(1, limit), 50), // Ensure limit is between 1 and 50
+    });
+  }
+
+  async getWalletStatistics(userId: string): Promise<{
+    totalCredits: number;
+    totalDebits: number;
+    totalSpent: number;
+  }> {
+    const wallet = await this.getOrCreateWallet(userId);
+
+    // Get total credits
+    const totalCreditsResult: number | undefined =
+      await this.walletTransactionRepository
+        .createQueryBuilder('transaction')
+        .select('SUM(transaction.amount)', 'total')
+        .where('transaction.walletId = :walletId', { walletId: wallet.id })
+        .andWhere('transaction.type = :type', { type: TransactionType.CREDIT })
+        .andWhere('transaction.status = :status', {
+          status: TransactionStatus.COMPLETED,
+        })
+        .getRawOne();
+
+    // Get total debits
+    const totalDebitsResult: number | undefined =
+      await this.walletTransactionRepository
+        .createQueryBuilder('transaction')
+        .select('SUM(transaction.amount)', 'total')
+        .where('transaction.walletId = :walletId', { walletId: wallet.id })
+        .andWhere('transaction.type = :type', { type: TransactionType.DEBIT })
+        .andWhere('transaction.status = :status', {
+          status: TransactionStatus.COMPLETED,
+        })
+        .getRawOne();
+
+    // Get total spent on billable actions
+    const totalSpentResult: number | undefined =
+      await this.usageLedgerRepository
+        .createQueryBuilder('usage')
+        .select('SUM(usage.amountDeducted)', 'total')
+        .where('usage.userId = :userId', { userId })
+        .getRawOne();
+
+    return {
+      totalCredits: totalCreditsResult || 0,
+      totalDebits: totalDebitsResult || 0,
+      totalSpent: totalSpentResult || 0,
+    };
+  }
+
+  async debitWallet(
+    walletId: string,
+    amount: number,
+    description?: string,
+    metadata?: Record<string, any>,
+  ): Promise<WalletTransaction> {
+    const wallet = await this.walletRepository.findOne({
+      where: { id: walletId },
+    });
+    if (!wallet) {
+      throw new NotFoundException('Wallet not found');
+    }
+
+    const balanceBefore = parseFloat(String(wallet.creditBalance)) || 0;
+    const debitAmount = parseFloat(String(amount)) || 0;
+    if (isNaN(debitAmount) || debitAmount <= 0) {
+      throw new Error(`Invalid debit amount: ${amount}`);
+    }
+
+    if (balanceBefore < debitAmount) {
+      throw new Error(
+        `Insufficient balance. Current: ${balanceBefore}, Required: ${debitAmount}`,
+      );
+    }
+
+    wallet.creditBalance = balanceBefore - debitAmount;
+    const balanceAfter = wallet.creditBalance;
+
+    await this.walletRepository.save(wallet);
+
+    const transaction = this.walletTransactionRepository.create({
+      walletId: wallet.id,
+      userId: wallet.userId,
+      type: TransactionType.DEBIT,
+      amount,
+      currency: wallet.currency,
+      balanceBefore,
+      balanceAfter,
+      status: TransactionStatus.COMPLETED,
+      description: description || 'Wallet debit',
+      relatedPaymentTransactionId: metadata?.paymentTransactionId as string,
+      relatedRefundId: metadata?.refundId as string,
+      metadata,
+    });
+
+    return this.walletTransactionRepository.save(transaction);
   }
 }

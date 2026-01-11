@@ -264,6 +264,7 @@ export class ApplicationService {
       .createQueryBuilder('application')
       .leftJoinAndSelect('application.job', 'job')
       .leftJoinAndSelect('job.user', 'jobUser')
+      .leftJoinAndSelect('jobUser.profile', 'jobUserProfile')
       .leftJoinAndSelect('application.candidate', 'candidate')
       .leftJoinAndSelect('application.candidateProfile', 'candidateProfile')
       .leftJoinAndSelect(

@@ -559,8 +559,9 @@ export class CandidateProfileService {
     await queryRunner.startTransaction();
 
     try {
-      const profile = await this.candidateProfileRepository.findOne({
+      const profile = await queryRunner.manager.findOne(CandidateProfile, {
         where: { userId },
+        relations: ['user'],
       });
 
       if (!profile) {
@@ -568,12 +569,12 @@ export class CandidateProfileService {
       }
 
       // Update basic fields
-      if (dto.email !== undefined) profile.email = dto.email;
       if (dto.firstName !== undefined) profile.user.firstName = dto.firstName;
       if (dto.lastName !== undefined) profile.user.lastName = dto.lastName;
       if (dto.firstName !== undefined && dto.lastName !== undefined) {
         profile.user.fullName = `${dto.firstName} ${dto.lastName}`.trim();
       }
+
       if (dto.phone !== undefined) profile.phone = dto.phone;
       if (dto.address !== undefined) profile.address = dto.address;
       if (dto.city !== undefined) profile.city = dto.city;

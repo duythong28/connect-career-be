@@ -75,7 +75,7 @@ export class JobDiscoveryAgent extends BaseAgent {
 
         // Merge metadata (from database) with parsed content (if any) and add source info
         return {
-          id: jobData.id || parsedContent.id,
+          id: r.id || jobData.id || parsedContent.id, // Ensure id is extracted from DocumentChunk.id first
           title: jobData.title || parsedContent.title,
           company:
             jobData.company || jobData.companyName || parsedContent.company,

@@ -22,6 +22,7 @@ import { Repository } from 'typeorm';
 import { CandidateProfile } from 'src/modules/profile/domain/entities/candidate-profile.entity';
 import { InjectRepository } from '@nestjs/typeorm';
 import { User } from 'src/modules/identity/domain/entities/user.entity';
+import { ConfigService } from '@nestjs/config';
 
 /**
  * LangGraph event structure (simplified)
@@ -126,6 +127,7 @@ export class ChatService {
     private readonly langSmithService: LangSmithService,
     private readonly mediaService: MediaService,
     private readonly graphBuilder: GraphBuilderService,
+    private readonly configService: ConfigService,
     @InjectRepository(User)
     private readonly userRepository: Repository<User>,
     @InjectRepository(CandidateProfile)
@@ -827,16 +829,39 @@ export class ChatService {
               suggestions: suggestions.length > 0 ? suggestions : undefined,
               executionTime,
               jobs: agentResult?.data?.jobs
-                ? agentResult.data.jobs.map((job: any) => ({
-                    id: job.id,
-                    title: job.title || job.name,
-                    company: job.company || job.companyName,
-                    location: job.location,
-                    source: job._source || 'unknown',
-                    score: job._score,
-                    ...(job.salaryRange && { salaryRange: job.salaryRange }),
-                    ...(job.postedDate && { postedDate: job.postedDate }),
-                  }))
+                ? agentResult.data.jobs.map((job: any) => {
+                    const frontendUrl =
+                      this.configService.get<string>('FRONTEND_URL') ||
+                      'https://connect-career.vercel.app';
+                    
+                    // Extract job ID - check multiple possible locations
+                    const jobId = job.id || job.metadata?.id || job.jobId;
+                    
+                    // Determine the job URL - prefer applyLink, then sourceUrl, otherwise construct from id
+                    let jobUrl: string | undefined;
+                    if (job.applyLink) {
+                      jobUrl = job.applyLink;
+                    } else if (job.sourceUrl) {
+                      jobUrl = job.sourceUrl;
+                    } else if (jobId) {
+                      jobUrl = `${frontendUrl}/jobs/${jobId}`;
+                    }
+                    
+                    // Extract company name from multiple possible locations
+                    const companyName = job.company || job.companyName || job.metadata?.company || job.metadata?.companyName;
+                    
+                    return {
+                      id: jobId,
+                      title: job.title || job.name || 'Untitled Job',
+                      company: companyName,
+                      location: job.location || job.metadata?.location || 'Not specified',
+                      source: job._source || job.source || 'unknown',
+                      score: job._score || job.score || 0,
+                      url: jobUrl, // Always include url field, even if undefined
+                      ...(job.salaryRange && { salaryRange: job.salaryRange }),
+                      ...(job.postedDate && { postedDate: job.postedDate }),
+                    };
+                  })
                 : undefined,
               jobSources: agentResult?.data?.sources
                 ? {

@@ -67,8 +67,6 @@ export class JobRagService {
           filters: options?.filters,
         },
       );
-      console.log('rewrittenResults', JSON.stringify(rewrittenResults));
-
       for (const result of rewrittenResults) {
         if (!uniqueIds.has(result.id)) {
           uniqueIds.add(result.id);

@@ -267,7 +267,6 @@ export class ApplicationService {
       .createQueryBuilder('application')
       .leftJoinAndSelect('application.job', 'job')
       .leftJoinAndSelect('job.user', 'jobUser')
-      .leftJoinAndSelect('jobUser.profile', 'jobUserProfile')
       .leftJoinAndSelect('application.candidate', 'candidate')
       .leftJoinAndSelect('application.candidateProfile', 'candidateProfile')
       .leftJoinAndSelect(
@@ -609,7 +608,7 @@ export class ApplicationService {
   ): Promise<Application> {
     const app = await this.getApplicationById(id);
     const oldStatus = app.status; // Store old status for event
-    
+
     // Update status and rejection details
     app.addStatusHistory(ApplicationStatus.REJECTED, userId, reason);
     app.rejectionDetails = {
@@ -619,7 +618,7 @@ export class ApplicationService {
       feedback,
       canReapply: false,
     };
-    
+
     // Update pipeline stage if needed
     await this.updatePipelineStageForStatus(
       app,
@@ -627,13 +626,13 @@ export class ApplicationService {
       userId,
       reason,
     );
-    
+
     app.updateCalculatedFields();
     await this.applicationRepository.save(app);
-    
+
     // Get updated application with relations
     const updatedApp = await this.getApplicationById(id);
-    
+
     // Publish ApplicationStatusChangedEvent (IMPORTANT for notifications)
     this.eventBus.publish(
       new ApplicationStatusChangedEvent(
@@ -647,7 +646,7 @@ export class ApplicationService {
         reason,
       ),
     );
-    
+
     return updatedApp;
   }
 

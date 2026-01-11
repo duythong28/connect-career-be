@@ -17,4 +17,3 @@ export class InterviewCancelledEvent implements IDomainEvent {
     this.occurredAt = new Date();
   }
 }
-

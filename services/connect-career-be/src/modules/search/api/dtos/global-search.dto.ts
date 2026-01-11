@@ -68,4 +68,3 @@ export class GlobalSearchDto {
   @IsEnum(['ASC', 'DESC'])
   sortOrder?: 'ASC' | 'DESC' = 'DESC';
 }
-

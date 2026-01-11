@@ -49,13 +49,6 @@ export class OrganizationRBACService {
     userId: string,
     organizationData: CreateOrganizationDto,
   ): Promise<Organization> {
-    const existingOrg = await this.organizationRepository.findOne({
-      where: { userId },
-    });
-    if (existingOrg) {
-      throw new BadRequestException('Organization already exists');
-    }
-
     const organization = await this.organizationRepository.save({
       ...organizationData,
       userId,

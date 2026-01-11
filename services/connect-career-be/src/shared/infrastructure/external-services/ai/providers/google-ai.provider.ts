@@ -6,6 +6,7 @@ import {
   AIGenerateRequest,
   AIProvider,
   AIVectorizeRequest,
+  AIVectorizeResponse,
 } from '../domain/ai-provider.interface';
 
 @Injectable()
@@ -55,8 +56,52 @@ export class GoogleAIProvider implements AIProvider {
     return { content: text, raw: resp };
   }
 
-  async embed(req: AIVectorizeRequest) {
-    throw new Error('Use Google AI Embeddings model (add if needed).');
+  async embed(req: AIVectorizeRequest): Promise<AIVectorizeResponse> {
+    try {
+      // Use Google Generative AI embedding model
+      const model = this.genAI.getGenerativeModel({
+        model: 'text-embedding-004', // Google's embedding model
+      });
+
+      // Check if the model has an embedContent method
+      if (typeof (model as any).embedContent === 'function') {
+        const response = await (model as any).embedContent({
+          content: { parts: [{ text: req.text }] },
+        });
+
+        // Extract embedding from response
+        const embedding: number[] =
+          (response as any)?.embedding?.values ||
+          (response as any)?.embedding?.embedding ||
+          (response as any)?.embedding ||
+          [];
+
+        if (!Array.isArray(embedding) || embedding.length === 0) {
+          throw new Error('Empty embedding returned from Google AI');
+        }
+
+        // Normalize the embedding vector
+        const norm = Math.sqrt(
+          embedding.reduce((sum: number, val: number) => sum + val * val, 0),
+        );
+        const normalizedEmbedding: number[] =
+          norm > 0 ? embedding.map((val: number) => val / norm) : embedding;
+
+        return {
+          vector: normalizedEmbedding,
+          raw: response,
+        };
+      }
+
+      // Fallback: If embedContent is not available, throw an error
+      throw new Error(
+        'Embedding not supported by this Google AI model. Use text-embedding-004 or ensure the model supports embeddings.',
+      );
+    } catch (error) {
+      throw new Error(
+        `Failed to generate embedding: ${error instanceof Error ? error.message : String(error)}`,
+      );
+    }
   }
 
   async uploadFile(data: Buffer, mimeType: string, displayName: string) {

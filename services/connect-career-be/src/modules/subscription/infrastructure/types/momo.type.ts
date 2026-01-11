@@ -73,6 +73,35 @@ export interface MoMoConfirmPaymentData {
   resultCode?: number;
 }
 
+export interface MoMoRefundRequest {
+  partnerCode: string;
+  orderId: string;
+  requestId: string;
+  amount: number;
+  transId: number;
+  lang: string;
+  description: string;
+  transGroup?: Array<{ itemId: string; amount: number; transId: number }>;
+  signature: string;
+}
+
+export interface MoMoRefundResponse {
+  partnerCode: string;
+  orderId: string;
+  requestId: string;
+  amount: number;
+  transId: number;
+  resultCode: number;
+  message: string;
+  responseTime: number;
+  transGroup?: Array<{
+    itemId: string;
+    amount: number;
+    refundTransId: number;
+    resultCode: number;
+    message: string;
+  }>;
+}
 export interface MoMoAxiosRequestConfig extends AxiosRequestConfig {
   method: 'POST';
   url: string;

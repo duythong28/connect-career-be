@@ -51,14 +51,14 @@ class RateLimiter:
 class GoogleVertexProvider(BaseEmbeddingProvider):
     """Provider using Google Vertex AI embeddings with rate limiting and fallback"""
 
-    DEFAULT_RPS = 1.5  # requests per second
-    DEFAULT_BATCH_SIZE = 5
+    DEFAULT_RPS = 0.5 
+    DEFAULT_BATCH_SIZE = 3  
 
     def __init__(
         self,
         project_id: str,
         location: str = "us-central1",
-        model: str = "textembedding-gecko@003",
+        model: str = "gemini-embedding-001",
         requests_per_second: Optional[float] = None,
         fallback_provider: Optional[BaseEmbeddingProvider] = None,
     ):

@@ -23,6 +23,7 @@ import {
   RefundListQueryDto,
   RejectRefundDto,
 } from '../dtos/refund.dto';
+import { CurrencyConversionService } from './currency-conversion.service';
 
 @Injectable()
 export class RefundBackofficeService {
@@ -36,6 +37,7 @@ export class RefundBackofficeService {
     @InjectRepository(WalletTransaction)
     private walletTransactionRepository: Repository<WalletTransaction>,
     private paymentService: PaymentService,
+    private readonly currencyConversionService: CurrencyConversionService,
   ) {}
   async getRefunds(query: RefundListQueryDto) {
     const queryBuilder = this.refundRepository
@@ -197,7 +199,30 @@ export class RefundBackofficeService {
       if (refund.paymentTransaction.type === PaymentType.TOP_UP) {
         const wallet = refund.paymentTransaction.wallet;
         const balanceBefore = wallet.creditBalance;
-        wallet.creditBalance -= refund.amount;
+
+        // FIX: Convert amount if needed (for VND to USD)
+        let amountToDebit = refund.amount;
+
+        if (
+          (refund.paymentTransaction.provider === 'momo' ||
+            refund.paymentTransaction.provider === 'zalopay') &&
+          refund.currency !== wallet.currency
+        ) {
+          try {
+            amountToDebit = await this.currencyConversionService.convert(
+              refund.amount,
+              refund.currency, // VND
+              wallet.currency, // USD
+            );
+          } catch (error) {
+            throw new Error(
+              `Currency conversion failed: ${error}. Cannot debit wallet.`,
+            );
+          }
+        }
+
+        // Use converted amount for wallet debit
+        wallet.creditBalance -= amountToDebit;
         const balanceAfter = wallet.creditBalance;
 
         await this.walletRepository.save(wallet);
@@ -206,14 +231,20 @@ export class RefundBackofficeService {
           walletId: wallet.id,
           userId: wallet.userId,
           type: TransactionType.DEBIT,
-          amount: refund.amount,
-          currency: refund.currency,
+          amount: amountToDebit, // Use converted amount
+          currency: wallet.currency, // Use wallet currency
           balanceBefore,
           balanceAfter,
           status: TransactionStatus.COMPLETED,
-          description: `Refund for payment ${refund.paymentTransactionId}`,
+          description: `Refund for payment ${refund.paymentTransactionId} (${refund.amount} ${refund.currency} → ${amountToDebit} ${wallet.currency})`,
           relatedRefundId: refund.id,
           relatedPaymentTransactionId: refund.paymentTransactionId,
+          metadata: {
+            originalAmount: refund.amount,
+            originalCurrency: refund.currency,
+            convertedAmount: amountToDebit,
+            exchangeRate: amountToDebit / refund.amount,
+          },
         });
       }
 

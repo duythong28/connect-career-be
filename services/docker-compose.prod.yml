@@ -4,6 +4,7 @@ services:
   kong:
     ports:
       - "80:8000"
+      - "443:8443"
     environment:
       KONG_LOG_LEVEL: warn
 

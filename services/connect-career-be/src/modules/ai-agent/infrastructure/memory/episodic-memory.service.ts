@@ -43,16 +43,23 @@ export class EpisodicMemoryService implements EpisodicMemory {
    * Retrieve the most recent event for a user (from IMemory interface)
    */
   async retrieve(key: string): Promise<any | null> {
-    const conversations = await this.conversationRepository.findByUserId(key, 1);
-    
+    const conversations = await this.conversationRepository.findByUserId(
+      key,
+      1,
+    );
+
     if (conversations.length === 0) {
       return null;
     }
 
     const latest = conversations[0];
     return {
-      type: latest.role === 'user' ? EventType.USER_MESSAGE : 
-            latest.role === 'assistant' ? EventType.ASSISTANT_MESSAGE : EventType.SYSTEM_MESSAGE,
+      type:
+        latest.role === 'user'
+          ? EventType.USER_MESSAGE
+          : latest.role === 'assistant'
+            ? EventType.ASSISTANT_MESSAGE
+            : EventType.SYSTEM_MESSAGE,
       sessionId: latest.sessionId,
       content: latest.message,
       timestamp: latest.createdAt,
@@ -72,8 +79,11 @@ export class EpisodicMemoryService implements EpisodicMemory {
     const results: Array<{ key: string; value: any; score: number }> = [];
 
     // Get all conversations (with a reasonable limit for search)
-    const allConversations = await this.conversationRepository.findByUserId('', 1000);
-    
+    const allConversations = await this.conversationRepository.findByUserId(
+      '',
+      1000,
+    );
+
     // Group by userId for search
     const userConversations = new Map<string, typeof allConversations>();
     for (const conv of allConversations) {
@@ -88,7 +98,7 @@ export class EpisodicMemoryService implements EpisodicMemory {
       for (const conv of conversations) {
         const messageLower = conv.message.toLowerCase();
         const metadataStr = JSON.stringify(conv.metadata || {}).toLowerCase();
-        
+
         // Simple scoring: exact match = 1.0, partial match = 0.8
         let score = 0;
         if (messageLower.includes(queryLower)) {
@@ -101,8 +111,12 @@ export class EpisodicMemoryService implements EpisodicMemory {
           results.push({
             key: userId,
             value: {
-              type: conv.role === 'user' ? EventType.USER_MESSAGE : 
-                    conv.role === 'assistant' ? EventType.ASSISTANT_MESSAGE : EventType.SYSTEM_MESSAGE,
+              type:
+                conv.role === 'user'
+                  ? EventType.USER_MESSAGE
+                  : conv.role === 'assistant'
+                    ? EventType.ASSISTANT_MESSAGE
+                    : EventType.SYSTEM_MESSAGE,
               sessionId: conv.sessionId,
               content: conv.message,
               timestamp: conv.createdAt,
@@ -114,9 +128,7 @@ export class EpisodicMemoryService implements EpisodicMemory {
       }
     }
 
-    return results
-      .sort((a, b) => b.score - a.score)
-      .slice(0, limit);
+    return results.sort((a, b) => b.score - a.score).slice(0, limit);
   }
 
   /**
@@ -125,7 +137,9 @@ export class EpisodicMemoryService implements EpisodicMemory {
   async delete(key: string): Promise<void> {
     // Note: ConversationRepository doesn't have deleteByUserId, so we'd need to add it
     // For now, this is a placeholder - you may want to implement soft delete
-    this.logger.warn(`Delete operation requested for userId: ${key}. Not fully implemented.`);
+    this.logger.warn(
+      `Delete operation requested for userId: ${key}. Not fully implemented.`,
+    );
     // TODO: Implement deleteByUserId in ConversationRepository if needed
   }
 
@@ -139,11 +153,17 @@ export class EpisodicMemoryService implements EpisodicMemory {
   ): Promise<void> {
     try {
       // Handle different event formats
-      const sessionId = event.sessionId || event.metadata?.sessionId || `session_${Date.now()}`;
+      const sessionId =
+        event.sessionId || event.metadata?.sessionId || `session_${Date.now()}`;
       const message = event.content || event.message || JSON.stringify(event);
-      const role = event.type === EventType.USER_MESSAGE ? 'user' :
-                   event.type === EventType.ASSISTANT_MESSAGE ? 'assistant' :
-                   event.type === EventType.SYSTEM_MESSAGE ? 'system' : 'user';
+      const role =
+        event.type === EventType.USER_MESSAGE
+          ? 'user'
+          : event.type === EventType.ASSISTANT_MESSAGE
+            ? 'assistant'
+            : event.type === EventType.SYSTEM_MESSAGE
+              ? 'system'
+              : 'user';
 
       await this.conversationRepository.create({
         userId,
@@ -177,7 +197,10 @@ export class EpisodicMemoryService implements EpisodicMemory {
   ): Promise<any[]> {
     try {
       // Get all conversations for user (with reasonable limit)
-      const conversations = await this.conversationRepository.findByUserId(userId, 1000);
+      const conversations = await this.conversationRepository.findByUserId(
+        userId,
+        1000,
+      );
 
       // Filter by time range if provided
       let filtered = conversations;
@@ -189,9 +212,12 @@ export class EpisodicMemoryService implements EpisodicMemory {
 
       // Map to event format
       return filtered.map((c) => ({
-        type: c.role === 'user' ? EventType.USER_MESSAGE :
-              c.role === 'assistant' ? EventType.ASSISTANT_MESSAGE :
-              EventType.SYSTEM_MESSAGE,
+        type:
+          c.role === 'user'
+            ? EventType.USER_MESSAGE
+            : c.role === 'assistant'
+              ? EventType.ASSISTANT_MESSAGE
+              : EventType.SYSTEM_MESSAGE,
         sessionId: c.sessionId,
         content: c.message,
         message: c.message, // Support both content and message for compatibility

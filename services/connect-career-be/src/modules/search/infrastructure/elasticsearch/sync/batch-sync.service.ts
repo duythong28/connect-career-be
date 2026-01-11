@@ -27,7 +27,9 @@ export class BatchSyncService {
   }
 
   async batchSyncOrganizations(organizationIds: string[]): Promise<void> {
-    this.logger.log(`Starting batch sync of ${organizationIds.length} organizations`);
+    this.logger.log(
+      `Starting batch sync of ${organizationIds.length} organizations`,
+    );
 
     for (let i = 0; i < organizationIds.length; i += this.BATCH_SIZE) {
       const batch = organizationIds.slice(i, i + this.BATCH_SIZE);
@@ -50,4 +52,3 @@ export class BatchSyncService {
     this.logger.log('Batch people sync completed');
   }
 }
-

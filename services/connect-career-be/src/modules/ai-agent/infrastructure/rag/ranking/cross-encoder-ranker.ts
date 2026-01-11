@@ -5,6 +5,8 @@ import { AIService } from 'src/shared/infrastructure/external-services/ai/servic
 @Injectable()
 export class CrossEncoderRanker {
   private readonly logger = new Logger(CrossEncoderRanker.name);
+  private readonly maxConcurrentRequests: number = 3; // Limit concurrent API calls
+  private readonly delayBetweenBatches: number = 100; // 100ms delay between batches
 
   constructor(private readonly aiService: AIService) {}
 
@@ -18,13 +20,29 @@ export class CrossEncoderRanker {
     }
 
     try {
-      // Use LLM to score relevance
-      const scoredDocuments = await Promise.all(
-        documents.map(async (doc) => {
-          const score = await this.scoreRelevance(query, doc.content);
-          return { ...doc, score };
-        }),
-      );
+      // Process documents in batches to avoid rate limiting
+      const scoredDocuments: Array<DocumentChunk & { score: number }> = [];
+      
+      for (let i = 0; i < documents.length; i += this.maxConcurrentRequests) {
+        const batch = documents.slice(i, i + this.maxConcurrentRequests);
+        
+        // Process batch with limited concurrency
+        const batchResults = await Promise.all(
+          batch.map(async (doc) => {
+            const score = await this.scoreRelevance(query, doc.content);
+            return { ...doc, score };
+          }),
+        );
+        
+        scoredDocuments.push(...batchResults);
+        
+        // Add delay between batches to avoid rate limiting
+        if (i + this.maxConcurrentRequests < documents.length) {
+          await new Promise((resolve) =>
+            setTimeout(resolve, this.delayBetweenBatches),
+          );
+        }
+      }
 
       // Sort by score and return top K
       return scoredDocuments

@@ -6,7 +6,12 @@ import { NotificationGateway } from './websocket.gateway';
 export class WebSocketProvider implements INotificationProvider {
   constructor(private readonly gateway: NotificationGateway) {}
 
-  async send(recipient: string, title: string, message: string, metadata?: any): Promise<void> {
+  async send(
+    recipient: string,
+    title: string,
+    message: string,
+    metadata?: any,
+  ): Promise<void> {
     this.gateway.sendNotification(recipient, {
       title,
       message,

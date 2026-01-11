@@ -376,19 +376,15 @@ export class ApplicationCandidateController {
     );
   }
 
-  @Put('bulk-update')
+  @Post('bulk-update')
   bulk(
-    @Body()
-    body: {
-      applicationIds: string[];
-      update: applicationService.UpdateApplicationDto;
-    },
-    @decorators.CurrentUser() _u: decorators.CurrentUserPayload,
+    @decorators.CurrentUser() user: decorators.CurrentUserPayload,
+    @Body() body: any,
   ) {
     return this.applicationService.bulkUpdateApplications(
-      body.applicationIds,
-      body.update,
-      _u?.sub || 'system',
+      body.applicationIds || [],
+      body.update || {},
+      user?.sub || 'system',
     );
   }
 

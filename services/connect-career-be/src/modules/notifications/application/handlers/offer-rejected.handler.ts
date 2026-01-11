@@ -45,4 +45,3 @@ export class OfferRejectedHandler implements IEventHandler<OfferRejectedEvent> {
     }
   }
 }
-

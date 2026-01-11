@@ -17,6 +17,7 @@ import { CandidateManagementService } from './api/services/candidate-management.
 import { IdentityModule } from '../identity/identity.module';
 import { UserDetailsService } from './api/services/user-details.service';
 import { UserManagementService } from './api/services/user-management.service';
+import { ElasticsearchModule } from '../search/infrastructure/elasticsearch/elasticsearch.module';
 
 @Module({
   imports: [
@@ -32,6 +33,7 @@ import { UserManagementService } from './api/services/user-management.service';
       Role,
     ]),
     IdentityModule,
+    ElasticsearchModule,
   ],
   controllers: [BackofficeController],
   providers: [

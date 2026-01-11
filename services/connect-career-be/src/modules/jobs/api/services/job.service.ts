@@ -12,6 +12,9 @@ import { JobStateMachineFactory } from '../../domain/state-machine/job-state-mac
 import { JobTransitionContext } from './job-state-machine.interface';
 import { HiringPipeline } from 'src/modules/hiring-pipeline/domain/entities/hiring-pipeline.entity';
 import { QueueService } from 'src/shared/infrastructure/queue/queue.service';
+import { EventBus } from '@nestjs/cqrs';
+import { JobPublishedEvent } from '../../domain/events/job-published.event';
+import { OrganizationMembership } from 'src/modules/profile/domain/entities/organization-memberships.entity';
 
 @Injectable()
 export class JobService {
@@ -22,8 +25,11 @@ export class JobService {
     private readonly hiringPipelineRepository: Repository<HiringPipeline>,
     @InjectRepository(Organization)
     private readonly organizationRepository: Repository<Organization>,
+    @InjectRepository(OrganizationMembership)
+    private readonly organizationMemberRepository: Repository<OrganizationMembership>,
     private readonly stateMachineFactory: JobStateMachineFactory,
     private readonly queueService: QueueService,
+    private readonly eventBus: EventBus,
   ) {}
 
   async searchJobs(searchJobs: JobSearchDto): Promise<PaginatedResult<Job>> {
@@ -428,12 +434,12 @@ export class JobService {
     if (!user) {
       throw new NotFoundException(`User with ID ${userId} not found`);
     }
-    const organization = await this.organizationRepository.findOne({
-      where: { userId },
+    const organizationMember = await this.organizationMemberRepository.findOne({
+      where: { userId, organizationId: createJobDto.organizationId },
     });
-    if (!organization) {
+    if (!organizationMember) {
       throw new NotFoundException(
-        `Organization with User ID ${userId} not found`,
+        `Organization member with User ID ${userId} and Organization ID ${createJobDto.organizationId} not found`,
       );
     }
     const hiringPipeline = await this.hiringPipelineRepository.findOne({
@@ -442,9 +448,9 @@ export class JobService {
     const jobDataForCreate: Partial<Job> = {
       ...createJobDto,
       userId,
-      organizationId: organization.id,
+      organizationId: createJobDto.organizationId,
       source: JobSource.INTERNAL,
-      status: JobStatus.DRAFT,
+      status: createJobDto.status,
       postedDate:
         createJobDto.status === JobStatus.ACTIVE ? new Date() : undefined,
     };
@@ -459,6 +465,21 @@ export class JobService {
     const job = this.jobRepository.create(jobDataForCreate);
     const savedJob = await this.jobRepository.save(job);
     if (savedJob.status === JobStatus.ACTIVE) {
+      if (!savedJob.postedDate) {
+        savedJob.postedDate = new Date();
+        await this.jobRepository.save(savedJob);
+      }
+
+      this.eventBus.publish(
+        new JobPublishedEvent(
+          savedJob.id,
+          savedJob.title,
+          savedJob.organizationId,
+          savedJob.userId,
+          JobStatus.ACTIVE,
+        ),
+      );
+
       await this.queueJobEmbedding(savedJob);
     }
 
@@ -484,7 +505,7 @@ export class JobService {
 
     if (
       updateJobDto.status === JobStatus.ACTIVE &&
-      job.status !== JobStatus.ACTIVE &&
+      oldStatus !== JobStatus.ACTIVE &&
       !job.postedDate
     ) {
       job.postedDate = new Date();
@@ -555,8 +576,23 @@ export class JobService {
     const oldStatus = job.status;
     job.status = status;
 
-    if (status === JobStatus.ACTIVE && oldStatus !== JobStatus.ACTIVE) {
+    if (
+      status === JobStatus.ACTIVE &&
+      oldStatus !== JobStatus.ACTIVE &&
+      !job.postedDate
+    ) {
       job.postedDate = new Date();
+
+      // Publish JobPublishedEvent when job becomes ACTIVE
+      this.eventBus.publish(
+        new JobPublishedEvent(
+          job.id,
+          job.title,
+          job.organizationId,
+          job.userId,
+          JobStatus.ACTIVE,
+        ),
+      );
     }
 
     if (status === JobStatus.CLOSED && oldStatus !== JobStatus.CLOSED) {
@@ -687,5 +723,33 @@ export class JobService {
       userId,
       JobStatus.ARCHIVED,
     );
+  }
+
+  async getJobsByIds(ids: string[]): Promise<Job[]> {
+    if (!ids || ids.length === 0) {
+      return [];
+    }
+
+    const jobs = await this.jobRepository.find({
+      where: ids.map((id) => ({ id })),
+      relations: [
+        'organization',
+        'organization.logoFile',
+        'organization.industry',
+        'user',
+      ],
+    });
+
+    const jobMap = new Map(jobs.map((job) => [job.id, job]));
+
+    const result: Job[] = [];
+    for (const id of ids) {
+      const job = jobMap.get(id);
+      if (job) {
+        result.push(job);
+      }
+    }
+
+    return result;
   }
 }

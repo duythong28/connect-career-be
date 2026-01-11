@@ -20,7 +20,10 @@ import { ApplicationRecruiterController } from './api/controller/application.rec
 import { JobStatusService } from '../jobs/api/services/job-status.service';
 import { JobsModule } from '../jobs/jobs.module';
 import { ApplicationSeeder } from './infrastructure/seeders/application.seeder';
-import { CqrsModule, EventBus } from '@nestjs/cqrs';
+import { CqrsModule } from '@nestjs/cqrs';
+import { JobInteraction } from '../recommendations/domain/entities/job-interaction.entity';
+import { ApplicationMatchingScoreRequestedHandler } from './api/event-handlers/application-matching-score-requested.handler';
+import { HttpModule } from '@nestjs/axios';
 
 @Module({
   imports: [
@@ -35,9 +38,11 @@ import { CqrsModule, EventBus } from '@nestjs/cqrs';
       HiringPipeline,
       PipelineStage,
       PipelineTransition,
+      JobInteraction,
     ]),
     JobsModule,
-    CqrsModule
+    CqrsModule,
+    HttpModule,
   ],
   controllers: [ApplicationCandidateController, ApplicationRecruiterController],
   providers: [
@@ -48,6 +53,7 @@ import { CqrsModule, EventBus } from '@nestjs/cqrs';
     CommunicationService,
     JobStatusService,
     ApplicationSeeder,
+    ApplicationMatchingScoreRequestedHandler,
   ],
   exports: [
     ApplicationService,

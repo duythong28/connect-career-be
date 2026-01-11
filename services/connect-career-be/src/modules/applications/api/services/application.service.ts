@@ -23,7 +23,7 @@ import {
 } from '../../domain/entities/interview.entity';
 import { Offer, OfferStatus } from '../../domain/entities/offer.entity';
 import { CandidateSnapshotDto } from '../dtos/application-detail.dto';
-import { PipelineStageType } from 'src/modules/hiring-pipeline/domain/entities/pipeline-stage.entity';
+import { PipelineStage, PipelineStageType } from 'src/modules/hiring-pipeline/domain/entities/pipeline-stage.entity';
 import { CV } from 'src/modules/cv-maker/domain/entities/cv.entity';
 import { EventBus } from '@nestjs/cqrs';
 import { ApplicationCreatedEvent } from '../../domain/events/application-created.event';
@@ -330,16 +330,27 @@ export class ApplicationService {
     const [data, total] = await qb.getManyAndCount();
     return { data, total, page, limit, totalPages: Math.ceil(total / limit) };
   }
+
   async updateApplication(
     id: string,
     updateDto: UpdateApplicationDto,
     userId: string,
   ): Promise<Application> {
     const app = await this.getApplicationById(id);
+    const oldStatus = app.status;
+    const statusChanged = updateDto.status !== undefined && updateDto.status !== app.status;
+    
     if (updateDto.status !== undefined) {
-      app.addStatusHistory(updateDto.status, userId, 'Status updated');
+      // Update status history
+      app.addStatusHistory(updateDto.status, userId, updateDto.notes || 'Status updated');
+      
+      // If status changed, update pipeline stage using existing job relation
+      if (statusChanged) {
+        await this.updatePipelineStageForStatus(app, updateDto.status, userId, updateDto.notes);
+      }
     }
-    if (updateDto.notes !== undefined) app.notes = updateDto.notes;
+    
+    if (updateDto.notes !== undefined && !statusChanged) app.notes = updateDto.notes;
     if (updateDto.isShortlisted !== undefined) {
       app.isShortlisted = updateDto.isShortlisted;
       if (updateDto.isShortlisted) app.shortlistedAt = new Date();
@@ -365,11 +376,161 @@ export class ApplicationService {
         ...updates,
       ];
     }
+    
     app.updateCalculatedFields();
     await this.applicationRepository.save(app);
+    
+    // Publish event if status changed
+    if (statusChanged && updateDto.status !== undefined) {
+      const updatedApp = await this.getApplicationById(id);
+      this.eventBus.publish(
+        new ApplicationStatusChangedEvent(
+          updatedApp.id,
+          updatedApp.candidateId,
+          updatedApp.jobId,
+          updatedApp.job.title,
+          oldStatus,
+          updateDto.status,
+          userId,
+          updateDto.notes || 'Status updated',
+        ),
+      );
+      
+      // Handle special status cases
+      if (updateDto.status === ApplicationStatus.HIRED) {
+        await this.jobStatusService.updateJobStatusBasedOnApplications(app.jobId);
+      }
+    }
+    
     return this.getApplicationById(id);
   }
 
+  private async updatePipelineStageForStatus(
+    application: Application,
+    newStatus: ApplicationStatus,
+    userId: string,
+    reason?: string,
+  ): Promise<void> {
+    try {
+      // Use existing job relation, load pipeline and stages if not already loaded
+      if (!application.job) {
+        this.logger.warn(
+          `Job not loaded for application ${application.id}, skipping stage update`,
+        );
+        return;
+      }
+
+      // Load pipeline and stages if not already loaded
+      if (!application.job.hiringPipeline) {
+        const job = await this.jobRepository.findOne({
+          where: { id: application.jobId },
+          relations: ['hiringPipeline', 'hiringPipeline.stages'],
+        });
+        if (job) {
+          application.job = job;
+        }
+      }
+
+      const pipeline = application.job.hiringPipeline;
+
+      if (!pipeline?.stages?.length) {
+        this.logger.warn(
+          `No pipeline or stages found for job ${application.jobId}, skipping stage update`,
+        );
+        return;
+      }
+
+      // Find the stage that maps to this status
+      const targetStage = this.findStageForStatus(
+        pipeline.stages,
+        newStatus,
+      );
+
+      if (targetStage) {
+        // Update current stage key and name
+        application.currentStageKey = targetStage.key;
+        application.currentStageName = targetStage.name;
+
+        // Add to pipeline stage history
+        application.addPipelineStageHistory(
+          targetStage,
+          userId,
+          reason || 'Status changed',
+        );
+      } else {
+        this.logger.warn(
+          `No matching stage found for status ${newStatus} in pipeline for job ${application.jobId}`,
+        );
+      }
+    } catch (error) {
+      this.logger.error(
+        `Failed to update pipeline stage for application ${application.id}: ${error instanceof Error ? error.message : 'Unknown error'}`,
+      );
+      // Don't throw - allow the status update to proceed even if stage update fails
+    }
+  }
+  private findStageForStatus(
+    stages: PipelineStage[],
+    status: ApplicationStatus,
+  ): PipelineStage | null {
+    // First, try to find exact match by mapping each stage to status
+    for (const stage of stages) {
+      const stageStatus = this.mapStageToApplicationStatus(stage);
+      if (stageStatus === status) {
+        return stage;
+      }
+    }
+
+    // If no exact match, try to find by status-specific logic
+    const statusStageMap: Partial<Record<ApplicationStatus, (stage: PipelineStage) => boolean>> = {
+      [ApplicationStatus.LEAD]: (s) => s.type === PipelineStageType.SOURCING,
+      [ApplicationStatus.SCREENING]: (s) => s.type === PipelineStageType.SCREENING,
+      [ApplicationStatus.INTERVIEW_SCHEDULED]: (s) => s.type === PipelineStageType.INTERVIEW,
+      [ApplicationStatus.OFFER_PENDING]: (s) => s.type === PipelineStageType.OFFER,
+      [ApplicationStatus.HIRED]: (s) => s.type === PipelineStageType.HIRED,
+      [ApplicationStatus.REJECTED]: (s) => s.type === PipelineStageType.REJECTED,
+      [ApplicationStatus.ON_HOLD]: (s) => s.type === PipelineStageType.ON_HOLD,
+      [ApplicationStatus.UNDER_REVIEW]: (s) => s.key?.includes('review') || false,
+      [ApplicationStatus.SHORTLISTED]: (s) => s.key?.includes('shortlist') || false,
+      [ApplicationStatus.REFERENCE_CHECK]: (s) => s.key?.includes('reference') || false,
+    };
+
+    const matcher = statusStageMap[status];
+    if (matcher) {
+      const matchingStage = stages.find(matcher);
+      if (matchingStage) {
+        return matchingStage;
+      }
+    }
+
+    return null;
+  }
+
+  private mapStageToApplicationStatus(stage: PipelineStage): ApplicationStatus {
+    switch (stage.type) {
+      case PipelineStageType.SOURCING:
+        return ApplicationStatus.LEAD;
+      case PipelineStageType.SCREENING:
+        return ApplicationStatus.SCREENING;
+      case PipelineStageType.INTERVIEW:
+        return ApplicationStatus.INTERVIEW_SCHEDULED;
+      case PipelineStageType.OFFER:
+        return ApplicationStatus.OFFER_PENDING;
+      case PipelineStageType.HIRED:
+        return ApplicationStatus.HIRED;
+      case PipelineStageType.REJECTED:
+        return ApplicationStatus.REJECTED;
+      case PipelineStageType.ON_HOLD:
+        return ApplicationStatus.ON_HOLD;
+      default:
+        if (stage.key?.includes('review')) return ApplicationStatus.UNDER_REVIEW;
+        if (stage.key?.includes('shortlist'))
+          return ApplicationStatus.SHORTLISTED;
+        if (stage.key?.includes('reference'))
+          return ApplicationStatus.REFERENCE_CHECK;
+        return ApplicationStatus.UNDER_REVIEW;
+    }
+  }
   async updateApplicationStatus(
     id: string,
     status: ApplicationStatus,

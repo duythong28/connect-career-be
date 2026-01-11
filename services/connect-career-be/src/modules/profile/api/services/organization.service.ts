@@ -40,32 +40,10 @@ export class OrganizationService {
     userId: string,
     dto: CreateOrganizationDto,
   ): Promise<Organization> {
-    const existingOrg = await this.organizationRepository.findByUserId(userId);
-    if (existingOrg) {
-      throw new BadRequestException('Organization already exists');
-    }
-    const organizationData = {
-      ...dto,
+    return this.organizationRBACService.createOrganizationWithOwner(
       userId,
-      isActive: true,
-      isPublic: false,
-      isVerified: false,
-    };
-
-    const organization =
-      await this.organizationRepository.create(organizationData);
-    const ownerRole = await this.roleRepository.findOne({
-      where: { name: 'owner', organizationId: organization.id },
-    });
-    if (ownerRole) {
-      await this.organizationRBACService.addMemberToOrganization(
-        organization.id,
-        userId,
-        ownerRole.id,
-        userId,
-      );
-    }
-    return organization;
+      dto,
+    );
   }
 
   async updateOrganizationById(

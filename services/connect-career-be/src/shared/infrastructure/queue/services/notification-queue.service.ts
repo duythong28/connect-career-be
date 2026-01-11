@@ -2,7 +2,6 @@ import { Injectable } from '@nestjs/common';
 import { InjectQueue } from '@nestjs/bullmq';
 import { Queue } from 'bullmq';
 import { SendNotificationJobData } from '../processors/notification.processor';
-import { NotificationChannel } from 'src/modules/notifications/domain/entities/notification.entity';
 
 @Injectable()
 export class NotificationQueueService {
@@ -12,49 +11,41 @@ export class NotificationQueueService {
   ) {}
 
   async queueNotification(data: SendNotificationJobData): Promise<void> {
-    await this.notificationQueue.add(
-      'send-notification',
-      data,
-      {
-        attempts: 3,
-        backoff: {
-          type: 'exponential',
-          delay: 2000, // Start with 2 seconds, then 4, 8, etc.
-        },
-        removeOnComplete: {
-          age: 3600, // Keep completed jobs for 1 hour
-          count: 1000,
-        },
-        removeOnFail: {
-          age: 86400, // Keep failed jobs for 24 hours
-        },
+    await this.notificationQueue.add('send-notification', data, {
+      attempts: 3,
+      backoff: {
+        type: 'exponential',
+        delay: 2000, // Start with 2 seconds, then 4, 8, etc.
       },
-    );
+      removeOnComplete: {
+        age: 3600, // Keep completed jobs for 1 hour
+        count: 1000,
+      },
+      removeOnFail: {
+        age: 86400, // Keep failed jobs for 24 hours
+      },
+    });
   }
 
   async scheduleNotification(
     data: SendNotificationJobData,
     delay: number, // Delay in milliseconds
   ): Promise<void> {
-    await this.notificationQueue.add(
-      'send-notification',
-      data,
-      {
-        delay,
-        attempts: 3,
-        backoff: {
-          type: 'exponential',
-          delay: 2000,
-        },
-        removeOnComplete: {
-          age: 3600,
-          count: 1000,
-        },
-        removeOnFail: {
-          age: 86400,
-        },
+    await this.notificationQueue.add('send-notification', data, {
+      delay,
+      attempts: 3,
+      backoff: {
+        type: 'exponential',
+        delay: 2000,
       },
-    );
+      removeOnComplete: {
+        age: 3600,
+        count: 1000,
+      },
+      removeOnFail: {
+        age: 86400,
+      },
+    });
   }
 
   async scheduleNotificationAt(

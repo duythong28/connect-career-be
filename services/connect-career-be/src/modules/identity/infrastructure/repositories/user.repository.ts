@@ -1,6 +1,6 @@
 import { Injectable } from '@nestjs/common';
 import { InjectRepository } from '@nestjs/typeorm';
-import { Repository } from 'typeorm';
+import { In, Repository } from 'typeorm';
 import { User } from '../../domain/entities';
 import { IUserRepository } from '../../domain/repository/identity.repository';
 
@@ -14,6 +14,13 @@ export class UserRepository implements IUserRepository {
   async findById(id: string): Promise<User | null> {
     return this.repository.findOne({
       where: { id },
+      relations: ['roles', 'roles.permissions', 'candidateProfile'],
+    });
+  }
+
+  async findByIds(ids: string[]): Promise<User[]> {
+    return this.repository.find({
+      where: { id: In(ids) },
       relations: ['roles', 'roles.permissions', 'candidateProfile'],
     });
   }

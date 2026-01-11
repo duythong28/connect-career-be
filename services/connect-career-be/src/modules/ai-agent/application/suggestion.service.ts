@@ -1,6 +1,7 @@
 import { Injectable, Logger } from '@nestjs/common';
 import { AIService } from 'src/shared/infrastructure/external-services/ai/services/ai.service';
 import { EpisodicMemoryService } from '../infrastructure/memory/episodic-memory.service';
+import { PromptService } from '../infrastructure/prompts/prompt.service';
 
 @Injectable()
 export class SuggestionService {
@@ -9,6 +10,7 @@ export class SuggestionService {
   constructor(
     private readonly aiService: AIService,
     private readonly episodicMemory: EpisodicMemoryService,
+    private readonly promptService: PromptService,
   ) {}
 
   async getSuggestions(
@@ -24,25 +26,17 @@ export class SuggestionService {
         end: new Date(),
       });
 
-      const systemPrompt = `You are a proactive career assistant. Based on the user's context and recent activity, suggest helpful next actions.
-Suggestions should be:
-- Relevant to their career goals
-- Actionable and specific
-- Limited to 3-5 suggestions
-- Friendly and encouraging
-
-Return a JSON array of suggestion strings.`;
-
-      const contextPrompt = context
-        ? `Current context: ${context}`
-        : 'No specific context provided.';
+      const systemPrompt = this.promptService.getSuggestionSystemPrompt();
 
       const activitySummary =
         recentEvents.length > 0
-          ? `Recent activity: ${JSON.stringify(recentEvents.slice(-5))}`
-          : 'No recent activity found.';
+          ? JSON.stringify(recentEvents.slice(-5))
+          : undefined;
 
-      const prompt = `${contextPrompt}\n\n${activitySummary}\n\nGenerate proactive suggestions for the user.`;
+      const prompt = this.promptService.getSuggestionUserPrompt(
+        context,
+        activitySummary,
+      );
 
       const response = await this.aiService.chat({
         messages: [
@@ -54,7 +48,10 @@ Return a JSON array of suggestion strings.`;
       });
 
       try {
-        const suggestions = JSON.parse(response.content);
+        const cleanedContent = this.promptService.cleanJsonResponse(
+          response.content,
+        );
+        const suggestions = JSON.parse(cleanedContent);
         return Array.isArray(suggestions) ? suggestions : [];
       } catch (parseError) {
         // Fallback: extract suggestions from text

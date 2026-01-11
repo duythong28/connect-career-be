@@ -44,4 +44,3 @@ export class OfferAcceptedHandler implements IEventHandler<OfferAcceptedEvent> {
     }
   }
 }
-

@@ -37,6 +37,7 @@ import {
   AuthTokensResponseDto,
   MfaSetupResponseDto,
   UserProfileDto,
+  GetUsersByIdsDto,
 } from './dtos';
 import { UserMapper } from './mappers/user.mapper';
 
@@ -195,12 +196,7 @@ export class IdentityController {
   async forgotPassword(
     @Body() forgotPasswordDto: ForgotPasswordDto,
   ): Promise<{ message: string }> {
-    const user = await this.userRepository.findByEmail(forgotPasswordDto.email);
-
-    if (user) {
-      // Generate reset token and send email (implementation needed)
-      // await this.authService.sendPasswordResetEmail(user);
-    }
+    await this.authService.requestPasswordReset(forgotPasswordDto.email);
 
     // Always return success message for security
     return {
@@ -217,20 +213,10 @@ export class IdentityController {
   async resetPassword(
     @Body() resetPasswordDto: ResetPasswordDto,
   ): Promise<{ message: string }> {
-    const user = await this.userRepository.findByPasswordResetToken(
+    await this.authService.resetPassword(
       resetPasswordDto.token,
+      resetPasswordDto.newPassword,
     );
-
-    if (
-      !user ||
-      !user.passwordResetExpires ||
-      user.passwordResetExpires < new Date()
-    ) {
-      throw new BadRequestException('Invalid or expired reset token');
-    }
-
-    // Reset password (implementation needed)
-    // await this.authService.resetPassword(user.id, resetPasswordDto.password);
 
     return { message: 'Password reset successfully' };
   }
@@ -317,5 +303,24 @@ export class IdentityController {
     await this.userRepository.update(user.sub, { mfaEnabled: false });
 
     return { message: 'MFA disabled successfully' };
+  }
+
+  @Post('users/by-ids')
+  @ApiBearerAuth()
+  @ApiOperation({ summary: 'Get users by a list of user IDs' })
+  @ApiResponse({
+    status: 200,
+    description: 'Users retrieved successfully',
+    type: [UserProfileDto],
+  })
+  async getUsersByIds(
+    @Body() dto: GetUsersByIdsDto,
+  ): Promise<UserProfileDto[]> {
+    if (!dto.ids || dto.ids.length === 0) {
+      return [];
+    }
+
+    const users = await this.authService.getUsersByIds(dto.ids);
+    return users;
   }
 }

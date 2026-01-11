@@ -13,18 +13,6 @@ export const DEFAULT_ORGANIZATION_ROLES = [
     ],
   },
   {
-    name: 'admin',
-    description: 'Organization administrator',
-    isSystemRole: true,
-    permissions: [
-      'manage:jobs',
-      'manage:applications',
-      'manage:members',
-      'read:reports',
-      'read:settings',
-    ],
-  },
-  {
     name: 'hr_manager',
     description: 'HR Manager with hiring responsibilities',
     isSystemRole: false,
@@ -45,11 +33,5 @@ export const DEFAULT_ORGANIZATION_ROLES = [
       'read:applications',
       'update:applications',
     ],
-  },
-  {
-    name: 'viewer',
-    description: 'Read-only access to organization data',
-    isSystemRole: false,
-    permissions: ['read:jobs', 'read:applications', 'read:reports'],
-  },
+  }
 ];

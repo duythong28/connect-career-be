@@ -19,4 +19,3 @@ export class ApplicationStatusChangedEvent implements IDomainEvent {
     this.occurredAt = new Date();
   }
 }
-

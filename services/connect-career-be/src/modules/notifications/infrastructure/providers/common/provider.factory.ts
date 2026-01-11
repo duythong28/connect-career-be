@@ -11,6 +11,8 @@ export class ProviderFactory {
     private readonly smsProvider: notificationProviderInterface.INotificationProvider,
     @Inject('WebSocketProvider')
     private readonly webSocketProvider: notificationProviderInterface.INotificationProvider,
+    @Inject('PushProvider') // Add this
+    private readonly pushProvider: notificationProviderInterface.INotificationProvider,
   ) {}
 
   createProvider(
@@ -23,6 +25,8 @@ export class ProviderFactory {
         return this.smsProvider;
       case NotificationChannel.WEBSOCKET:
         return this.webSocketProvider;
+      case NotificationChannel.PUSH: // Add this
+        return this.pushProvider;
       default:
         throw new Error(`No provider found for channel: ${channel}`);
     }

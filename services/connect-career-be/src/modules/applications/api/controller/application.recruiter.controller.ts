@@ -7,6 +7,7 @@ import {
   Body,
   Param,
   UseGuards,
+  ParseUUIDPipe,
 } from '@nestjs/common';
 import {
   ApiTags,
@@ -43,6 +44,7 @@ import {
 import { LogCommunicationDto } from '../dtos/communication.dto';
 import { JwtAuthGuard } from '../../../identity/api/guards/jwt-auth.guard';
 import * as decorators from 'src/modules/identity/api/decorators';
+import { ApplicationLLMEvaluationHandler } from 'src/modules/notifications/application/handlers/application-llm-evaluation.handler';
 
 @ApiTags('Application Management - Recruiter')
 @ApiBearerAuth()
@@ -55,6 +57,7 @@ export class ApplicationRecruiterController {
     private readonly interviewService: InterviewService,
     private readonly offerService: OfferService,
     private readonly communicationService: CommunicationService,
+    private readonly llmEvaluationHandler: ApplicationLLMEvaluationHandler,
   ) {}
 
   // Application Management
@@ -434,5 +437,20 @@ export class ApplicationRecruiterController {
     @decorators.CurrentUser() user: decorators.CurrentUserPayload,
   ) {
     return this.offerService.rejectOffer(id, rejectDto, user.sub);
+  }
+
+  @Post(':id/test-llm-evaluation')
+  @ApiOperation({
+    summary: 'Test LLM evaluation for an application',
+    description:
+      'Manually trigger LLM evaluation to test if candidate CV meets job requirements',
+  })
+  @ApiParam({ name: 'id', description: 'Application ID' })
+  @ApiResponse({
+    status: 200,
+    description: 'LLM evaluation result',
+  })
+  async testLLMEvaluation(@Param('id', ParseUUIDPipe) applicationId: string) {
+    return this.llmEvaluationHandler.evaluateApplication(applicationId);
   }
 }

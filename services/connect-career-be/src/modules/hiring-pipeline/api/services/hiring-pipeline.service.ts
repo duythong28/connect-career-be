@@ -100,11 +100,18 @@ export class HiringPipelineRecruiterService {
   }
 
   async findActivePipelines(organizationId: string): Promise<HiringPipeline[]> {
-    return this.pipelineRepository.find({
-      where: { organizationId, active: true },
-      relations: ['jobs', 'stages', 'transitions'],
-      order: { createdAt: 'ASC' },
-    });
+    const pipelines = await this.pipelineRepository
+      .createQueryBuilder('pipeline')
+      .leftJoinAndSelect('pipeline.jobs', 'jobs')
+      .leftJoinAndSelect('pipeline.stages', 'stages')
+      .leftJoinAndSelect('pipeline.transitions', 'transitions')
+      .where('pipeline.organizationId = :organizationId', { organizationId })
+      .andWhere('pipeline.active = :active', { active: true })
+      .orderBy('pipeline.createdAt', 'ASC')
+      .addOrderBy('stages.order', 'ASC')
+      .getMany();
+  
+    return pipelines;
   }
 
   async findPipelineById(id: string): Promise<HiringPipeline> {

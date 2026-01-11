@@ -428,30 +428,45 @@ export class MoMoProvider extends BasePaymentProvider {
 
     const { orderId, resultCode, transId, message } = payload;
 
-    // Persist transId so refunds can use it later
-    const transaction = await this.paymentTransactionRepository.findOne({
+    // Try multiple ways to find transaction
+    let transaction = await this.paymentTransactionRepository.findOne({
       where: {
         providerPaymentId: orderId,
         provider: this.providerCode,
       },
     });
 
+    // If not found, try finding by transaction ID directly (orderId = transaction.id)
+    if (!transaction) {
+      transaction = await this.paymentTransactionRepository.findOne({
+        where: {
+          id: orderId,
+          provider: this.providerCode,
+        },
+      });
+    }
+
     if (transaction) {
+      // Update providerPaymentId if it's not set yet
+      if (!transaction.providerPaymentId || transaction.providerPaymentId.startsWith('pending_')) {
+        transaction.providerPaymentId = orderId;
+      }
+      
+      // Store transId and response, but DON'T update status here
+      // Let payment.service.processWebhookEvent handle status update and wallet credit
       transaction.providerTransactionId = String(transId);
       transaction.providerResponse = payload;
-
-      if (resultCode === 0) {
-        transaction.status = PaymentStatus.COMPLETED;
-        transaction.completedAt = new Date();
-      } else {
-        transaction.status = PaymentStatus.FAILED;
-        transaction.failedAt = new Date();
-        transaction.failureReason = message || 'Payment failed';
-      }
-
+      
+      // Only save the transId and response, not the status
       await this.paymentTransactionRepository.save(transaction);
+      
+      this.logger.log(
+        `MoMo webhook received: transaction ${transaction.id}, orderId: ${orderId}, resultCode: ${resultCode}, transId: ${transId}`,
+      );
     } else {
-      this.logger.warn(`Payment transaction not found for orderId ${orderId}`);
+      this.logger.warn(
+        `Payment transaction not found for orderId ${orderId}`,
+      );
     }
 
     const eventType = resultCode === 0 ? 'payment.succeeded' : 'payment.failed';

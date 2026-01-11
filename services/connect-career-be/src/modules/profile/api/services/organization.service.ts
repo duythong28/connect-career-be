@@ -165,7 +165,7 @@ export class OrganizationService {
       limit = 20,
     } = searchDto;
 
-    const organizations = await this.organizationRepository.advancedSearch({
+    const organizations = await this.organizationRepository.advancedSearchByJobCount({
       searchTerm: search,
       industryIds,
       country,

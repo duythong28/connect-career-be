@@ -22,10 +22,10 @@ export class CrossEncoderRanker {
     try {
       // Process documents in batches to avoid rate limiting
       const scoredDocuments: Array<DocumentChunk & { score: number }> = [];
-      
+
       for (let i = 0; i < documents.length; i += this.maxConcurrentRequests) {
         const batch = documents.slice(i, i + this.maxConcurrentRequests);
-        
+
         // Process batch with limited concurrency
         const batchResults = await Promise.all(
           batch.map(async (doc) => {
@@ -33,9 +33,9 @@ export class CrossEncoderRanker {
             return { ...doc, score };
           }),
         );
-        
+
         scoredDocuments.push(...batchResults);
-        
+
         // Add delay between batches to avoid rate limiting
         if (i + this.maxConcurrentRequests < documents.length) {
           await new Promise((resolve) =>

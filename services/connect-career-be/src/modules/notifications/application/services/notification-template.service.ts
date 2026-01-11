@@ -575,6 +575,203 @@ export class NotificationTemplateService {
             htmlContent: html,
           };
         },
+      [`${NotificationType.APPLICATION_RECEIVED}_${NotificationChannel.WEBSOCKET}`]:
+        async (data) => ({
+          title: 'Application Submitted',
+          message: `Your application for ${data.jobTitle || 'the position'} at ${data.companyName || 'the company'} has been submitted successfully.`,
+          htmlContent: null,
+        }),
+
+      [`${NotificationType.APPLICATION_RECEIVED}_${NotificationChannel.PUSH}`]:
+        async (data) => ({
+          title: 'Application Submitted',
+          message: `Your application for ${data.jobTitle || 'the position'} has been submitted.`,
+          htmlContent: null,
+        }),
+
+      [`${NotificationType.APPLICATION_STATUS_CHANGED}_${NotificationChannel.WEBSOCKET}`]:
+        async (data) => {
+          const statusText = data.newStatus || data.status || 'updated';
+          return {
+            title: 'Application Status Changed',
+            message: `Your application for ${data.jobTitle || 'the position'} status has been updated to ${statusText}.`,
+            htmlContent: null,
+          };
+        },
+
+      [`${NotificationType.APPLICATION_STATUS_CHANGED}_${NotificationChannel.PUSH}`]:
+        async (data) => {
+          const statusText = data.newStatus || data.status || 'updated';
+          return {
+            title: 'Application Update',
+            message: `Application status changed to ${statusText}.`,
+            htmlContent: null,
+          };
+        },
+
+      [`${NotificationType.APPLICATION_SHORTLISTED}_${NotificationChannel.WEBSOCKET}`]:
+        async (data) => ({
+          title: '🎉 Application Shortlisted!',
+          message: `Congratulations! Your application for ${data.jobTitle || 'the position'} at ${data.companyName || 'the company'} has been shortlisted.`,
+          htmlContent: null,
+        }),
+
+      [`${NotificationType.APPLICATION_SHORTLISTED}_${NotificationChannel.PUSH}`]:
+        async (data) => ({
+          title: '🎉 Application Shortlisted!',
+          message: `Your application for ${data.jobTitle || 'the position'} has been shortlisted!`,
+          htmlContent: null,
+        }),
+
+      [`${NotificationType.APPLICATION_REJECTED}_${NotificationChannel.WEBSOCKET}`]:
+        async (data) => ({
+          title: 'Application Update',
+          message: `Update on your application for ${data.jobTitle || 'the position'} at ${data.companyName || 'the company'}.`,
+          htmlContent: null,
+        }),
+
+      [`${NotificationType.APPLICATION_REJECTED}_${NotificationChannel.PUSH}`]:
+        async (data) => ({
+          title: 'Application Update',
+          message: `Update on your application for ${data.jobTitle || 'the position'}.`,
+          htmlContent: null,
+        }),
+
+      [`${NotificationType.APPLICATION_HIRED}_${NotificationChannel.WEBSOCKET}`]:
+        async (data) => ({
+          title: "🎊 Congratulations! You're Hired!",
+          message: `Great news! You've been selected for ${data.jobTitle || 'the position'} at ${data.companyName || 'the company'}. Welcome to the team!`,
+          htmlContent: null,
+        }),
+
+      [`${NotificationType.APPLICATION_HIRED}_${NotificationChannel.PUSH}`]:
+        async (data) => ({
+          title: "🎊 You're Hired!",
+          message: `Congratulations! You've been selected for ${data.jobTitle || 'the position'}.`,
+          htmlContent: null,
+        }),
+
+      // Interview Related - WEBSOCKET & PUSH templates
+      [`${NotificationType.INTERVIEW_SCHEDULED}_${NotificationChannel.WEBSOCKET}`]:
+        async (data) => {
+          const date = data.interviewDate || data.scheduledDate || 'TBD';
+          const time = data.interviewTime || 'TBD';
+          return {
+            title: 'Interview Scheduled',
+            message: `Your interview for ${data.jobTitle || 'the position'} has been scheduled for ${date} at ${time}.`,
+            htmlContent: null,
+          };
+        },
+
+      [`${NotificationType.INTERVIEW_SCHEDULED}_${NotificationChannel.PUSH}`]:
+        async (data) => {
+          const date = data.interviewDate || data.scheduledDate || 'TBD';
+          return {
+            title: 'Interview Scheduled',
+            message: `Interview scheduled for ${data.jobTitle || 'the position'} on ${date}.`,
+            htmlContent: null,
+          };
+        },
+
+      [`${NotificationType.INTERVIEW_RESCHEDULED}_${NotificationChannel.WEBSOCKET}`]:
+        async (data) => {
+          const newDate =
+            data.newDate ||
+            data.newScheduledDate ||
+            data.interviewDate ||
+            'new date';
+          return {
+            title: 'Interview Rescheduled',
+            message: `Your interview for ${data.jobTitle || 'the position'} has been rescheduled to ${newDate}.`,
+            htmlContent: null,
+          };
+        },
+
+      [`${NotificationType.INTERVIEW_RESCHEDULED}_${NotificationChannel.PUSH}`]:
+        async (data) => ({
+          title: 'Interview Rescheduled',
+          message: `Your interview for ${data.jobTitle || 'the position'} has been rescheduled.`,
+          htmlContent: null,
+        }),
+
+      [`${NotificationType.INTERVIEW_CANCELLED}_${NotificationChannel.WEBSOCKET}`]:
+        async (data) => ({
+          title: 'Interview Cancelled',
+          message: `Your interview for ${data.jobTitle || 'the position'} has been cancelled.`,
+          htmlContent: null,
+        }),
+
+      [`${NotificationType.INTERVIEW_CANCELLED}_${NotificationChannel.PUSH}`]:
+        async (data) => ({
+          title: 'Interview Cancelled',
+          message: `Your interview for ${data.jobTitle || 'the position'} has been cancelled.`,
+          htmlContent: null,
+        }),
+
+      // Offer Related - WEBSOCKET & PUSH templates
+      [`${NotificationType.OFFER_SENT}_${NotificationChannel.WEBSOCKET}`]:
+        async (data) => ({
+          title: '🎉 Job Offer Received!',
+          message: `You've received a job offer for ${data.jobTitle || 'the position'} at ${data.companyName || 'the company'}.`,
+          htmlContent: null,
+        }),
+
+      [`${NotificationType.OFFER_SENT}_${NotificationChannel.PUSH}`]: async (
+        data,
+      ) => ({
+        title: '🎉 Job Offer Received!',
+        message: `You've received a job offer for ${data.jobTitle || 'the position'}.`,
+        htmlContent: null,
+      }),
+
+      [`${NotificationType.OFFER_ACCEPTED}_${NotificationChannel.WEBSOCKET}`]:
+        async (data) => ({
+          title: '🎊 Offer Accepted!',
+          message: `Congratulations! You've accepted the offer for ${data.jobTitle || 'the position'} at ${data.companyName || 'the company'}.`,
+          htmlContent: null,
+        }),
+
+      [`${NotificationType.OFFER_ACCEPTED}_${NotificationChannel.PUSH}`]:
+        async (data) => ({
+          title: '🎊 Offer Accepted!',
+          message: `You've accepted the offer for ${data.jobTitle || 'the position'}.`,
+          htmlContent: null,
+        }),
+
+      [`${NotificationType.OFFER_REJECTED}_${NotificationChannel.WEBSOCKET}`]:
+        async (data) => ({
+          title: 'Offer Update',
+          message: `Update on your offer for ${data.jobTitle || 'the position'} at ${data.companyName || 'the company'}.`,
+          htmlContent: null,
+        }),
+
+      [`${NotificationType.OFFER_REJECTED}_${NotificationChannel.PUSH}`]:
+        async (data) => ({
+          title: 'Offer Update',
+          message: `Update on your offer for ${data.jobTitle || 'the position'}.`,
+          htmlContent: null,
+        }),
+
+      // Job Related - WEBSOCKET & PUSH templates
+      [`${NotificationType.JOB_RECOMMENDATION}_${NotificationChannel.WEBSOCKET}`]:
+        async (data) => {
+          const jobCount = data.jobs?.length || 1;
+          return {
+            title: `New Job${jobCount > 1 ? 's' : ''} Matching Your Profile`,
+            message: `We found ${jobCount} new job${jobCount > 1 ? 's' : ''} that match your profile. Check them out!`,
+            htmlContent: null,
+          };
+        },
+
+      [`${NotificationType.JOB_RECOMMENDATION}_${NotificationChannel.PUSH}`]:
+        async (data) => {
+          const jobCount = data.jobs?.length || 1;
+          return {
+            title: `New Job${jobCount > 1 ? 's' : ''} For You`,
+            message: `${jobCount} new job${jobCount > 1 ? 's' : ''} matching your profile.`,
+            htmlContent: null,
+          };
+        },
     };
 
     const templateFn =

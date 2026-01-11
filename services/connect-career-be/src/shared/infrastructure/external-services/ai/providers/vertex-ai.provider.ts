@@ -50,7 +50,10 @@ export class VertexAIProvider implements AIProvider {
 
     // Check error message
     const errorMessage = error.message || String(error);
-    if (errorMessage.includes('429') || errorMessage.includes('Too Many Requests')) {
+    if (
+      errorMessage.includes('429') ||
+      errorMessage.includes('Too Many Requests')
+    ) {
       return true;
     }
 
@@ -70,7 +73,10 @@ export class VertexAIProvider implements AIProvider {
     // Check stackTrace property
     if (error.stackTrace) {
       const stackTrace = error.stackTrace;
-      if (stackTrace.code === 429 || stackTrace.status === 'RESOURCE_EXHAUSTED') {
+      if (
+        stackTrace.code === 429 ||
+        stackTrace.status === 'RESOURCE_EXHAUSTED'
+      ) {
         return true;
       }
     }

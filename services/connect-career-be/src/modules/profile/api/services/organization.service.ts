@@ -165,19 +165,20 @@ export class OrganizationService {
       limit = 20,
     } = searchDto;
 
-    const organizations = await this.organizationRepository.advancedSearchByJobCount({
-      searchTerm: search,
-      industryIds,
-      country,
-      city,
-      organizationSize,
-      organizationType,
-      isHiring,
-      isVerified,
-      minEmployeeCount,
-      maxEmployeeCount,
-      workScheduleTypes,
-    });
+    const organizations =
+      await this.organizationRepository.advancedSearchByJobCount({
+        searchTerm: search,
+        industryIds,
+        country,
+        city,
+        organizationSize,
+        organizationType,
+        isHiring,
+        isVerified,
+        minEmployeeCount,
+        maxEmployeeCount,
+        workScheduleTypes,
+      });
     const total = organizations.length;
     const skip = (page - 1) * limit;
     const data = organizations.slice(skip, skip + limit);

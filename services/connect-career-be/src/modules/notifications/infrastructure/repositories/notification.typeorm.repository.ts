@@ -50,7 +50,9 @@ export class NotificationTypeOrmRepository implements INotificationRepository {
     const queryBuilder = this.ormRepository
       .createQueryBuilder('notification')
       .where('notification.recipient = :recipientId', { recipientId })
-      .andWhere('notification.channel = :channel', { channel: NotificationChannel.WEBSOCKET })
+      .andWhere('notification.channel = :channel', {
+        channel: NotificationChannel.WEBSOCKET,
+      })
       .orderBy('notification.createdAt', 'DESC');
 
     if (options?.status) {
@@ -85,8 +87,8 @@ export class NotificationTypeOrmRepository implements INotificationRepository {
     recipientId: string,
   ): Promise<NotificationEntity | null> {
     const notification = await this.ormRepository.findOne({
-      where: { 
-        id, 
+      where: {
+        id,
         recipient: recipientId,
         channel: NotificationChannel.WEBSOCKET,
       },
@@ -115,7 +117,9 @@ export class NotificationTypeOrmRepository implements INotificationRepository {
       })
       .where('recipient = :recipientId', { recipientId })
       .andWhere('readAt IS NULL')
-      .andWhere('channel = :channel', { channel: NotificationChannel.WEBSOCKET })
+      .andWhere('channel = :channel', {
+        channel: NotificationChannel.WEBSOCKET,
+      })
       .execute();
 
     return result.affected || 0;
@@ -137,8 +141,8 @@ export class NotificationTypeOrmRepository implements INotificationRepository {
     status: NotificationStatus,
   ): Promise<NotificationEntity[]> {
     return this.ormRepository.find({
-      where: { 
-        recipient: recipientId, 
+      where: {
+        recipient: recipientId,
         status,
         channel: NotificationChannel.WEBSOCKET,
       },

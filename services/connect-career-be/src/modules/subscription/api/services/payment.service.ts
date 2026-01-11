@@ -304,9 +304,7 @@ export class PaymentService {
 
     // Check if transaction is already refunded
     if (transaction.status === PaymentStatus.REFUNDED) {
-      throw new BadRequestException(
-        'This payment has already been refunded.',
-      );
+      throw new BadRequestException('This payment has already been refunded.');
     }
 
     if (transaction.status !== PaymentStatus.COMPLETED) {
@@ -518,8 +516,9 @@ export class PaymentService {
       // Update transaction status based on webhook event
       if (webhookEvent.type === 'payment.succeeded') {
         // Check if transaction is already completed to prevent duplicate wallet credits
-        const wasAlreadyCompleted = transaction.status === PaymentStatus.COMPLETED;
-        
+        const wasAlreadyCompleted =
+          transaction.status === PaymentStatus.COMPLETED;
+
         transaction.status = PaymentStatus.COMPLETED;
         transaction.completedAt = transaction.completedAt || new Date();
         transaction.providerResponse = webhookEvent.data;
@@ -604,14 +603,14 @@ export class PaymentService {
         // Handle payment update events (e.g., charge.updated with receipt_url)
         // Update transaction info without crediting wallet again
         transaction.providerResponse = webhookEvent.data;
-        
+
         // Update provider transaction ID if available and not already set
         if (!transaction.providerTransactionId && webhookEvent.data?.id) {
           transaction.providerTransactionId = String(webhookEvent.data.id);
         }
-        
+
         await this.paymentTransactionRepository.save(transaction);
-        
+
         this.logger.log(
           `Payment updated via webhook: ${transaction.id} for user ${transaction.userId}`,
         );

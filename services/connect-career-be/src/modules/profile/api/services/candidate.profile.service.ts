@@ -88,6 +88,43 @@ export class CandidateProfileService {
     if (!candidateProfile) {
       throw new NotFoundException('Candidate profile not found');
     }
+    // Sort work experiences: isCurrent first (true first), then by endDate DESC
+    // Sort work experiences: isCurrent first (true first), then by endDate DESC
+    if (
+      candidateProfile.workExperiences &&
+      candidateProfile.workExperiences.length > 0
+    ) {
+      candidateProfile.workExperiences.sort((a, b) => {
+        // First sort by isCurrent (true first)
+        const isCurrentDiff = Number(b.isCurrent) - Number(a.isCurrent);
+        if (isCurrentDiff !== 0) {
+          return isCurrentDiff;
+        }
+        // Then sort by endDate DESC (most recent first)
+        // Handle endDate as string or Date object
+        const getEndDateValue = (
+          endDate: Date | string | null | undefined,
+        ): number => {
+          if (!endDate) {
+            return Number.MAX_SAFE_INTEGER; // Treat null/undefined as highest value
+          }
+          if (endDate instanceof Date) {
+            return endDate.getTime();
+          }
+          // If it's a string, convert to Date first
+          const date = new Date(endDate);
+          return isNaN(date.getTime())
+            ? Number.MAX_SAFE_INTEGER
+            : date.getTime();
+        };
+
+        const aEndDate = getEndDateValue(a.endDate);
+        const bEndDate = getEndDateValue(b.endDate);
+        return bEndDate - aEndDate;
+      });
+    }
+
+    // Get interview feedbacks (when user is candidate)
     const userId = candidateProfile.userId;
     // Get interview feedbacks (when user is candidate)
     const interviews = await this.interviewRepository
@@ -250,6 +287,43 @@ export class CandidateProfileService {
     if (!candidateProfile) {
       throw new NotFoundException('Candidate profile not found');
     }
+    // Sort work experiences: isCurrent first (true first), then by endDate DESC
+    // Sort work experiences: isCurrent first (true first), then by endDate DESC
+    if (
+      candidateProfile.workExperiences &&
+      candidateProfile.workExperiences.length > 0
+    ) {
+      candidateProfile.workExperiences.sort((a, b) => {
+        // First sort by isCurrent (true first)
+        const isCurrentDiff = Number(b.isCurrent) - Number(a.isCurrent);
+        if (isCurrentDiff !== 0) {
+          return isCurrentDiff;
+        }
+        // Then sort by endDate DESC (most recent first)
+        // Handle endDate as string or Date object
+        const getEndDateValue = (
+          endDate: Date | string | null | undefined,
+        ): number => {
+          if (!endDate) {
+            return Number.MAX_SAFE_INTEGER; // Treat null/undefined as highest value
+          }
+          if (endDate instanceof Date) {
+            return endDate.getTime();
+          }
+          // If it's a string, convert to Date first
+          const date = new Date(endDate);
+          return isNaN(date.getTime())
+            ? Number.MAX_SAFE_INTEGER
+            : date.getTime();
+        };
+
+        const aEndDate = getEndDateValue(a.endDate);
+        const bEndDate = getEndDateValue(b.endDate);
+        return bEndDate - aEndDate;
+      });
+    }
+
+    // Get interview feedbacks (when user is candidate)
     // Get interview feedbacks (when user is candidate)
     const interviews = await this.interviewRepository
       .createQueryBuilder('interview')
@@ -849,6 +923,41 @@ export class CandidateProfileService {
 
     if (!candidateProfile) {
       throw new NotFoundException('Candidate profile not found');
+    }
+
+    // Sort work experiences: isCurrent first (true first), then by endDate DESC
+    if (
+      candidateProfile.workExperiences &&
+      candidateProfile.workExperiences.length > 0
+    ) {
+      candidateProfile.workExperiences.sort((a, b) => {
+        // First sort by isCurrent (true first)
+        const isCurrentDiff = Number(b.isCurrent) - Number(a.isCurrent);
+        if (isCurrentDiff !== 0) {
+          return isCurrentDiff;
+        }
+        // Then sort by endDate DESC (most recent first)
+        // Handle endDate as string or Date object
+        const getEndDateValue = (
+          endDate: Date | string | null | undefined,
+        ): number => {
+          if (!endDate) {
+            return Number.MAX_SAFE_INTEGER; // Treat null/undefined as highest value
+          }
+          if (endDate instanceof Date) {
+            return endDate.getTime();
+          }
+          // If it's a string, convert to Date first
+          const date = new Date(endDate);
+          return isNaN(date.getTime())
+            ? Number.MAX_SAFE_INTEGER
+            : date.getTime();
+        };
+
+        const aEndDate = getEndDateValue(a.endDate);
+        const bEndDate = getEndDateValue(b.endDate);
+        return bEndDate - aEndDate;
+      });
     }
 
     const page = options?.page || 1;

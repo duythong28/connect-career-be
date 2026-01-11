@@ -394,7 +394,8 @@ export class StripeProvider extends BasePaymentProvider {
           // This is informational, we don't need to process it as a payment event
           eventType = 'payment.unknown';
           const intentCreated = event.data.object as Stripe.PaymentIntent;
-          paymentId = intentCreated.metadata?.paymentTransactionId || intentCreated.id;
+          paymentId =
+            intentCreated.metadata?.paymentTransactionId || intentCreated.id;
           // Return early for created events as they don't indicate payment completion
           return {
             type: 'payment.unknown',
@@ -405,7 +406,9 @@ export class StripeProvider extends BasePaymentProvider {
         case 'payment_intent.succeeded':
           eventType = 'payment.succeeded';
           const intentSucceeded = event.data.object as Stripe.PaymentIntent;
-          paymentId = intentSucceeded.metadata?.paymentTransactionId || intentSucceeded.id;
+          paymentId =
+            intentSucceeded.metadata?.paymentTransactionId ||
+            intentSucceeded.id;
           break;
 
         // Charge events

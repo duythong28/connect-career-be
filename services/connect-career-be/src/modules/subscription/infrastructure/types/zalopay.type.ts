@@ -79,3 +79,31 @@ export interface ZaloPayAxiosRequestConfig extends AxiosRequestConfig {
   };
   data: string;
 }
+
+export interface ZaloPayAxiosRequestConfig extends AxiosRequestConfig {
+  method: 'post';
+  url: string;
+  headers: {
+    'Content-Type': 'application/x-www-form-urlencoded';
+  };
+  data: string;
+}
+
+export interface ZaloPayRefundRequest {
+  app_id: string;
+  m_refund_id: string;
+  zp_trans_id: string;
+  amount: number;
+  refund_fee_amount?: number;
+  timestamp: number;
+  description: string;
+  mac: string;
+}
+
+export interface ZaloPayRefundResponse {
+  return_code: number;
+  return_message: string;
+  sub_return_code?: number;
+  sub_return_message?: string;
+  refund_id?: number;
+}

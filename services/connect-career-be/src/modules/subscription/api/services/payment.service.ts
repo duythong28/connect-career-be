@@ -302,6 +302,13 @@ export class PaymentService {
       );
     }
 
+    // Check if transaction is already refunded
+    if (transaction.status === PaymentStatus.REFUNDED) {
+      throw new BadRequestException(
+        'This payment has already been refunded.',
+      );
+    }
+
     if (transaction.status !== PaymentStatus.COMPLETED) {
       throw new BadRequestException(
         `Cannot refund payment with status: ${transaction.status}. Only completed payments can be refunded.`,

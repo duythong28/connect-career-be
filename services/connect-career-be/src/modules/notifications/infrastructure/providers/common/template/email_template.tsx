@@ -26,33 +26,43 @@ export const WelcomeEmail = ({
       Welcome to CareerHub - The platform to accelerate your career.
     </Preview>
     <Body style={main}>
-      <Container style={containerCard}>
-        <Heading style={heading}>
-          [CAREERHUB] WELCOME TO CAREERHUB
-        </Heading>
-
-        <Text style={paragraph}>Hi {userFirstname},</Text>
-        
-        <Text style={paragraph}>
-          Thank you for joining our community! This is a registration confirmation email. 
-          Please click the verification button below to continue setting up your account.
-        </Text>
-
-        <Section style={btnContainer}>
-          <Button style={buttonPrimary} href={url}>
-            Verify Account
-          </Button>
+      <Container style={mainContainer}>
+        {/* Logo Header */}
+        <Section style={header}>
+          <Text style={logoText}>
+            <span style={logoPrimary}>CAREER</span>
+            <span style={logoSecondary}>HUB</span>
+          </Text>
         </Section>
 
-        <Text style={paragraph}>
-          <strong style={brandHighlight}>CareerHub</strong> would like to thank 
-          you for registering on our platform. We are excited to help you find your next opportunity.
-        </Text>
+        {/* Content Section */}
+        <Section style={contentPadding}>
+          <Heading style={pageTitle}>Welcome to CareerHub</Heading>
+          
+          <Text style={greeting}>Hi {userFirstname},</Text>
+          
+          <Text style={paragraph}>
+            Thank you for joining our community! This is a registration confirmation email. 
+            Please click the verification button below to continue setting up your account.
+          </Text>
 
-        <Text style={footer}>
-          Best regards, <br />
-          <strong style={brandHighlight}>CareerHub Admin</strong>
-        </Text>
+          <Section style={btnContainer}>
+            <Button style={buttonPrimary} href={url}>
+              Verify Account
+            </Button>
+          </Section>
+
+          <Text style={paragraph}>
+            We are excited to help you find your next opportunity. Our platform is designed to connect you with the best roles matching your profile.
+          </Text>
+        </Section>
+
+        {/* Footer Section */}
+        <Section style={footerSection}>
+          <Text style={footerTextStyle}>
+            © 2026 CareerHub Admin. All rights reserved.
+          </Text>
+        </Section>
       </Container>
     </Body>
   </Html>
@@ -60,71 +70,106 @@ export const WelcomeEmail = ({
 
 WelcomeEmail.PreviewProps = {
   userFirstname: 'Alan',
-  url: 'https://connectcareer.work/verify',
+  url: 'https://connect-career.app.vercel/verify',
 } as WelcomeEmailProps;
 
-export default WelcomeEmail;
-
+/* --- CareerHub Design System Styles --- */
 
 const main = {
   backgroundColor: '#F8F9FB',
-  padding: '64px 0',
+  padding: '40px 0',
+  fontFamily: '-apple-system,BlinkMacSystemFont,"Segoe UI",Roboto,Oxygen-Sans,Ubuntu,Cantarell,"Helvetica Neue",sans-serif',
 };
 
-const containerCard = {
+const mainContainer = {
+  margin: '0 auto',
+  maxWidth: '540px',
   backgroundColor: '#ffffff',
   border: '1px solid #E2E8F0',
   borderRadius: '24px',
-  margin: '0 auto',
-  padding: '40px',
-  width: '560px',
+  overflow: 'hidden' as const,
 };
 
-const heading = {
-  fontSize: '24px', // text-2xl
-  fontWeight: '700', // font-bold
-  color: '#0F172A', // text-foreground
+const header = {
+  padding: '32px 32px 16px',
+};
+
+const logoText = {
+  fontSize: '18px',
+  margin: '0',
+  letterSpacing: '-0.5px',
+};
+
+const logoPrimary = {
+  fontWeight: '900' as const,
+  color: '#0F172A',
+};
+
+const logoSecondary = {
+  fontWeight: '500' as const,
+  color: '#2563EB',
+  marginLeft: '2px',
+};
+
+const contentPadding = {
+  padding: '0 32px 32px',
+};
+
+const pageTitle = {
+  fontSize: '24px',
+  fontWeight: '700' as const,
+  color: '#0F172A',
   lineHeight: '32px',
-  textAlign: 'center' as const,
   margin: '0 0 24px 0',
-  textTransform: 'uppercase' as const,
+  textAlign: 'center' as const,
+};
+
+const greeting = {
+  fontSize: '14px',
+  fontWeight: '600' as const,
+  color: '#64748B',
+  margin: '0 0 12px 0',
 };
 
 const paragraph = {
-  fontSize: '16px',
-  lineHeight: '26px',
-  color: '#475569', // text-slate-600
-  margin: '16px 0',
-};
-
-const brandHighlight = {
-  color: '#2563EB', // text-primary (Solid Blue)
+  fontSize: '14px',
+  color: '#475569',
+  lineHeight: '1.5',
+  margin: '0 0 16px 0',
 };
 
 const btnContainer = {
   textAlign: 'center' as const,
-  margin: '32px 0',
+  margin: '24px 0',
 };
 
 const buttonPrimary = {
-  backgroundColor: '#2563EB', // variant="default"
-  borderRadius: '12px', // rounded-xl
+  backgroundColor: '#2563EB',
+  borderRadius: '12px',
   color: '#ffffff',
   fontSize: '14px',
-  fontWeight: '600',
+  fontWeight: '600' as const,
   textDecoration: 'none',
   textAlign: 'center' as const,
   display: 'inline-block',
-  height: '40px', // h-10
+  height: '40px',
   lineHeight: '40px',
-  padding: '0 32px',
+  padding: '0 24px',
 };
 
-const footer = {
-  fontSize: '14px',
-  lineHeight: '24px',
-  color: '#64748B',
-  marginTop: '32px',
+const footerSection = {
+  padding: '24px 32px',
+  textAlign: 'center' as const,
   borderTop: '1px solid #E2E8F0',
-  paddingTop: '24px',
+  backgroundColor: '#ffffff',
 };
+
+const footerTextStyle = {
+  fontSize: '11px',
+  color: '#94A3B8',
+  margin: '0',
+  textTransform: 'uppercase' as const,
+  letterSpacing: '0.5px',
+};
+
+export default WelcomeEmail;

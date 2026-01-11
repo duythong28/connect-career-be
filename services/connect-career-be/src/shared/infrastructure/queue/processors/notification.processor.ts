@@ -101,12 +101,6 @@ export class NotificationProcessor extends WorkerHost {
           ? htmlContent
           : message;
 
-      if (channel === NotificationChannel.EMAIL) {
-        this.logger.log(
-          `Sending EMAIL with htmlContent length: ${htmlContent?.length || 0}`,
-        );
-      }
-
       await provider.send(recipient, title, contentToSend);
 
       // Update notification status to SENT

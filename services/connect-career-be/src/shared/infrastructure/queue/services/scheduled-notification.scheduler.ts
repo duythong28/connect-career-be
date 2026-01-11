@@ -3,7 +3,10 @@ import { Cron, CronExpression } from '@nestjs/schedule';
 import { InjectRepository } from '@nestjs/typeorm';
 import { Repository } from 'typeorm';
 import { NotificationQueueService } from './notification-queue.service';
-import { NotificationEntity, NotificationStatus } from 'src/modules/notifications/domain/entities/notification.entity';
+import {
+  NotificationEntity,
+  NotificationStatus,
+} from 'src/modules/notifications/domain/entities/notification.entity';
 
 @Injectable()
 export class ScheduledNotificationScheduler {
@@ -22,11 +25,13 @@ export class ScheduledNotificationScheduler {
 
     try {
       const now = new Date();
-      
+
       // Find notifications scheduled to be sent now or in the past
       const scheduledNotifications = await this.notificationRepository
         .createQueryBuilder('notification')
-        .where('notification.status = :status', { status: NotificationStatus.SCHEDULED })
+        .where('notification.status = :status', {
+          status: NotificationStatus.SCHEDULED,
+        })
         .andWhere('notification.scheduledAt <= :now', { now })
         .andWhere('notification.scheduledAt IS NOT NULL')
         .orderBy('notification.scheduledAt', 'ASC')
@@ -64,7 +69,7 @@ export class ScheduledNotificationScheduler {
             `Failed to queue scheduled notification ${notification.id}`,
             error,
           );
-          
+
           // Mark as failed if we can't queue it
           notification.status = NotificationStatus.FAILED;
           await this.notificationRepository.save(notification);
@@ -88,7 +93,11 @@ export class ScheduledNotificationScheduler {
         .createQueryBuilder()
         .delete()
         .where('status IN (:...statuses)', {
-          statuses: [NotificationStatus.SENT, NotificationStatus.READ, NotificationStatus.FAILED],
+          statuses: [
+            NotificationStatus.SENT,
+            NotificationStatus.READ,
+            NotificationStatus.FAILED,
+          ],
         })
         .andWhere('createdAt < :date', { date: thirtyDaysAgo })
         .execute();

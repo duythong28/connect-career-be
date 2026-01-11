@@ -27,7 +27,9 @@ export class AIService {
     return (this.provider as any).generateWithInlineFile(req);
   }
 
-  async *chatStream(request: aiProviderInterface.AIChatRequest): AsyncGenerator<string, void, unknown> {
+  async *chatStream(
+    request: aiProviderInterface.AIChatRequest,
+  ): AsyncGenerator<string, void, unknown> {
     if (this.provider.chatStream) {
       yield* this.provider.chatStream(request);
     } else {
@@ -40,5 +42,14 @@ export class AIService {
         await new Promise((resolve) => setTimeout(resolve, 20));
       }
     }
+  }
+
+  async embed(
+    req: aiProviderInterface.AIVectorizeRequest,
+  ): Promise<aiProviderInterface.AIVectorizeResponse> {
+    if (this.provider.embed) {
+      return this.provider.embed(req);
+    }
+    throw new Error('Embedding not supported by current AI provider');
   }
 }

@@ -88,6 +88,7 @@ export interface UserResponse {
   lastName?: string;
   fullName?: string;
   phoneNumber?: string;
+  candidateProfileId?: string;
   status: UserStatus;
   emailVerified: boolean;
   authProvider: string;

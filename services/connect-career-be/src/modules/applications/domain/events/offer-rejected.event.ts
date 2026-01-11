@@ -17,4 +17,3 @@ export class OfferRejectedEvent implements IDomainEvent {
     this.occurredAt = new Date();
   }
 }
-

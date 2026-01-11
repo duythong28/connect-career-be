@@ -19,16 +19,15 @@ import { User } from 'src/modules/identity/domain/entities/user.entity';
 
 @Global()
 @Module({
-  imports: [
-    ConfigModule,
-    TypeOrmModule.forFeature([Job, Organization, User]),
-  ],
+  imports: [ConfigModule, TypeOrmModule.forFeature([Job, Organization, User])],
   providers: [
     {
       provide: 'ELASTICSEARCH_CLIENT',
       useFactory: (configService: ConfigService) => {
         return new Client({
-          node: configService.get<string>('ELASTICSEARCH_NODE') || 'http://localhost:9200',
+          node:
+            configService.get<string>('ELASTICSEARCH_NODE') ||
+            'http://localhost:9200',
           auth: {
             username: configService.get<string>('ELASTICSEARCH_USERNAME') || '',
             password: configService.get<string>('ELASTICSEARCH_PASSWORD') || '',

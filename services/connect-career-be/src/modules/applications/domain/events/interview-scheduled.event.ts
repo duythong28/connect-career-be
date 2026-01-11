@@ -23,4 +23,3 @@ export class InterviewScheduledEvent implements IDomainEvent {
     this.occurredAt = new Date();
   }
 }
-

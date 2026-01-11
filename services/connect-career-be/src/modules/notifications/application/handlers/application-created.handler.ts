@@ -2,7 +2,10 @@ import { Injectable, Logger } from '@nestjs/common';
 import { EventsHandler, IEventHandler } from '@nestjs/cqrs';
 import { ApplicationCreatedEvent } from 'src/modules/applications/domain/events/application-created.event';
 import { NotificationOrchestratorService } from '../services/notification-orchstrator.service';
-import { NotificationType, NotificationChannel } from '../../domain/entities/notification.entity';
+import {
+  NotificationType,
+  NotificationChannel,
+} from '../../domain/entities/notification.entity';
 
 @Injectable()
 @EventsHandler(ApplicationCreatedEvent)
@@ -42,7 +45,10 @@ export class ApplicationCreatedHandler
           event.recruiterId,
           {
             type: NotificationType.APPLICATION_RECEIVED,
-            channels: [NotificationChannel.EMAIL, NotificationChannel.WEBSOCKET],
+            channels: [
+              NotificationChannel.EMAIL,
+              NotificationChannel.WEBSOCKET,
+            ],
             metadata: {
               applicationId: event.applicationId,
               candidateId: event.candidateId,
@@ -61,4 +67,3 @@ export class ApplicationCreatedHandler
     }
   }
 }
-

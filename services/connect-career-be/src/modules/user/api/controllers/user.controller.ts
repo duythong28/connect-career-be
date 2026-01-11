@@ -14,6 +14,7 @@ import * as decorators from 'src/modules/identity/api/decorators';
 import { JwtAuthGuard } from 'src/modules/identity/api/guards/jwt-auth.guard';
 import * as identityRepository from 'src/modules/identity/domain/repository/identity.repository';
 import { UpdateUserDto, UserProfileDto } from '../dtos/user.dto';
+import { SyncService } from 'src/modules/search/infrastructure/elasticsearch/sync/sync-service.service';
 
 @ApiTags('User Management')
 @Controller('v1/users')
@@ -22,6 +23,7 @@ export class UserController {
   constructor(
     @Inject('IUserRepository')
     private readonly userRepository: identityRepository.IUserRepository,
+    private readonly syncService: SyncService,
   ) {}
   @Patch('/me')
   @HttpCode(HttpStatus.OK)
@@ -72,6 +74,11 @@ export class UserController {
       ...updateUserDto,
       updatedAt: new Date(),
     });
+    try {
+      await this.syncService.syncPerson(user.sub);
+    } catch (error) {
+      console.error(`Failed to sync user ${user.sub} to Elasticsearch:`, error);
+    }
 
     return updatedUser;
   }

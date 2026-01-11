@@ -1,4 +1,11 @@
-import { Column, Entity, JoinColumn, OneToOne, PrimaryColumn } from 'typeorm';
+import {
+  Column,
+  Entity,
+  JoinColumn,
+  OneToOne,
+  PrimaryColumn,
+  UpdateDateColumn,
+} from 'typeorm';
 import { Job } from 'src/modules/jobs/domain/entities/job.entity';
 
 @Entity('job_content_embeddings')
@@ -11,5 +18,5 @@ export class JobContentEmbedding {
   job: Job;
 
   @Column({ type: 'jsonb' })
-  embedding: number[]; // store as JSON array if using Chroma externally
+  embedding: number[];
 }

@@ -96,13 +96,13 @@ Available agents:
 - MatchingAgent: Match jobs to user profile
 - AnalysisAgent: Analyze data and provide insights
 - InformationGatheringAgent: Gather information
-- CVEnhancementAgent: Review and improve CV/resume
-- CompanyInsightsAgent: Provide company information
-- LearningPathAgent: Suggest learning resources
-- FAQAgent: Answer general questions
+- CvEnhancementAgent: Review and improve CV/resume
+- OrganizationCultureAgent: Provide company culture information
+- LearningPlanAgent: Suggest learning resources and roadmaps
+- FaqAgent: Answer general questions
 - ComparisonAgent: Compare jobs, companies, or offers
 
-Return a JSON array of tasks with this structure:
+Return ONLY a valid JSON array of tasks with this structure (no markdown, no explanations):
 [
   {
     "id": "task1",
@@ -116,10 +116,11 @@ Return a JSON array of tasks with this structure:
     try {
       const response = await this.callLLM(prompt, {
         systemPrompt:
-          'You are a task decomposition expert. Break down complex tasks into atomic, executable subtasks.',
+          'You are a task decomposition expert. Break down complex tasks into atomic, executable subtasks. Return ONLY valid JSON array, no markdown formatting or explanations.',
       });
-
-      const tasks = JSON.parse(response) as Task[];
+      // Clean the response to remove markdown code fences
+      const cleanedContent = this.cleanJsonArrayResponse(response);
+      const tasks = JSON.parse(cleanedContent) as Task[];
       return Array.isArray(tasks) ? tasks : [];
     } catch (error) {
       this.logger.error(`Task decomposition failed: ${error}`);
@@ -133,5 +134,31 @@ Return a JSON array of tasks with this structure:
         },
       ];
     }
+  }
+
+  /**
+   * Clean JSON array response from LLM
+   * Handles both objects and arrays, removes markdown code fences
+   */
+  private cleanJsonArrayResponse(content: string): string {
+    // Remove markdown code fences
+    let cleaned = content
+      .replace(/^```(json\s*)?/i, '')
+      .replace(/```$/i, '')
+      .trim();
+
+    // Try to extract JSON array if present
+    const arrayMatch = cleaned.match(/\[[\s\S]*\]/);
+    if (arrayMatch) {
+      cleaned = arrayMatch[0];
+    } else {
+      // Fallback to object extraction (for single task)
+      const objectMatch = cleaned.match(/\{[\s\S]*\}/);
+      if (objectMatch) {
+        cleaned = `[${objectMatch[0]}]`; // Wrap in array
+      }
+    }
+
+    return cleaned;
   }
 }

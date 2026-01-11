@@ -1,0 +1,650 @@
+name: CI/CD for Multi-Service Deployment (Kong + Backend + AI Service)
+
+on:
+  push:
+    branches:
+      - dev
+      - staging
+      - main
+      - prod
+
+jobs:
+  determine-environment:
+    runs-on: ubuntu-latest
+    outputs:
+      environment: ${{ steps.set-env.outputs.environment }}
+      backend-tag: ${{ steps.set-env.outputs.backend-tag }}
+      ai-service-tag: ${{ steps.set-env.outputs.ai-service-tag }}
+      gcp-project: ${{ steps.set-env.outputs.gcp-project }}
+      gcp-zone: ${{ steps.set-env.outputs.gcp-zone }}
+      vm-instance: ${{ steps.set-env.outputs.vm-instance }}
+      vm-user: ${{ steps.set-env.outputs.vm-user }}
+      ssh-key: ${{ steps.set-env.outputs.ssh-key }}
+    steps:
+      - name: Set environment variables
+        id: set-env
+        run: |
+          if [[ "${{ github.ref }}" == "refs/heads/dev" ]]; then
+            echo "environment=dev" >> $GITHUB_OUTPUT
+            echo "backend-tag=dev-latest" >> $GITHUB_OUTPUT
+            echo "ai-service-tag=dev-latest" >> $GITHUB_OUTPUT
+            echo "gcp-project=GCP_PROJECT_DEV" >> $GITHUB_OUTPUT
+            echo "gcp-zone=GCP_ZONE_DEV" >> $GITHUB_OUTPUT
+            echo "vm-instance=GCP_VM_INSTANCE_DEV" >> $GITHUB_OUTPUT
+            echo "vm-user=GCP_VM_USER_DEV" >> $GITHUB_OUTPUT
+            echo "ssh-key=GCP_SSH_KEY_DEV" >> $GITHUB_OUTPUT
+          elif [[ "${{ github.ref }}" == "refs/heads/staging" ]]; then
+            echo "environment=stg" >> $GITHUB_OUTPUT
+            echo "backend-tag=stg-latest" >> $GITHUB_OUTPUT
+            echo "ai-service-tag=stg-latest" >> $GITHUB_OUTPUT
+            echo "gcp-project=GCP_PROJECT_STG" >> $GITHUB_OUTPUT
+            echo "gcp-zone=GCP_ZONE_STG" >> $GITHUB_OUTPUT
+            echo "vm-instance=GCP_VM_INSTANCE_STG" >> $GITHUB_OUTPUT
+            echo "vm-user=GCP_VM_USER_STG" >> $GITHUB_OUTPUT
+            echo "ssh-key=GCP_SSH_KEY_STG" >> $GITHUB_OUTPUT
+          elif [[ "${{ github.ref }}" == "refs/heads/main" ]] || [[ "${{ github.ref }}" == "refs/heads/prod" ]]; then
+            echo "environment=prod" >> $GITHUB_OUTPUT
+            echo "backend-tag=prod-latest" >> $GITHUB_OUTPUT
+            echo "ai-service-tag=prod-latest" >> $GITHUB_OUTPUT
+            echo "gcp-project=GCP_PROJECT_PROD" >> $GITHUB_OUTPUT
+            echo "gcp-zone=GCP_ZONE_PROD" >> $GITHUB_OUTPUT
+            echo "vm-instance=GCP_VM_INSTANCE_PROD" >> $GITHUB_OUTPUT
+            echo "vm-user=GCP_VM_USER_PROD" >> $GITHUB_OUTPUT
+            echo "ssh-key=GCP_SSH_KEY_PROD" >> $GITHUB_OUTPUT
+          else
+            echo "Unknown branch: ${{ github.ref }}"
+            exit 1
+          fi
+  build-backend:
+    needs: determine-environment
+    runs-on: ubuntu-latest
+    defaults:
+      run:
+        working-directory: ./services/connect-career-be
+    env:
+      DOCKER_HUB_USERNAME: ${{ secrets.DOCKER_HUB_USERNAME }}
+      BACKEND_TAG: ${{ needs.determine-environment.outputs.backend-tag }}
+      ENVIRONMENT: ${{ needs.determine-environment.outputs.environment }}
+    steps:
+      - name: Checkout Code
+        uses: actions/checkout@v4
+
+      - name: Set up Docker Build
+        uses: docker/setup-buildx-action@v3
+
+      - name: Log in to Docker Hub
+        uses: docker/login-action@v3
+        with:
+          username: ${{ secrets.DOCKER_HUB_USERNAME }}
+          password: ${{ secrets.DOCKER_HUB_ACCESS_TOKEN }}
+
+      - name: Build Backend Service Image
+        run: |
+          docker build -t connect-career-be:${BACKEND_TAG} \
+            -t connect-career-be:${ENVIRONMENT} \
+            -t ${DOCKER_HUB_USERNAME}/connect-career-be:${BACKEND_TAG} \
+            -t ${DOCKER_HUB_USERNAME}/connect-career-be:${ENVIRONMENT} \
+            .
+
+      - name: Push Backend Service Images
+        run: |
+          docker push ${DOCKER_HUB_USERNAME}/connect-career-be:${BACKEND_TAG}
+          docker push ${DOCKER_HUB_USERNAME}/connect-career-be:${ENVIRONMENT}
+
+  build-ai-service:
+    needs: determine-environment
+    runs-on: ubuntu-latest
+    defaults:
+      run:
+        working-directory: ./services/ai-service
+    env:
+      DOCKER_HUB_USERNAME: ${{ secrets.DOCKER_HUB_USERNAME }}
+      AI_SERVICE_TAG: ${{ needs.determine-environment.outputs.ai-service-tag }}
+      ENVIRONMENT: ${{ needs.determine-environment.outputs.environment }}
+    steps:
+      - name: Checkout Code
+        uses: actions/checkout@v4
+
+      - name: Set up Docker Build
+        uses: docker/setup-buildx-action@v3
+
+      - name: Log in to Docker Hub
+        uses: docker/login-action@v3
+        with:
+          username: ${{ secrets.DOCKER_HUB_USERNAME }}
+          password: ${{ secrets.DOCKER_HUB_ACCESS_TOKEN }}
+
+      - name: Build AI Service Image
+        run: |
+          docker build -t ai-service:${AI_SERVICE_TAG} \
+            -t ai-service:${ENVIRONMENT} \
+            -t ${DOCKER_HUB_USERNAME}/ai-service:${AI_SERVICE_TAG} \
+            -t ${DOCKER_HUB_USERNAME}/ai-service:${ENVIRONMENT} \
+            .
+
+      - name: Push AI Service Images
+        run: |
+          docker push ${DOCKER_HUB_USERNAME}/ai-service:${AI_SERVICE_TAG}
+          docker push ${DOCKER_HUB_USERNAME}/ai-service:${ENVIRONMENT}
+
+  deploy-dev:
+    needs: [determine-environment, build-backend, build-ai-service]
+    if: needs.determine-environment.outputs.environment == 'dev'
+    runs-on: ubuntu-latest
+    defaults:
+      run:
+        working-directory: ./services
+    steps:
+      - name: Checkout Code
+        uses: actions/checkout@v4
+
+      - name: Authenticate to Google Cloud
+        uses: google-github-actions/auth@v2
+        with:
+          credentials_json: ${{ secrets.GCP_SA_KEY_DEV }}
+
+      - name: Set up Cloud SDK
+        uses: google-github-actions/setup-gcloud@v2
+
+      - name: Deploy to Dev GCP VM
+        env:
+          GCP_PROJECT: ${{ secrets.GCP_PROJECT_DEV }}
+          GCP_ZONE: ${{ secrets.GCP_ZONE_DEV }}
+          VM_INSTANCE: ${{ secrets.GCP_VM_INSTANCE_DEV }}
+          VM_USER: ${{ secrets.GCP_VM_USER_DEV }}
+          DOCKER_HUB_USERNAME: ${{ secrets.DOCKER_HUB_USERNAME }}
+          DOCKER_HUB_ACCESS_TOKEN: ${{ secrets.DOCKER_HUB_ACCESS_TOKEN }}
+          BACKEND_TAG: ${{ needs.determine-environment.outputs.backend-tag }}
+          AI_SERVICE_TAG: ${{ needs.determine-environment.outputs.ai-service-tag }}
+          ENVIRONMENT: dev
+        run: |
+          echo "Begin deployment to DEV GCP VM"
+
+          # Debug: Check user and home directory
+          echo "Checking VM user and paths..."
+          gcloud compute ssh ${VM_USER}@${VM_INSTANCE} \
+            --zone=${GCP_ZONE} \
+            --project=${GCP_PROJECT} \
+            --command="
+            echo 'Current user: ' \$(whoami)
+            echo 'Home directory: ' \$HOME
+            echo 'Full path: ' \$HOME/connect-career-be/services/api-gateway
+            ls -la \$HOME/connect-career-be/services/ 2>&1 || echo 'Directory does not exist'
+            "
+
+          # Create services directory structure on VM if it doesn't exist
+          gcloud compute ssh ${VM_USER}@${VM_INSTANCE} \
+            --zone=${GCP_ZONE} \
+            --project=${GCP_PROJECT} \
+            --command="mkdir -p ~/connect-career-be/services/api-gateway && echo 'Directory created/verified: ' && ls -la ~/connect-career-be/services/api-gateway"
+
+          # Copy compose files to VM services directory
+          gcloud compute scp docker-compose.base.yml ${VM_USER}@${VM_INSTANCE}:~/connect-career-be/services/docker-compose.base.yml \
+            --zone=${GCP_ZONE} \
+            --project=${GCP_PROJECT}
+
+          gcloud compute scp docker-compose.dev.yml ${VM_USER}@${VM_INSTANCE}:~/connect-career-be/services/docker-compose.override.yml \
+            --zone=${GCP_ZONE} \
+            --project=${GCP_PROJECT}
+
+          # Verify directory exists before copying kong.yml
+          echo "Verifying api-gateway directory exists..."
+          gcloud compute ssh ${VM_USER}@${VM_INSTANCE} \
+            --zone=${GCP_ZONE} \
+            --project=${GCP_PROJECT} \
+            --command="test -d ~/connect-career-be/services/api-gateway && echo 'Directory exists' || (echo 'Directory missing, creating...' && mkdir -p ~/connect-career-be/services/api-gateway)"
+
+          gcloud compute scp api-gateway/kong.yml ${VM_USER}@${VM_INSTANCE}:~/connect-career-be/services/api-gateway/kong.yml \
+            --zone=${GCP_ZONE} \
+            --project=${GCP_PROJECT}
+
+          # Verify file was copied successfully
+          echo "Verifying kong.yml was copied..."
+          gcloud compute ssh ${VM_USER}@${VM_INSTANCE} \
+            --zone=${GCP_ZONE} \
+            --project=${GCP_PROJECT} \
+            --command="ls -la ~/connect-career-be/services/api-gateway/kong.yml && echo 'File verified successfully'"
+
+          # Execute deployment commands on VM
+          gcloud compute ssh ${VM_USER}@${VM_INSTANCE} \
+            --zone=${GCP_ZONE} \
+            --project=${GCP_PROJECT} \
+            --command="
+            cd ~/connect-career-be/services
+            echo 'Working directory: ' \$(pwd)
+            export DOCKER_HUB_USERNAME=${DOCKER_HUB_USERNAME}
+            export CC_BE_TAG=${BACKEND_TAG}
+            export AI_SERVICE_TAG=${AI_SERVICE_TAG}
+            export ENVIRONMENT=${ENVIRONMENT}
+            
+            # Option A: Source it from .bashrc if it's there
+            if [ -d /opt/credentials ]; then
+              CREDENTIALS_FILE=\$(find /opt/credentials -name '*-ac884452d866.json' -type f | head -n 1)
+              if [ -n \"\$CREDENTIALS_FILE\" ] && [ -f \"\$CREDENTIALS_FILE\" ]; then
+                export GOOGLE_CREDENTIALS_PATH=\"\$CREDENTIALS_FILE\"
+                echo \"✅ Found credentials file: \$GOOGLE_CREDENTIALS_PATH\"
+              else
+                echo \"❌ ERROR: No credentials file found matching pattern *-ac884452d866.json in /opt/credentials/\"
+                ls -la /opt/credentials/
+                exit 1
+              fi
+            else
+              echo \"❌ ERROR: /opt/credentials directory does not exist\"
+              exit 1
+            fi
+            
+            # Verify it's a file (not directory)
+            if [ ! -f \"\$GOOGLE_CREDENTIALS_PATH\" ]; then
+              echo \"❌ ERROR: \$GOOGLE_CREDENTIALS_PATH is not a file (might be a directory)\"
+              ls -la \"\$GOOGLE_CREDENTIALS_PATH\"
+              exit 1
+            fi
+            
+            echo \"✅ Credentials file verified: \$GOOGLE_CREDENTIALS_PATH\"
+            echo \"   File size: \$(stat -c%s \"\$GOOGLE_CREDENTIALS_PATH\") bytes\"
+            echo 'Stopping old containers...'
+            docker compose -f docker-compose.base.yml -f docker-compose.override.yml down -v || true
+            echo 'Checking disk space...'
+            
+            AVAILABLE_SPACE=\$(df -BG / | awk 'NR==2 {print \$4}' | sed 's/G//')
+            MIN_REQUIRED=5
+            echo \"Current available space: \${AVAILABLE_SPACE}GB\"
+
+            if [ \"\$AVAILABLE_SPACE\" -lt \"\$MIN_REQUIRED\" ]; then
+              echo \"⚠️  Low disk space (\${AVAILABLE_SPACE}GB available), cleaning up...\"
+              docker system prune -af --volumes || true
+              docker image prune -af || true
+              AVAILABLE_SPACE=\$(df -BG / | awk 'NR==2 {print \$4}' | sed 's/G//')
+              echo \"After cleanup: \${AVAILABLE_SPACE}GB available\"
+              
+              if [ \"\$AVAILABLE_SPACE\" -lt \"\$MIN_REQUIRED\" ]; then
+                echo \"❌ ERROR: Insufficient disk space (\${AVAILABLE_SPACE}GB). Minimum required: \${MIN_REQUIRED}GB\"
+                exit 1
+              fi
+              echo \"✅ Cleanup completed. Available space: \${AVAILABLE_SPACE}GB\"
+            fi
+
+            # Login to Docker Hub
+            echo 'Logging in to Docker Hub...'
+            echo '${DOCKER_HUB_ACCESS_TOKEN}' | docker login -u ${DOCKER_HUB_USERNAME} --password-stdin || {
+              echo '❌ ERROR: Failed to login to Docker Hub'
+              exit 1
+            }
+
+            # Stop and remove old containers
+            echo 'Stopping old containers...'
+            docker compose -f docker-compose.base.yml -f docker-compose.override.yml down || true
+
+            # Cleanup unused Docker resources
+            echo 'Cleaning up unused Docker resources...'
+            docker container prune -f || true
+            docker image prune -af || true
+
+            # Remove old images
+            echo 'Removing old images...'
+            docker rmi ${DOCKER_HUB_USERNAME}/connect-career-be:${BACKEND_TAG} -f || true
+            docker rmi ${DOCKER_HUB_USERNAME}/ai-service:${AI_SERVICE_TAG} -f || true
+
+            # Pull new images with error handling
+            echo 'Pulling connect-career-be:${BACKEND_TAG}...'
+            if ! docker pull ${DOCKER_HUB_USERNAME}/connect-career-be:${BACKEND_TAG}; then
+              echo '❌ ERROR: Failed to pull connect-career-be image'
+              exit 1
+            fi
+
+            echo 'Pulling ai-service:${AI_SERVICE_TAG}...'
+            if ! docker pull ${DOCKER_HUB_USERNAME}/ai-service:${AI_SERVICE_TAG}; then
+              echo '❌ ERROR: Failed to pull ai-service image'
+              exit 1
+            fi
+
+            # Verify images exist
+            if ! docker image inspect ${DOCKER_HUB_USERNAME}/connect-career-be:${BACKEND_TAG} > /dev/null 2>&1; then
+              echo '❌ ERROR: connect-career-be image not found after pull'
+              exit 1
+            fi
+
+            if ! docker image inspect ${DOCKER_HUB_USERNAME}/ai-service:${AI_SERVICE_TAG} > /dev/null 2>&1; then
+              echo '❌ ERROR: ai-service image not found after pull'
+              exit 1
+            fi
+
+            # Tag images for local use
+            echo 'Tagging images...'
+            docker tag ${DOCKER_HUB_USERNAME}/connect-career-be:${BACKEND_TAG} connect-career-be:${BACKEND_TAG}
+            docker tag ${DOCKER_HUB_USERNAME}/ai-service:${AI_SERVICE_TAG} ai-service:${AI_SERVICE_TAG}
+
+            # Start services
+            echo 'Starting services...'
+            docker compose -f docker-compose.base.yml -f docker-compose.override.yml up -d
+
+            # Wait for services to initialize
+            echo 'Waiting for services to start...'
+            sleep 10
+
+            # Verify deployment
+            echo 'Verifying deployment...'
+            if ! docker compose -f docker-compose.base.yml -f docker-compose.override.yml ps | grep -q 'Up'; then
+              echo '❌ ERROR: Some containers failed to start'
+              echo 'Container status:'
+              docker compose -f docker-compose.base.yml -f docker-compose.override.yml ps
+              echo 'Recent logs:'
+              docker compose -f docker-compose.base.yml -f docker-compose.override.yml logs --tail=50
+              exit 1
+            fi
+
+            echo '✅ Deployment successful!'
+            docker compose -f docker-compose.base.yml -f docker-compose.override.yml ps
+            "
+
+  deploy-staging:
+    needs: [determine-environment, build-backend, build-ai-service]
+    if: needs.determine-environment.outputs.environment == 'stg'
+    runs-on: ubuntu-latest
+    defaults:
+      run:
+        working-directory: ./services
+    steps:
+      - name: Checkout Code
+        uses: actions/checkout@v4
+
+      - name: Authenticate to Google Cloud
+        uses: google-github-actions/auth@v2
+        with:
+          credentials_json: ${{ secrets.GCP_SA_KEY_STG }}
+
+      - name: Set up Cloud SDK
+        uses: google-github-actions/setup-gcloud@v2
+
+      - name: Deploy to Staging GCP VM
+        env:
+          GCP_PROJECT: ${{ secrets.GCP_PROJECT_STG }}
+          GCP_ZONE: ${{ secrets.GCP_ZONE_STG }}
+          VM_INSTANCE: ${{ secrets.GCP_VM_INSTANCE_STG }}
+          VM_USER: ${{ secrets.GCP_VM_USER_STG }}
+          DOCKER_HUB_USERNAME: ${{ secrets.DOCKER_HUB_USERNAME }}
+          DOCKER_HUB_ACCESS_TOKEN: ${{ secrets.DOCKER_HUB_ACCESS_TOKEN }}
+          BACKEND_TAG: ${{ needs.determine-environment.outputs.backend-tag }}
+          AI_SERVICE_TAG: ${{ needs.determine-environment.outputs.ai-service-tag }}
+          ENVIRONMENT: stg
+        run: |
+          echo "Begin deployment to STAGING GCP VM"
+
+          # Create services directory structure on VM if it doesn't exist
+          gcloud compute ssh ${VM_USER}@${VM_INSTANCE} \
+            --zone=${GCP_ZONE} \
+            --project=${GCP_PROJECT} \
+            --command="mkdir -p ~/connect-career-be/services/api-gateway"
+
+          # Copy compose files to VM services directory
+          gcloud compute scp docker-compose.base.yml ${VM_USER}@${VM_INSTANCE}:~/connect-career-be/services/docker-compose.base.yml \
+            --zone=${GCP_ZONE} \
+            --project=${GCP_PROJECT}
+
+          gcloud compute scp docker-compose.stg.yml ${VM_USER}@${VM_INSTANCE}:~/connect-career-be/services/docker-compose.override.yml \
+            --zone=${GCP_ZONE} \
+            --project=${GCP_PROJECT}
+
+          # Verify directory exists before copying kong.yml
+          echo "Verifying api-gateway directory exists..."
+          gcloud compute ssh ${VM_USER}@${VM_INSTANCE} \
+            --zone=${GCP_ZONE} \
+            --project=${GCP_PROJECT} \
+            --command="test -d ~/connect-career-be/services/api-gateway && echo 'Directory exists' || (echo 'Directory missing, creating...' && mkdir -p ~/connect-career-be/services/api-gateway)"
+
+          gcloud compute scp api-gateway/kong.yml ${VM_USER}@${VM_INSTANCE}:~/connect-career-be/services/api-gateway/kong.yml \
+            --zone=${GCP_ZONE} \
+            --project=${GCP_PROJECT}
+
+          # Execute deployment commands on VM
+          gcloud compute ssh ${VM_USER}@${VM_INSTANCE} \
+            --zone=${GCP_ZONE} \
+            --project=${GCP_PROJECT} \
+            --command="
+            cd ~/connect-career-be/services
+            echo 'Working directory: ' \$(pwd)
+            export DOCKER_HUB_USERNAME=${DOCKER_HUB_USERNAME}
+            export CC_BE_TAG=${BACKEND_TAG}
+            export AI_SERVICE_TAG=${AI_SERVICE_TAG}
+            export ENVIRONMENT=${ENVIRONMENT}
+
+            # Login to Docker Hub
+            echo '${DOCKER_HUB_ACCESS_TOKEN}' | docker login -u ${DOCKER_HUB_USERNAME} --password-stdin
+
+            # Check disk space before deployment
+            echo 'Checking disk space...'
+            AVAILABLE_SPACE=\$(df -BG / | awk 'NR==2 {print \$4}' | sed 's/G//')
+            MIN_REQUIRED=10
+            if [ \"\$AVAILABLE_SPACE\" -lt \"\$MIN_REQUIRED\" ]; then
+              echo '⚠️  Low disk space (\${AVAILABLE_SPACE}GB available), cleaning up...'
+              docker system prune -af --volumes || true
+              docker image prune -af || true
+              AVAILABLE_SPACE=\$(df -BG / | awk 'NR==2 {print \$4}' | sed 's/G//')
+              if [ \"\$AVAILABLE_SPACE\" -lt \"\$MIN_REQUIRED\" ]; then
+                echo '❌ ERROR: Insufficient disk space (\${AVAILABLE_SPACE}GB). Minimum required: \${MIN_REQUIRED}GB'
+                exit 1
+              fi
+              echo '✅ Cleanup completed. Available space: \${AVAILABLE_SPACE}GB'
+            fi
+
+            # Stop and remove old containers
+            echo 'Stopping old containers...'
+            docker compose -f docker-compose.base.yml -f docker-compose.override.yml down || true
+
+            # Cleanup unused Docker resources
+            echo 'Cleaning up unused Docker resources...'
+            docker container prune -f || true
+            docker image prune -af || true
+
+            # Remove old images (improved)
+            echo 'Removing old images...'
+            docker rmi ${DOCKER_HUB_USERNAME}/connect-career-be:${BACKEND_TAG} -f || true
+            docker rmi ${DOCKER_HUB_USERNAME}/ai-service:${AI_SERVICE_TAG} -f || true
+
+            # Pull new images with error handling
+            echo 'Pulling connect-career-be:${BACKEND_TAG}...'
+            if ! docker pull ${DOCKER_HUB_USERNAME}/connect-career-be:${BACKEND_TAG}; then
+              echo '❌ ERROR: Failed to pull connect-career-be image'
+              exit 1
+            fi
+
+            echo 'Pulling ai-service:${AI_SERVICE_TAG}...'
+            if ! docker pull ${DOCKER_HUB_USERNAME}/ai-service:${AI_SERVICE_TAG}; then
+              echo '❌ ERROR: Failed to pull ai-service image'
+              exit 1
+            fi
+
+            # Verify images exist
+            if ! docker image inspect ${DOCKER_HUB_USERNAME}/connect-career-be:${BACKEND_TAG} > /dev/null 2>&1; then
+              echo '❌ ERROR: connect-career-be image not found after pull'
+              exit 1
+            fi
+
+            if ! docker image inspect ${DOCKER_HUB_USERNAME}/ai-service:${AI_SERVICE_TAG} > /dev/null 2>&1; then
+              echo '❌ ERROR: ai-service image not found after pull'
+              exit 1
+            fi
+
+            # Tag images for local use
+            echo 'Tagging images...'
+            docker tag ${DOCKER_HUB_USERNAME}/connect-career-be:${BACKEND_TAG} connect-career-be:${BACKEND_TAG}
+            docker tag ${DOCKER_HUB_USERNAME}/ai-service:${AI_SERVICE_TAG} ai-service:${AI_SERVICE_TAG}
+
+            # Start services
+            echo 'Starting services...'
+            docker compose -f docker-compose.base.yml -f docker-compose.override.yml up -d
+
+            # Wait for services to initialize
+            echo 'Waiting for services to start...'
+            sleep 10
+
+            # Verify deployment
+            echo 'Verifying deployment...'
+            if ! docker compose -f docker-compose.base.yml -f docker-compose.override.yml ps | grep -q 'Up'; then
+              echo '❌ ERROR: Some containers failed to start'
+              echo 'Container status:'
+              docker compose -f docker-compose.base.yml -f docker-compose.override.yml ps
+              echo 'Recent logs:'
+              docker compose -f docker-compose.base.yml -f docker-compose.override.yml logs --tail=50
+              exit 1
+            fi
+
+            echo '✅ Deployment successful!'
+            docker compose -f docker-compose.base.yml -f docker-compose.override.yml ps
+            "
+
+  deploy-prod:
+    needs: [determine-environment, build-backend, build-ai-service]
+    if: needs.determine-environment.outputs.environment == 'prod'
+    runs-on: ubuntu-latest
+    defaults:
+      run:
+        working-directory: ./services
+    steps:
+      - name: Checkout Code
+        uses: actions/checkout@v4
+
+      - name: Authenticate to Google Cloud
+        uses: google-github-actions/auth@v2
+        with:
+          credentials_json: ${{ secrets.GCP_SA_KEY_PROD }}
+
+      - name: Set up Cloud SDK
+        uses: google-github-actions/setup-gcloud@v2
+
+      - name: Deploy to Production GCP VM
+        env:
+          GCP_PROJECT: ${{ secrets.GCP_PROJECT_PROD }}
+          GCP_ZONE: ${{ secrets.GCP_ZONE_PROD }}
+          VM_INSTANCE: ${{ secrets.GCP_VM_INSTANCE_PROD }}
+          VM_USER: ${{ secrets.GCP_VM_USER_PROD }}
+          DOCKER_HUB_USERNAME: ${{ secrets.DOCKER_HUB_USERNAME }}
+          DOCKER_HUB_ACCESS_TOKEN: ${{ secrets.DOCKER_HUB_ACCESS_TOKEN }}
+          BACKEND_TAG: ${{ needs.determine-environment.outputs.backend-tag }}
+          AI_SERVICE_TAG: ${{ needs.determine-environment.outputs.ai-service-tag }}
+          ENVIRONMENT: prod
+        run: |
+          echo "Begin deployment to PRODUCTION GCP VM"
+
+          # Create services directory structure on VM if it doesn't exist
+          gcloud compute ssh ${VM_USER}@${VM_INSTANCE} \
+            --zone=${GCP_ZONE} \
+            --project=${GCP_PROJECT} \
+            --command="mkdir -p ~/connect-career-be/services/api-gateway"
+
+          # Copy compose files to VM services directory
+          gcloud compute scp docker-compose.base.yml ${VM_USER}@${VM_INSTANCE}:~/connect-career-be/services/docker-compose.base.yml \
+            --zone=${GCP_ZONE} \
+            --project=${GCP_PROJECT}
+
+          gcloud compute scp docker-compose.prod.yml ${VM_USER}@${VM_INSTANCE}:~/connect-career-be/services/docker-compose.override.yml \
+            --zone=${GCP_ZONE} \
+            --project=${GCP_PROJECT}
+
+          # Verify directory exists before copying kong.yml
+          echo "Verifying api-gateway directory exists..."
+          gcloud compute ssh ${VM_USER}@${VM_INSTANCE} \
+            --zone=${GCP_ZONE} \
+            --project=${GCP_PROJECT} \
+            --command="test -d ~/connect-career-be/services/api-gateway && echo 'Directory exists' || (echo 'Directory missing, creating...' && mkdir -p ~/connect-career-be/services/api-gateway)"
+
+          gcloud compute scp api-gateway/kong.yml ${VM_USER}@${VM_INSTANCE}:~/connect-career-be/services/api-gateway/kong.yml \
+            --zone=${GCP_ZONE} \
+            --project=${GCP_PROJECT}
+
+          # Execute deployment commands on VM
+          gcloud compute ssh ${VM_USER}@${VM_INSTANCE} \
+            --zone=${GCP_ZONE} \
+            --project=${GCP_PROJECT} \
+            --command="
+            cd ~/connect-career-be/services
+            echo 'Working directory: ' \$(pwd)
+            export DOCKER_HUB_USERNAME=${DOCKER_HUB_USERNAME}
+            export CC_BE_TAG=${BACKEND_TAG}
+            export AI_SERVICE_TAG=${AI_SERVICE_TAG}
+            export ENVIRONMENT=${ENVIRONMENT}
+
+            # Login to Docker Hub
+            echo '${DOCKER_HUB_ACCESS_TOKEN}' | docker login -u ${DOCKER_HUB_USERNAME} --password-stdin
+
+            # Check disk space before deployment
+            echo 'Checking disk space...'
+            AVAILABLE_SPACE=\$(df -BG / | awk 'NR==2 {print \$4}' | sed 's/G//')
+            MIN_REQUIRED=10
+            if [ \"\$AVAILABLE_SPACE\" -lt \"\$MIN_REQUIRED\" ]; then
+              echo '⚠️  Low disk space (\${AVAILABLE_SPACE}GB available), cleaning up...'
+              docker system prune -af --volumes || true
+              docker image prune -af || true
+              AVAILABLE_SPACE=\$(df -BG / | awk 'NR==2 {print \$4}' | sed 's/G//')
+              if [ \"\$AVAILABLE_SPACE\" -lt \"\$MIN_REQUIRED\" ]; then
+                echo '❌ ERROR: Insufficient disk space (\${AVAILABLE_SPACE}GB). Minimum required: \${MIN_REQUIRED}GB'
+                exit 1
+              fi
+              echo '✅ Cleanup completed. Available space: \${AVAILABLE_SPACE}GB'
+            fi
+
+            # Stop and remove old containers
+            echo 'Stopping old containers...'
+            docker compose -f docker-compose.base.yml -f docker-compose.override.yml down || true
+
+            # Cleanup unused Docker resources
+            echo 'Cleaning up unused Docker resources...'
+            docker container prune -f || true
+            docker image prune -af || true
+
+            # Remove old images (improved)
+            echo 'Removing old images...'
+            docker rmi ${DOCKER_HUB_USERNAME}/connect-career-be:${BACKEND_TAG} -f || true
+            docker rmi ${DOCKER_HUB_USERNAME}/ai-service:${AI_SERVICE_TAG} -f || true
+
+            # Pull new images with error handling
+            echo 'Pulling connect-career-be:${BACKEND_TAG}...'
+            if ! docker pull ${DOCKER_HUB_USERNAME}/connect-career-be:${BACKEND_TAG}; then
+              echo '❌ ERROR: Failed to pull connect-career-be image'
+              exit 1
+            fi
+
+            echo 'Pulling ai-service:${AI_SERVICE_TAG}...'
+            if ! docker pull ${DOCKER_HUB_USERNAME}/ai-service:${AI_SERVICE_TAG}; then
+              echo '❌ ERROR: Failed to pull ai-service image'
+              exit 1
+            fi
+
+            # Verify images exist
+            if ! docker image inspect ${DOCKER_HUB_USERNAME}/connect-career-be:${BACKEND_TAG} > /dev/null 2>&1; then
+              echo '❌ ERROR: connect-career-be image not found after pull'
+              exit 1
+            fi
+
+            if ! docker image inspect ${DOCKER_HUB_USERNAME}/ai-service:${AI_SERVICE_TAG} > /dev/null 2>&1; then
+              echo '❌ ERROR: ai-service image not found after pull'
+              exit 1
+            fi
+
+            # Tag images for local use
+            echo 'Tagging images...'
+            docker tag ${DOCKER_HUB_USERNAME}/connect-career-be:${BACKEND_TAG} connect-career-be:${BACKEND_TAG}
+            docker tag ${DOCKER_HUB_USERNAME}/ai-service:${AI_SERVICE_TAG} ai-service:${AI_SERVICE_TAG}
+
+            # Start services
+            echo 'Starting services...'
+            docker compose -f docker-compose.base.yml -f docker-compose.override.yml up -d
+
+            # Wait for services to initialize
+            echo 'Waiting for services to start...'
+            sleep 10
+
+            # Verify deployment
+            echo 'Verifying deployment...'
+            if ! docker compose -f docker-compose.base.yml -f docker-compose.override.yml ps | grep -q 'Up'; then
+              echo '❌ ERROR: Some containers failed to start'
+              echo 'Container status:'
+              docker compose -f docker-compose.base.yml -f docker-compose.override.yml ps
+              echo 'Recent logs:'
+              docker compose -f docker-compose.base.yml -f docker-compose.override.yml logs --tail=50
+              exit 1
+            fi
+
+            echo '✅ Deployment successful!'
+            docker compose -f docker-compose.base.yml -f docker-compose.override.yml ps
+            "

@@ -22,9 +22,15 @@ import { CancelledStateStrategy } from './domain/state-machine/strategies/cancel
 import { ArchivedStateStrategy } from './domain/state-machine/strategies/archived-state.strategy';
 import { HiringPipeline } from '../hiring-pipeline/domain/entities/hiring-pipeline.entity';
 import { QueueModule } from 'src/shared/infrastructure/queue/queue.module';
+import { JobInteraction } from '../recommendations/domain/entities/job-interaction.entity';
+import { CqrsModule } from '@nestjs/cqrs';
+import { OrganizationMembership } from '../profile/domain/entities/organization-memberships.entity';
+import { CandidateProfile } from '../profile/domain/entities/candidate-profile.entity';
+import { WalletModule } from '../subscription/subscription.module';
 
 @Module({
   imports: [
+    CqrsModule,
     TypeOrmModule.forFeature([
       Job,
       SavedJob,
@@ -36,8 +42,12 @@ import { QueueModule } from 'src/shared/infrastructure/queue/queue.module';
       HiringPipeline,
       File,
       Application,
+      JobInteraction,
+      CandidateProfile,
+      OrganizationMembership,
     ]),
     QueueModule,
+    WalletModule,
   ],
   controllers: [JobCandidateController, JobOrganizationController],
   providers: [

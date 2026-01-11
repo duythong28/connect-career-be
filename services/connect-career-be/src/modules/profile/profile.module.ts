@@ -48,6 +48,7 @@ import { RecruiterFeedback } from './domain/entities/recruiter-feedbacks.entity'
 import { UserPreferences } from '../recommendations/domain/entities/user-preferences.entity';
 import { QueueModule } from 'src/shared/infrastructure/queue/queue.module';
 import { JobInteraction } from '../recommendations/domain/entities/job-interaction.entity';
+import { ElasticsearchModule } from '../search/infrastructure/elasticsearch/elasticsearch.module';
 @Module({
   imports: [
     TypeOrmModule.forFeature([
@@ -82,6 +83,7 @@ import { JobInteraction } from '../recommendations/domain/entities/job-interacti
       JobInteraction,
     ]),
     QueueModule,
+    ElasticsearchModule,
   ],
   controllers: [
     OrganizationController,

@@ -26,6 +26,8 @@ COPY --from=prod-deps /app/node_modules ./node_modules
 COPY --from=builder /app/dist ./dist
 COPY --from=builder /app/package*.json ./
 
+RUN mkdir -p /app/logs && chown -R node:node /app/logs
+
 EXPOSE 3000
 USER node
 CMD ["node", "dist/main.js"]

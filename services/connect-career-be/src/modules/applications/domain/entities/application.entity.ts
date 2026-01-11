@@ -79,6 +79,12 @@ export interface MatchingScoreBreakdown {
   educationMatch: number;
   locationMatch: number;
   overallScore: number;
+  explanation?: {
+    summary: string;
+    strengths: string[];
+    weaknesses: string[];
+    recommendations: string[];
+  };
   details?: {
     matchedSkills: string[];
     missingSkills: string[];

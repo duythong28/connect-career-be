@@ -6,6 +6,8 @@ import { Logger, ValidationPipe } from '@nestjs/common';
 import { NestExpressApplication } from '@nestjs/platform-express'; // Add this
 import { join } from 'path';
 import { WINSTON_MODULE_NEST_PROVIDER } from 'nest-winston';
+import { UsageLedgerSeeder } from './modules/subscription/infrastructure/seeders/usage-ledger.seeder';
+// import { BillableActionsSeeder } from './modules/subscription/infrastructure/seeders/billable-actions.seeder';
 // import { HiringPipelineSeeder } from './modules/hiring-pipeline/infrastructure/seeders/hiring-pipeline.seeder';
 // import { ApplicationSeeder } from './modules/applications/infrastructure/seeders/application.seeder';
 // import { DefaultRolesSeeder } from './modules/identity/infrastructure/seeders/default-roles.seeder';
@@ -48,6 +50,12 @@ async function bootstrap() {
     // 8. Seed applications
     // const applicationSeeder = app.get(ApplicationSeeder);
     // await applicationSeeder.seed();
+    // 9. Seed billable actions
+    // const billableActionsSeeder = app.get(BillableActionsSeeder);
+    // await billableActionsSeeder.seed();
+    // 10. Seed usage ledger (fake transactions)
+    // const usageLedgerSeeder = app.get(UsageLedgerSeeder);
+    // await usageLedgerSeeder.seed();
   } catch (error: unknown) {
     console.error(
       'Failed to run seeders:',
@@ -60,7 +68,11 @@ async function bootstrap() {
   });
 
   app.enableCors({
-    origin: ['http://localhost:3000', 'http://localhost:3001'],
+    origin: [
+      'http://localhost:3000',
+      'http://localhost:3001',
+      'https://connect-career.vercel.app',
+    ],
     credentials: true,
     methods: ['GET', 'POST', 'PUT', 'DELETE', 'OPTIONS', 'PATCH'],
     allowedHeaders: ['Content-Type', 'Authorization'],

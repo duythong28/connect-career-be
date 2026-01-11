@@ -15,4 +15,3 @@ export class ApplicationCreatedEvent implements IDomainEvent {
     this.occurredAt = new Date();
   }
 }
-

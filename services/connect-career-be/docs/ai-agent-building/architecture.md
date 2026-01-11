@@ -1,168 +1,269 @@
-# ⭐ **NEW ARCHITECTURE OVERVIEW (Best Practice)**
+# Technical Implementation: AI Recruiting Assistant Streaming Architecture
 
-```
-src/modules/ai-agent/
-├── api/                       # REST layer
-├── application/               # Application services
-├── domain/                    # Core business logic & agents
-├── orchestration/             # Intent routing, workflows, context
-├── infrastructure/            # LLM, RAG, memory, tools, media, logging
-└── ai-agent.module.ts
-```
+## 1. System Overview
 
----
+This platform implements a **real-time AI recruiting assistant** that supports both **job candidates** and **recruiters** through streaming conversational interactions.
+The system is built on an **asynchronous, event-driven architecture** using **LangGraph**, enabling incremental response streaming, robust state management, and fault-tolerant persistence.
 
-# ⭐ 1. API Layer (Minimal, clean)
+The assistant handles tasks such as:
 
-```
-api/
-   controllers/
-   dtos/
-   http-exceptions/
-```
+- Job discovery and recommendation
+- CV/profile understanding
+- Candidate–job matching analysis
+- Recruiter query handling (candidate search, screening support)
+- Context-aware follow-up suggestions
 
 ---
 
-# ⭐ 2. Application Layer (High-level app logic)
+## 2. Core Streaming Abstraction
 
+The interaction pipeline is implemented using an **async generator**, allowing partial AI responses to be streamed to the frontend while maintaining a consistent internal state for persistence and post-processing.
+
+### 2.1 Streamed Response Model
+
+```python
+class StreamChatResponse(BaseModel):
+    messages: Optional[ChatMessage | list[ChatMessage]]
+    is_done: bool
+    is_error: bool
+    needs_retry: Optional[bool]
+    error_type: Optional[str]
+    reach_retry_attemp_limit: Optional[bool]
+    message_id: Optional[str]
+    completed_at: Optional[datetime]
 ```
-application/
-   ├── chat.service.ts
-   ├── ai-agent.service.ts
-   ├── suggestion.service.ts
-   ├── agent-log.service.ts
-   └── media.service.ts
-```
+
+**Purpose**
+This structure enables:
+
+- Low-latency user feedback (token-level streaming)
+- Explicit stream lifecycle control
+- Clear error and retry semantics for UI and orchestration layers
 
 ---
 
-# ⭐ 3. Orchestration Layer (NEW — Missing in your design)
+## 3. Dual Message State Pattern
 
-```
-orchestration/
-   ├── intent-detector.service.ts
-   ├── agent-router.service.ts
-   ├── workflow-engine.service.ts
-   ├── execution-context.ts
-   └── response-synthesizer.service.ts
+To prevent mutation conflicts between streaming output and persisted conversation history, the system applies a **dual message pattern**.
+
+```python
+yield_think_message   # streamed reasoning/status updates
+think_message         # internal state (persisted)
+
+yield_answer_message  # streamed AI response
+answer_message        # accumulated final response (persisted)
 ```
 
-This is crucial.
-This is where agent routing becomes reliable.
+**Design Rationale**
+
+- Streaming messages prioritize responsiveness
+- Internal messages guarantee consistency and auditability
+- Separation enables post-hoc analysis (e.g., job-match explanation storage)
 
 ---
 
-# ⭐ 4. Domain Layer (Agents + Entities + Repositories)
+## 4. LangGraph Agent State (Recruitment Context)
 
+The recruiting assistant operates over a structured **AgentState**, representing both conversational and domain-specific context.
+
+```python
+class AgentState(TypedDict):
+    messages: Annotated[list, add_messages]
+    triage_message: Optional[ChatMessage]
+    job_posts: Optional[str]
+    candidate_profiles: Optional[str]
+    recruiter_intents: Optional[str]
+    faqs: Optional[List[dict]]
+    thread_id: str
+    user_profile: Optional[UserProfile]
+    hallucination_retry: Optional[bool]
+    analysis_result: Optional[ConversationAnalysisResult]
 ```
-domain/
-   entities/
-   repositories/
-   agents/
-      ├── orchestrator/
-      ├── information-gathering/
-      ├── analysis/
-      ├── job-discovery/
-      ├── matching/
-      ├── cv-enhancement/
-      ├── company-insights/
-      ├── learning-path/
-      ├── faq/
-      ├── strategy-guidance/
-      ├── follow-up/
-      ├── quality-assurance/
-      └── comparison/          # NEW & IMPORTANT
-   interfaces/
-```
+
+**Key Characteristics**
+
+- Supports multi-role users (candidate vs recruiter)
+- Preserves historical context for ranking and matching
+- Enables downstream explainability (why a job or candidate was suggested)
 
 ---
 
-# ⭐ 5. Infrastructure Layer (Cleaned & Restructured)
+## 5. Streaming Entry Point
 
+### 5.1 `astream_chat()` – Primary Orchestration Method
+
+```python
+async def astream_chat(
+    self,
+    human_message: ChatMessage,
+    session_id: uuid.UUID,
+    user_id: uuid.UUID,
+    manual_retry_attempts: int = 0,
+    retried_message_id: uuid.UUID = None,
+) -> AsyncGenerator[StreamChatResponse, None]:
 ```
-infrastructure/
-   llm/
-      ├── chains.service.ts
-      ├── memory.service.ts
-      ├── tools.service.ts
-      └── monitoring.service.ts
 
-   rag/
-      ├── ingestion/
-      │    ├── job.ingest.ts
-      │    ├── company.ingest.ts
-      │    ├── learning.ingest.ts
-      │    ├── faq.ingest.ts
-      │    └── cv.ingest.ts
-      ├── retrieval/
-      │    ├── vector-retriever.ts
-      │    ├── hybrid-retriever.ts
-      │    ├── job-retriever.ts
-      │    ├── company-retriever.ts
-      │    ├── learning-retriever.ts
-      │    └── faq-retriever.ts
-      ├── query/
-      │    ├── rewriter.service.ts
-      │    ├── expander.service.ts
-      │    └── normalizer.service.ts
-      ├── ranking/
-      │    ├── cross-encoder-ranker.ts
-      │    └── score-fusion.ts
-      ├── stores/
-      │    ├── job.store.ts
-      │    ├── company.store.ts
-      │    ├── learning.store.ts
-      │    └── faq.store.ts
-      ├── rag-services/
-      │    ├── job-rag.service.ts
-      │    ├── company-rag.service.ts
-      │    ├── learning-path-rag.service.ts
-      │    ├── faq-rag.service.ts
-      │    └── multi-rag.service.ts
-      └── rag.module.ts
+**Responsibilities**
 
-   memory/
-      ├── episodic-memory.service.ts
-      ├── semantic-memory.service.ts
-      └── procedural-memory.service.ts
-
-   tools/
-      ├── tool-registry.service.ts
-      ├── job-tools.service.ts
-      ├── cv-tools.service.ts
-      ├── company-tools.service.ts
-      ├── learning-tools.service.ts
-      └── validation-tools.service.ts
-
-   media/
-      ├── media-storage.service.ts
-      └── media-processor.service.ts
-
-   monitoring/
-      ├── agent-monitoring.service.ts
-      ├── analytics.service.ts
-      └── execution-logger.service.ts
-```
+1. Initialize conversation artifacts
+2. Construct agent state and execution configuration
+3. Stream LangGraph execution events
+4. Handle errors and retries
+5. Persist finalized conversation data
 
 ---
 
-# ⭐ So is your original architecture “best practice”?
+## 6. Execution Phases
 
-### ✔ Good
+### Phase 1: Initialization
 
-### ✔ Complete
+- Prepare runnable node messages (e.g., _“Analyzing job intent”_, _“Matching candidates”_)
+- Create four distinct message instances (streamed vs persisted)
 
-### ✔ Excellent thesis-level detail
+### Phase 2: Immediate Feedback
 
-BUT:
-
-### 🚀 This new version is **cleaner, more modern, and more flexible**, especially:
-
-- comparison agent
-- orchestration layer
-- simplified RAG categories
-- separation of ingestion vs retrieval vs ranking
+The system immediately streams a **thinking/status message** to assure responsiveness while heavy reasoning is ongoing.
 
 ---
 
-# ⭐ Final Answer
+### Phase 3: Agent State Setup
+
+```python
+state.messages = [human_message]
+config = {
+  "configurable": {"thread_id": session_id},
+  "metadata": {...}
+}
+```
+
+This ensures:
+
+- Conversation continuity across retries
+- Traceability for recruiter and candidate sessions
+
+---
+
+### Phase 4: LangGraph Event Streaming
+
+The system consumes structured events from LangGraph:
+
+- `on_chain_start` – Node execution begins (e.g., job intent routing)
+- `on_chat_model_stream` – Token-level AI output
+- `on_chain_end` – Node or graph completion
+
+Each event is mapped to domain-specific behaviors such as:
+
+- Updating reasoning status
+- Streaming answer tokens
+- Extracting job-matching analysis results
+
+---
+
+## 7. Event Processing Strategy
+
+### 7.1 Node Lifecycle Events (Reasoning Updates)
+
+Used to stream **progress indicators** such as:
+
+- “Understanding candidate profile”
+- “Evaluating job requirements”
+- “Ranking job matches”
+
+These messages are emitted **once per node** to avoid redundancy.
+
+---
+
+### 7.2 AI Response Streaming
+
+During answer generation:
+
+- Reasoning messages are finalized
+- AI tokens are streamed incrementally
+- Final responses are accumulated internally
+
+This enables:
+
+- Fast perceived response time
+- Complete persisted answers for audit and analytics
+
+---
+
+## 8. Content Accumulation Semantics
+
+```python
+to_yield=True   → replace content (real-time streaming)
+to_yield=False  → append content (final state)
+```
+
+**Why this matters**
+
+- Streaming UIs require replacement semantics
+- Databases require full conversation reconstruction
+
+---
+
+## 9. Tool Call Handling (Follow-up Suggestions)
+
+The assistant can invoke tools such as `suggest_prompts` to generate contextual next actions:
+
+- “View similar jobs”
+- “Refine candidate search”
+- “Prepare interview questions”
+
+Suggestions are:
+
+- Streamed immediately
+- Persisted with a `group_suggestion_id`
+- Reused across sessions if needed
+
+Fallback logic parses suggestions from plain text if tool execution fails.
+
+---
+
+## 10. Error Handling & Retry Control
+
+Errors are classified into:
+
+- **Domain errors** (e.g., invalid job filters)
+- **System errors** (timeouts, model failures)
+
+Retry behavior:
+
+- Limited manual retries (anti-loop protection)
+- Explicit retry metadata for frontend control
+- Graceful degradation messaging
+
+---
+
+## 11. Cleanup & Persistence
+
+Persistence is executed **asynchronously** to avoid blocking the stream:
+
+- All messages are saved once the stream completes
+- Suggestions are migrated into a reusable recommendation store
+- Partial conversations are preserved even on failure
+
+This supports:
+
+- Compliance and auditing
+- Offline analytics (matching quality, recruiter behavior)
+- Training data generation for future model improvements
+
+---
+
+## 12. Architectural Advantages
+
+1. **Low latency**: token-level streaming
+2. **Strong consistency**: dual message pattern
+3. **Scalable orchestration**: LangGraph-based execution
+4. **Explainability-ready**: analysis results persisted
+5. **Fault-tolerant**: retry and fallback mechanisms
+6. **Recruitment-specific extensibility**: jobs, candidates, recruiters as first-class entities
+
+---
+
+## 13. Summary
+
+This architecture enables a **production-grade AI recruiting assistant** capable of handling complex job-matching and hiring workflows while maintaining responsiveness, reliability, and explainability—making it suitable for real-world recruitment platforms and academic research alike.
+
+---

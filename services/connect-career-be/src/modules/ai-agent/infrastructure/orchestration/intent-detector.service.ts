@@ -3,13 +3,14 @@ import { AIService } from 'src/shared/infrastructure/external-services/ai/servic
 import { IntentResult } from '../../domain/types/agent.types';
 import { IntentDetectionException } from '../../apis/http-exceptions/intent-detection.exception';
 import { Intent } from '../../domain/enums/intent.enum';
+import { PromptService } from '../prompts/prompt.service';
 
 @Injectable()
 export class IntentDetectorService {
   private readonly logger = new Logger(IntentDetectorService.name);
 
-  // Common intents in career assistant domain
-  private readonly intentPatterns = {
+  // Candidate intents
+  private readonly candidateIntentPatterns = {
     job_search: [
       'find job',
       'search job',
@@ -59,52 +60,113 @@ export class IntentDetectorService {
     faq: ['what is', 'how to', 'explain', 'tell me about'],
   };
 
-  constructor(private readonly aiService: AIService) {}
+  // Recruiter intents
+  private readonly recruiterIntentPatterns = {
+    create_job_post: [
+      'create job',
+      'post a job',
+      'job posting',
+      'job description',
+      'write job',
+    ],
+    edit_job_post: ['edit job', 'update job', 'modify job', 'rewrite job'],
+    search_candidates: [
+      'find candidates',
+      'search candidates',
+      'talent pool',
+      'candidate search',
+    ],
+    screen_candidate: [
+      'screen candidate',
+      'review candidate',
+      'evaluate candidate',
+      'assess candidate',
+    ],
+    compare_candidates: [
+      'compare candidates',
+      'candidate comparison',
+      'compare applicants',
+    ],
+    generate_interview_questions: [
+      'interview questions',
+      'generate questions',
+      'create questions',
+    ],
+    shortlist_candidates: ['shortlist', 'top candidates', 'best candidates'],
+    candidate_scorecard: [
+      'score candidate',
+      'rate candidate',
+      'candidate score',
+    ],
+    faq: ['what is', 'how to', 'explain', 'tell me about'],
+  };
+
+  constructor(
+    private readonly aiService: AIService,
+    private readonly promptService: PromptService,
+  ) {}
 
   async detectIntent(
     message: string,
     conversationHistory: Array<{ role: string; content: string }> = [],
     userContext?: any,
+    role?: 'candidate' | 'recruiter',
   ): Promise<IntentResult> {
     try {
-      // First, try pattern matching for quick detection
-      const patternMatch = this.matchPatterns(message);
-      if (patternMatch && patternMatch.confidence > 0.8) {
-        return patternMatch;
-      }
-
       // Use LLM for more sophisticated intent detection
       const llmResult = await this.detectIntentWithLLM(
         message,
         conversationHistory,
         userContext,
+        role,
       );
-
-      // Combine pattern and LLM results
-      if (patternMatch && llmResult.confidence < 0.7) {
-        return patternMatch;
-      }
+      console.log('llmResult', JSON.stringify(llmResult));
 
       return llmResult;
     } catch (error) {
-      this.logger.error(
-        `Intent detection failed: ${error}`,
+      this.logger.warn(
+        `LLM intent detection failed, falling back to pattern matching: ${error instanceof Error ? error.message : String(error)}`,
         error instanceof Error ? error.stack : undefined,
       );
-      throw new IntentDetectionException(
-        'Failed to detect intent',
-        'I had trouble understanding your request. Could you please rephrase?',
-        error,
+
+      // Fallback to pattern-based intent detection
+      const patternResult = this.matchPatterns(message, role);
+      
+      if (patternResult) {
+        this.logger.log(
+          `Using pattern-based intent detection: ${patternResult.intent} (confidence: ${patternResult.confidence})`,
+        );
+        return patternResult;
+      }
+
+      // If pattern matching also fails, return a default FAQ intent
+      this.logger.warn(
+        'Both LLM and pattern-based intent detection failed. Using default FAQ intent.',
       );
+      return {
+        intent: Intent.FAQ,
+        entities: this.extractBasicEntities(message),
+        confidence: 0.3,
+        requiresClarification: true,
+      };
     }
   }
 
-  private matchPatterns(message: string): IntentResult | null {
+  private matchPatterns(
+    message: string,
+    role?: 'candidate' | 'recruiter',
+  ): IntentResult | null {
     const lowerMessage = message.toLowerCase();
     let bestMatch: { intent: string; confidence: number } | null = null;
 
-    for (const [intent, patterns] of Object.entries(this.intentPatterns)) {
-      const matches = patterns.filter((pattern) =>
+    // Use role-specific patterns
+    const patterns =
+      role === 'recruiter'
+        ? this.recruiterIntentPatterns
+        : this.candidateIntentPatterns;
+
+    for (const [intent, patternList] of Object.entries(patterns)) {
+      const matches = patternList.filter((pattern) =>
         lowerMessage.includes(pattern),
       );
       if (matches.length > 0) {
@@ -131,35 +193,24 @@ export class IntentDetectorService {
     message: string,
     conversationHistory: Array<{ role: string; content: string }>,
     userContext?: any,
+    role?: 'candidate' | 'recruiter',
   ): Promise<IntentResult> {
-    const systemPrompt = `You are an intent classifier for a career assistant AI system.
-Analyze the user's message and classify it into one of these intents:
-- job_search: User wants to find jobs
-- job_match: User wants job recommendations based on their profile
-- career_path: User wants career planning advice
-- skill_gap: User wants to know what skills they need
-- interview_prep: User wants interview preparation help
-- cv_review: User wants CV/resume feedback
-- company_research: User wants information about companies
-- application_status: User wants to check application status
-- learning_path: User wants learning resources
-- comparison: User wants to compare jobs/companies/offers
-- faq: General questions
-
-Also extract relevant entities like: job titles, skills, companies, locations, etc.
-
-Return JSON with: { intent, entities: {}, confidence: 0.0-1.0, requiresClarification: boolean }`;
+    const intentList = this.promptService.getIntentList(role);
+    const systemPrompt = this.promptService.getIntentDetectionSystemPrompt(
+      role,
+      intentList,
+    );
 
     const historyContext = conversationHistory
       .slice(-5)
       .map((msg) => `${msg.role}: ${msg.content}`)
       .join('\n');
 
-    const prompt = `User message: "${message}"
-${historyContext ? `\nRecent conversation:\n${historyContext}` : ''}
-${userContext ? `\nUser context: ${JSON.stringify(userContext)}` : ''}
-
-Classify the intent and extract entities.`;
+    const prompt = this.promptService.getIntentDetectionUserPrompt(
+      message,
+      historyContext,
+      userContext,
+    );
 
     const response = await this.aiService.chat({
       messages: [
@@ -171,7 +222,10 @@ Classify the intent and extract entities.`;
     });
 
     try {
-      const result = JSON.parse(response.content);
+      const cleanedContent = this.promptService.cleanJsonResponse(
+        response.content,
+      );
+      const result = JSON.parse(cleanedContent);
       return {
         intent: result.intent || Intent.FAQ,
         entities: result.entities || {},
@@ -180,7 +234,9 @@ Classify the intent and extract entities.`;
         alternativeIntents: result.alternativeIntents,
       };
     } catch (parseError) {
-      this.logger.warn('Failed to parse LLM intent response, using fallback');
+      this.logger.warn(
+        `Failed to parse LLM intent response: ${parseError instanceof Error ? parseError.message : String(parseError)}. Using fallback.`,
+      );
       return {
         intent: Intent.FAQ,
         entities: {},

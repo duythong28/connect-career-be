@@ -34,7 +34,7 @@ export class UserRegisteredHandler
       const provider = this.providerFactory.createProvider(
         NotificationChannel.EMAIL,
       );
-      
+
       if (provider) {
         // Render the React email template to HTML
         const emailHtml = await render(
@@ -46,7 +46,9 @@ export class UserRegisteredHandler
 
         const title = '[CONNECTCAREER] Verify your email';
         await provider.send(event.email, title, emailHtml);
-        this.logger.log(`Verification email sent successfully to ${event.email}`);
+        this.logger.log(
+          `Verification email sent successfully to ${event.email}`,
+        );
       } else {
         this.logger.warn('Email provider not configured, skipping email send');
       }

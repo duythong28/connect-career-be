@@ -833,10 +833,10 @@ export class ChatService {
                     const frontendUrl =
                       this.configService.get<string>('FRONTEND_URL') ||
                       'https://connect-career.vercel.app';
-                    
+
                     // Extract job ID - check multiple possible locations
                     const jobId = job.id || job.metadata?.id || job.jobId;
-                    
+
                     // Determine the job URL - prefer applyLink, then sourceUrl, otherwise construct from id
                     let jobUrl: string | undefined;
                     if (job.applyLink) {
@@ -846,15 +846,22 @@ export class ChatService {
                     } else if (jobId) {
                       jobUrl = `${frontendUrl}/jobs/${jobId}`;
                     }
-                    
+
                     // Extract company name from multiple possible locations
-                    const companyName = job.company || job.companyName || job.metadata?.company || job.metadata?.companyName;
-                    
+                    const companyName =
+                      job.company ||
+                      job.companyName ||
+                      job.metadata?.company ||
+                      job.metadata?.companyName;
+
                     return {
                       id: jobId,
                       title: job.title || job.name || 'Untitled Job',
                       company: companyName,
-                      location: job.location || job.metadata?.location || 'Not specified',
+                      location:
+                        job.location ||
+                        job.metadata?.location ||
+                        'Not specified',
                       source: job._source || job.source || 'unknown',
                       score: job._score || job.score || 0,
                       url: jobUrl, // Always include url field, even if undefined

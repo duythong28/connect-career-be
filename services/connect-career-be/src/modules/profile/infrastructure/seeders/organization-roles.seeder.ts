@@ -33,5 +33,5 @@ export const DEFAULT_ORGANIZATION_ROLES = [
       'read:applications',
       'update:applications',
     ],
-  }
+  },
 ];

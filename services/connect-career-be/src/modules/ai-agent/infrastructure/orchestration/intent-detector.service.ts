@@ -131,7 +131,7 @@ export class IntentDetectorService {
 
       // Fallback to pattern-based intent detection
       const patternResult = this.matchPatterns(message, role);
-      
+
       if (patternResult) {
         this.logger.log(
           `Using pattern-based intent detection: ${patternResult.intent} (confidence: ${patternResult.confidence})`,

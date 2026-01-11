@@ -23,11 +23,11 @@ export class SmtpProvider implements INotificationProvider {
         this.logger.log('--------------------------------');
         return;
       }
-  
+
       // Check if message contains HTML (including escaped HTML)
       const hasHtmlTags = /<[a-z][\s\S]*>/i.test(message);
       const hasEscapedHtml = /&lt;[a-z][\s\S]*&gt;/i.test(message);
-      
+
       // If HTML is escaped, unescape it
       let htmlContent = message;
       if (hasEscapedHtml && !hasHtmlTags) {
@@ -40,10 +40,10 @@ export class SmtpProvider implements INotificationProvider {
           .replace(/&amp;/g, '&');
         this.logger.log(`[SmtpProvider] Unescaped HTML content`);
       }
-  
+
       // Check again after unescaping
       const isHtml = /<[a-z][\s\S]*>/i.test(htmlContent) || hasEscapedHtml;
-  
+
       const mailOptions = {
         from: {
           name:
@@ -58,7 +58,7 @@ export class SmtpProvider implements INotificationProvider {
         html: isHtml ? htmlContent : undefined,
         text: isHtml ? this.stripHtml(htmlContent) : htmlContent,
       };
-  
+
       const result = await this.transporter.sendMail(mailOptions);
       this.logger.log(
         `Email sent successfully to ${recipient}. MessageId: ${result.messageId}`,

@@ -314,7 +314,6 @@ export class OrganizationRepository
       .getMany();
   }
 
-
   async advancedSearchByJobCount(options: {
     searchTerm?: string;
     industryIds?: string[];

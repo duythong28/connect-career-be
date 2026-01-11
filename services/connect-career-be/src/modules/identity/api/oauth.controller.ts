@@ -2,7 +2,11 @@ import { Controller, Get, UseGuards, Req, Res } from '@nestjs/common';
 import { AuthGuard } from '@nestjs/passport';
 import { ApiTags, ApiOperation, ApiResponse } from '@nestjs/swagger';
 import { Public } from './decorators/public.decorator';
-import { AuthenticationService, AuthTokens, OAuthProfile } from '../core/services/authentication.service';
+import {
+  AuthenticationService,
+  AuthTokens,
+  OAuthProfile,
+} from '../core/services/authentication.service';
 import * as express from 'express';
 
 @ApiTags('OAuth Authentication')
@@ -25,8 +29,11 @@ export class OAuthController {
   async googleAuthRedirect(@Req() req, @Res() res: express.Response) {
     try {
       // req.user contains { tokens, profile } from GoogleStrategy.validate()
-      const { tokens, profile } = req.user as { tokens: AuthTokens; profile: OAuthProfile };
-      
+      const { tokens, profile } = req.user as {
+        tokens: AuthTokens;
+        profile: OAuthProfile;
+      };
+
       if (!tokens) {
         throw new Error('Tokens not found in OAuth response');
       }

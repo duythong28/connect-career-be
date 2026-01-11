@@ -47,7 +47,7 @@ export class NotificationProcessor extends WorkerHost {
       metadata,
       notificationId,
     } = job.data;
-  
+
     this.logger.log(
       `Processing notification job ${job.id} for recipient ${recipient} via ${channel}`,
     );
@@ -66,7 +66,7 @@ export class NotificationProcessor extends WorkerHost {
           throw new Error(`Notification ${notificationId} not found`);
         }
         notification = foundNotification;
-        
+
         // Use htmlContent from database (it's always there and complete)
         if (notification.htmlContent) {
           htmlContent = notification.htmlContent;
@@ -92,7 +92,7 @@ export class NotificationProcessor extends WorkerHost {
           metadata,
           status: NotificationStatus.PENDING,
         });
-      }  
+      }
 
       // Get provider and send notification
       const provider = this.providerFactory.createProvider(channel);
@@ -100,20 +100,20 @@ export class NotificationProcessor extends WorkerHost {
         channel === NotificationChannel.EMAIL && htmlContent
           ? htmlContent
           : message;
-      
+
       if (channel === NotificationChannel.EMAIL) {
         this.logger.log(
           `Sending EMAIL with htmlContent length: ${htmlContent?.length || 0}`,
         );
       }
-      
+
       await provider.send(recipient, title, contentToSend);
-  
+
       // Update notification status to SENT
       notification.status = NotificationStatus.SENT;
       notification.sentAt = new Date();
       await this.notificationRepository.save(notification);
-  
+
       this.logger.log(
         `Successfully sent notification ${notification.id} to ${recipient} via ${channel}`,
       );
@@ -122,7 +122,7 @@ export class NotificationProcessor extends WorkerHost {
         `Failed to send notification to ${recipient} via ${channel}`,
         error,
       );
-  
+
       // Update notification status to FAILED if it exists
       if (notificationId) {
         try {
@@ -139,7 +139,7 @@ export class NotificationProcessor extends WorkerHost {
           );
         }
       }
-  
+
       throw error; // Re-throw to trigger retry mechanism
     }
   }

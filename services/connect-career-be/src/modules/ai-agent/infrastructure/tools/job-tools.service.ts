@@ -7,7 +7,10 @@ import { ConfigService } from '@nestjs/config';
 
 @Injectable()
 export class JobToolsService {
-  constructor(private readonly jobService: JobService, private readonly configService: ConfigService) {}
+  constructor(
+    private readonly jobService: JobService,
+    private readonly configService: ConfigService,
+  ) {}
 
   getSearchJobsTool(): ITool {
     return {
@@ -218,7 +221,7 @@ export class JobToolsService {
             const frontendUrl =
               this.configService.get<string>('FRONTEND_URL') ||
               'https://connect-career.vercel.app';
-            
+
             // Determine the job URL - prefer applyLink, then sourceUrl, otherwise construct from id
             let jobUrl: string | undefined;
             if (job.applyLink) {

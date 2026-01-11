@@ -96,14 +96,14 @@ export class NotificationOrchestratorService {
       if (config.metadata?.emailHtml && !eventData.emailHtml) {
         eventData.emailHtml = config.metadata.emailHtml;
       }
-      
+
       // Also merge other metadata fields that might be needed
       if (config.metadata?.jobs && !eventData.jobs) {
         eventData.jobs = config.metadata.jobs;
       }
       if (config.metadata?.jobIds && !eventData.jobIds) {
         eventData.jobIds = config.metadata.jobIds;
-      }  
+      }
       const template = await this.templateService.getTemplate(
         config.type,
         channel,

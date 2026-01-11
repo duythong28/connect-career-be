@@ -85,7 +85,11 @@ export class JobStore implements VectorStore {
         paramIndex++;
       }
 
-      if (filter?.skills && Array.isArray(filter.skills) && filter.skills.length > 0) {
+      if (
+        filter?.skills &&
+        Array.isArray(filter.skills) &&
+        filter.skills.length > 0
+      ) {
         // If you have a job_skills table, you can add skill filtering here
         // For now, we'll skip skill filtering in the SQL query
       }
@@ -95,7 +99,10 @@ export class JobStore implements VectorStore {
       queryParams.push(limit);
 
       // Execute raw query
-      const jobsWithEmbeddings = await this.jobRepository.query(query, queryParams);
+      const jobsWithEmbeddings = await this.jobRepository.query(
+        query,
+        queryParams,
+      );
 
       if (jobsWithEmbeddings.length === 0) {
         this.logger.warn('No jobs found with embeddings in database');
@@ -103,42 +110,50 @@ export class JobStore implements VectorStore {
       }
 
       // Map results to DocumentChunk format
-      const chunks: DocumentChunk[] = jobsWithEmbeddings.map((row: any) => {
-        const embedding = row.embedding_embedding;
+      const chunks: DocumentChunk[] = jobsWithEmbeddings
+        .map((row: any) => {
+          const embedding = row.embedding_embedding;
 
-        if (!embedding || !Array.isArray(embedding)) {
-          return null;
-        }
+          if (!embedding || !Array.isArray(embedding)) {
+            return null;
+          }
 
-        const content =
-          `${row.job_title} ${row.job_description || ''} ${row.job_summary || ''} ${row.job_companyName || ''}`.trim();
+          const content =
+            `${row.job_title} ${row.job_description || ''} ${row.job_summary || ''} ${row.job_companyName || ''}`.trim();
 
-        return {
-          id: row.job_id,
-          content,
-          metadata: {
-            title: row.job_title,
-            company: row.job_companyName,
-            location: row.job_location,
-            country: row.job_countryCode,
-            type: row.job_type,
-            seniorityLevel: row.job_seniorityLevel,
-            source: row.job_source,
-            organizationId: row.job_organizationId,
-          },
-          embedding,
-          score: parseFloat(row.similarity) || 0,
-        };
-      }).filter((chunk: any) => chunk !== null);
+          return {
+            id: row.job_id,
+            content,
+            metadata: {
+              title: row.job_title,
+              company: row.job_companyName,
+              location: row.job_location,
+              country: row.job_countryCode,
+              type: row.job_type,
+              seniorityLevel: row.job_seniorityLevel,
+              source: row.job_source,
+              organizationId: row.job_organizationId,
+            },
+            embedding,
+            score: parseFloat(row.similarity) || 0,
+          };
+        })
+        .filter((chunk: any) => chunk !== null);
 
-      this.logger.debug(`Found ${chunks.length} jobs using pgvector similarity search`);
+      this.logger.debug(
+        `Found ${chunks.length} jobs using pgvector similarity search`,
+      );
       return chunks;
     } catch (error) {
       this.logger.error(`Database search with pgvector failed: ${error}`);
-      
+
       // Fallback to old method if pgvector is not available
       this.logger.warn('Falling back to in-memory similarity calculation');
-      return await this.searchFromDatabaseFallback(queryEmbedding, limit, filter);
+      return await this.searchFromDatabaseFallback(
+        queryEmbedding,
+        limit,
+        filter,
+      );
     }
   }
 

@@ -32,6 +32,7 @@ import { CandidateProfile } from '../profile/domain/entities/candidate-profile.e
 import { OrganizationMembership } from '../profile/domain/entities/organization-memberships.entity';
 import { WalletBalanceGuard } from './api/guards/wallet-balance.guard';
 import { WalletDeductionInterceptor } from './api/interceptors/wallet-deduction.interceptor';
+import { PublicController } from './api/controllers/public.controller';
 
 @Module({
   imports: [
@@ -51,6 +52,7 @@ import { WalletDeductionInterceptor } from './api/interceptors/wallet-deduction.
   ],
   controllers: [
     WalletController,
+    PublicController,
     MoMoPaymentController,
     StripePaymentController,
     ZaloPayPaymentController,

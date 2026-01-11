@@ -311,6 +311,14 @@ export class MockInterviewService {
       relationLoadStrategy: 'query',
     });
 
+    if (session?.responses && session?.responses.length > 0) {
+      session.responses.sort((a, b) => {
+        const dateA = a.createdAt?.getTime() || 0;
+        const dateB = b.createdAt?.getTime() || 0;
+        return dateB - dateA; // Descending order
+      });
+    }
+
     if (!session) {
       throw new NotFoundException('Interview session not found');
     }

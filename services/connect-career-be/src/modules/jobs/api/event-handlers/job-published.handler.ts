@@ -94,7 +94,7 @@ export class JobPublishedHandler implements IEventHandler<JobPublishedEvent> {
         this.httpService.post<{ userIds: string[]; scores: number[] }>(
           `${aiUrl}/api/v1/jobs/${jobId}/candidates`,
           {
-            limit: 100,
+            limit: 5,
             excludeApplied: true,
             minScore: 0.5,
           },

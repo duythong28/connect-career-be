@@ -24,9 +24,12 @@ import { CqrsModule } from '@nestjs/cqrs';
 import { JobInteraction } from '../recommendations/domain/entities/job-interaction.entity';
 import { ApplicationMatchingScoreRequestedHandler } from './api/event-handlers/application-matching-score-requested.handler';
 import { HttpModule } from '@nestjs/axios';
+import { AIModule } from 'src/shared/infrastructure/external-services/ai/ai.module';
+import { ApplicationLLMEvaluationHandler } from '../notifications/application/handlers/application-llm-evaluation.handler';
 
 @Module({
   imports: [
+    AIModule,
     TypeOrmModule.forFeature([
       Application,
       Interview,
@@ -54,6 +57,7 @@ import { HttpModule } from '@nestjs/axios';
     JobStatusService,
     ApplicationSeeder,
     ApplicationMatchingScoreRequestedHandler,
+    ApplicationLLMEvaluationHandler,
   ],
   exports: [
     ApplicationService,

@@ -9,14 +9,21 @@ from .models.schemas import (
     RecommendationRequest,
     RecommendationResponse,
     HealthResponse,
+    SimilarJobsRequest,
+    SimilarJobsResponse,
+    CandidateRecommendationRequest,
+    CandidateRecommendationResponse,
+    MatchingScoreRequest,
+    MatchingScoreResponse,
 )
 from .services.recommendation_service import recommendation_service
 from .services.embedding_service import embedding_service
+from .services.matching_score_service import matching_score_service
 from .database import db
-import sys
+import sys, pathlib
+sys.path.append(str(pathlib.Path(__file__).parent.parent))
 import os
-sys.path.insert(0, os.path.join(os.path.dirname(__file__), '..'))
-from utils.embedding_builders import build_job_text, build_user_text
+from .utils.embedding_builders import build_job_text, build_user_text
 # Setup logging
 logging.basicConfig(
     level=getattr(logging, settings.log_level),
@@ -172,8 +179,7 @@ async def generate_user_embedding(user_data: dict):
 @v1_router.post("/embeddings/batch")
 async def batch_generate_embeddings(request: dict):
     """Trigger batch embedding generation (calls existing training script logic)"""
-    from .scripts.train_embeddings import train_job_embeddings, train_user_embeddings
-    
+    from scripts.train_embeddings import train_job_embeddings, train_user_embeddings
     try:
         embed_type = request.get('type', 'jobs')
         
@@ -211,12 +217,27 @@ async def get_recommendations(request: RecommendationRequest):
         loop = asyncio.get_event_loop()
         job_ids, scores = await loop.run_in_executor(
             executor,
-            recommendation_service.get_recommendations,
+            recommendation_service.get_recommendations_optimized,
             request
         )
         return RecommendationResponse(jobIds=job_ids, scores=scores)
     except Exception as e:
         logger.error(f"Error getting recommendations: {e}", exc_info=True)
+        raise HTTPException(status_code=500, detail=str(e))
+    
+@v1_router.post("/search/recommendations/")
+async def get_search_recommendations(request: RecommendationRequest):
+    """Get job recommendations with user preferences and search term"""
+    try:
+        loop = asyncio.get_event_loop()
+        job_ids, scores = await loop.run_in_executor(
+            executor,
+            recommendation_service.get_search_recommendations,
+            request
+        )
+        return RecommendationResponse(jobIds=job_ids, scores=scores)
+    except Exception as e:
+        logger.error(f"Error getting search recommendations: {e}", exc_info=True)
         raise HTTPException(status_code=500, detail=str(e))
 
 @v1_router.post("/embeddings/job/{job_id}")
@@ -393,7 +414,66 @@ async def generate_user_embedding_by_id(user_id: str):
     except Exception as e:
         logger.error(f"Error generating user embedding for {user_id}: {e}", exc_info=True)
         raise HTTPException(status_code=500, detail=str(e))
+
+@v1_router.post("/jobs/{job_id}/similar", response_model=SimilarJobsResponse)
+async def get_similar_jobs(job_id: str, request: SimilarJobsRequest = None):
+    """Get similar jobs based on a job ID"""
+    try:
+        loop = asyncio.get_event_loop()
+        job_ids, scores = await loop.run_in_executor(
+            executor,
+            recommendation_service.get_similar_jobs_optimized,
+            job_id,
+            request.limit,
+            request.excludeJobId
+        )
+        return SimilarJobsResponse(jobIds=job_ids, scores=scores)
+    except Exception as e:
+        logger.error(f"Error getting similar jobs: {e}", exc_info=True)
+        raise HTTPException(status_code=500, detail=str(e))
     
+@v1_router.post("/jobs/{job_id}/candidates", response_model=CandidateRecommendationResponse)
+async def get_candidate_recommendations(
+    job_id: str,
+    request: CandidateRecommendationRequest = None
+):
+    """Get candidate recommendations for a job (recruiter side)"""
+    try:
+        # If request body is provided, use it; otherwise use defaults
+        if request is None:
+            limit = 20
+            exclude_applied = True
+            min_score = None
+        else:
+            limit = request.limit
+            exclude_applied = request.excludeApplied
+            min_score = request.minScore
+        
+        # Run CPU-intensive computation in thread pool
+        loop = asyncio.get_event_loop()
+        user_ids, scores = await loop.run_in_executor(
+            executor,
+            recommendation_service.get_candidate_recommendations,
+            job_id,
+            limit,
+            exclude_applied,
+            min_score
+        )
+        return CandidateRecommendationResponse(userIds=user_ids, scores=scores)
+    except Exception as e:
+        logger.error(f"Error getting candidate recommendations: {e}", exc_info=True)
+        raise HTTPException(status_code=500, detail=str(e))
+
+@v1_router.post("/matching-score/calculate", response_model=MatchingScoreResponse)
+async def calculate_matching_score(request: MatchingScoreRequest):
+    """Calculate AI-enhanced matching score between job and candidate"""
+    try:
+        result = await matching_score_service.calculate_matching_score(request)
+        return result
+    except Exception as e:
+        logger.error(f"Error calculating matching score: {e}", exc_info=True)
+        raise HTTPException(status_code=500, detail=str(e))
+
 # Register routers
 api_router.include_router(v1_router)
 app.include_router(api_router)
@@ -402,6 +482,18 @@ app.include_router(api_router)
 async def health_check():
     """Health check endpoint"""
     return HealthResponse(status="healthy", version=settings.app_version)
+
+@app.on_event("startup")
+async def startup_event():
+    """Initialize heavy services on startup (non-blocking)"""
+    import asyncio
+    
+    async def init_services():
+        logger.info("Initializing services...")
+        pass
+    
+    asyncio.create_task(init_services())
+    logger.info("Server starting...")
 
 if __name__ == "__main__":
     import uvicorn

@@ -37,16 +37,18 @@ import { CompanyRagService } from './rag-services/company-rag.service';
 import { LearningPathRagService } from './rag-services/learning-path-rag.service';
 import { FaqRagService } from './rag-services/faq-rag.service';
 import { MultiRagService } from './rag-services/multi-rag.service';
+import { TypeOrmModule } from '@nestjs/typeorm';
+import { Job } from 'src/modules/jobs/domain/entities/job.entity';
+import { JobContentEmbedding } from 'src/modules/recommendations/domain/entities/job-content-embedding.entity';
 
 @Module({
-  imports: [AIModule],
+  imports: [TypeOrmModule.forFeature([Job, JobContentEmbedding]), AIModule],
   providers: [
     // Stores
     JobStore,
     CompanyStore,
     LearningStore,
     FaqStore,
-
     // Retrieval
     VectorRetriever,
     HybridRetriever,

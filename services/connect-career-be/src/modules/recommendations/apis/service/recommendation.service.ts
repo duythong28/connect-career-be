@@ -10,7 +10,7 @@ export class RecommendationService {
     const aiUrl = process.env.AI_RECOMMENDER_URL || 'http://ai-service:8000';
 
     const { data } = await firstValueFrom(
-      this.http.post<{ jobIds: string[] }>(`${aiUrl}/recommendations`, {
+      this.http.post<{ jobIds: string[] }>(`${aiUrl}/api/v1/recommendations`, {
         userId,
         limit: 20,
       }),

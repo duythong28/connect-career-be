@@ -38,6 +38,11 @@ export class SalaryDetailsDto {
 }
 
 export class CreateJobDto {
+  @ApiProperty({ description: 'Organization ID' })
+  @IsString()
+  @IsUUID()
+  organizationId: string;
+
   @ApiProperty({ description: 'Job title' })
   @IsString()
   @MinLength(3)

@@ -124,15 +124,31 @@ export class IntentDetectorService {
 
       return llmResult;
     } catch (error) {
-      this.logger.error(
-        `Intent detection failed: ${error}`,
+      this.logger.warn(
+        `LLM intent detection failed, falling back to pattern matching: ${error instanceof Error ? error.message : String(error)}`,
         error instanceof Error ? error.stack : undefined,
       );
-      throw new IntentDetectionException(
-        'Failed to detect intent',
-        'I had trouble understanding your request. Could you please rephrase?',
-        error,
+
+      // Fallback to pattern-based intent detection
+      const patternResult = this.matchPatterns(message, role);
+      
+      if (patternResult) {
+        this.logger.log(
+          `Using pattern-based intent detection: ${patternResult.intent} (confidence: ${patternResult.confidence})`,
+        );
+        return patternResult;
+      }
+
+      // If pattern matching also fails, return a default FAQ intent
+      this.logger.warn(
+        'Both LLM and pattern-based intent detection failed. Using default FAQ intent.',
       );
+      return {
+        intent: Intent.FAQ,
+        entities: this.extractBasicEntities(message),
+        confidence: 0.3,
+        requiresClarification: true,
+      };
     }
   }
 

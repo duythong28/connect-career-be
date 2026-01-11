@@ -3,10 +3,11 @@ import { ITool } from '../../domain/interfaces/tool.interface';
 import { JobService } from 'src/modules/jobs/api/services/job.service';
 import { JobSearchDto } from 'src/modules/jobs/api/dtos/search-job.dto';
 import { JobStatus } from 'src/modules/jobs/domain/entities/job.entity';
+import { ConfigService } from '@nestjs/config';
 
 @Injectable()
 export class JobToolsService {
-  constructor(private readonly jobService: JobService) {}
+  constructor(private readonly jobService: JobService, private readonly configService: ConfigService) {}
 
   getSearchJobsTool(): ITool {
     return {
@@ -187,7 +188,6 @@ export class JobToolsService {
             salaryMin,
             salaryMax,
             jobType,
-            companyId,
             companyName,
             seniorityLevel,
             location,
@@ -200,7 +200,6 @@ export class JobToolsService {
             minSalary: salaryMin,
             maxSalary: salaryMax,
             type: jobType as any,
-            organizationId: companyId,
             companyName,
             seniorityLevel: seniorityLevel,
             location,
@@ -215,35 +214,45 @@ export class JobToolsService {
           const result = await this.jobService.searchJobs(searchDto);
 
           // Format jobs for response
-          const jobs = result.data.map((job) => ({
-            id: job.id,
-            title: job.title,
-            company: job.organization?.name || job.companyName,
-            location: job.location,
-            country: job.countryCode,
-            type: job.type,
-            seniorityLevel: job.seniorityLevel,
-            summary: job.summary,
-            salaryRange: job.salaryDetails
-              ? {
-                  min: job.salaryDetails.minAmount,
-                  max: job.salaryDetails.maxAmount,
-                  currency: job.salaryDetails.currency,
-                }
-              : null,
-            postedDate: job.postedDate,
-            organizationId: job.organizationId,
-            organizationLogo: job.organization?.logoFile?.url,
-          }));
+          const jobs = result.data.map((job) => {
+            const frontendUrl =
+              this.configService.get<string>('FRONTEND_URL') ||
+              'https://connect-career.vercel.app';
+            
+            // Determine the job URL - prefer applyLink, then sourceUrl, otherwise construct from id
+            let jobUrl: string | undefined;
+            if (job.applyLink) {
+              jobUrl = job.applyLink;
+            } else if (job.sourceUrl) {
+              jobUrl = job.sourceUrl;
+            } else if (job.id) {
+              jobUrl = `${frontendUrl}/jobs/${job.id}`;
+            }
 
-          return {
-            success: true,
-            jobs,
-            total: result.total,
-            page: result.page,
-            limit: result.limit,
-            totalPages: result.totalPages,
-          };
+            return {
+              id: job.id,
+              title: job.title,
+              company: job.organization?.name || job.companyName,
+              location: job.location,
+              country: job.countryCode,
+              type: job.type,
+              seniorityLevel: job.seniorityLevel,
+              summary: job.summary,
+              description: job.description?.substring(0, 500),
+              url: jobUrl, // Add job link
+              applyLink: job.applyLink, // Also include applyLink separately if needed
+              salaryRange: job.salaryDetails
+                ? {
+                    min: job.salaryDetails.minAmount,
+                    max: job.salaryDetails.maxAmount,
+                    currency: job.salaryDetails.currency,
+                  }
+                : null,
+              postedDate: job.postedDate,
+              organizationId: job.organizationId,
+              organizationLogo: job.organization?.logoFile?.url,
+            };
+          });
         } catch (error) {
           return {
             success: false,

@@ -4,6 +4,7 @@ import { Repository, IsNull } from 'typeorm';
 import {
   NotificationEntity,
   NotificationStatus,
+  NotificationChannel,
 } from '../../domain/entities/notification.entity';
 import { INotificationRepository } from '../../domain/repositories/notification.repository';
 
@@ -49,6 +50,7 @@ export class NotificationTypeOrmRepository implements INotificationRepository {
     const queryBuilder = this.ormRepository
       .createQueryBuilder('notification')
       .where('notification.recipient = :recipientId', { recipientId })
+      .andWhere('notification.channel = :channel', { channel: NotificationChannel.WEBSOCKET })
       .orderBy('notification.createdAt', 'DESC');
 
     if (options?.status) {
@@ -83,7 +85,11 @@ export class NotificationTypeOrmRepository implements INotificationRepository {
     recipientId: string,
   ): Promise<NotificationEntity | null> {
     const notification = await this.ormRepository.findOne({
-      where: { id, recipient: recipientId },
+      where: { 
+        id, 
+        recipient: recipientId,
+        channel: NotificationChannel.WEBSOCKET,
+      },
     });
 
     if (!notification) {
@@ -109,6 +115,7 @@ export class NotificationTypeOrmRepository implements INotificationRepository {
       })
       .where('recipient = :recipientId', { recipientId })
       .andWhere('readAt IS NULL')
+      .andWhere('channel = :channel', { channel: NotificationChannel.WEBSOCKET })
       .execute();
 
     return result.affected || 0;
@@ -118,6 +125,7 @@ export class NotificationTypeOrmRepository implements INotificationRepository {
     return this.ormRepository.count({
       where: {
         recipient: recipientId,
+        channel: NotificationChannel.WEBSOCKET,
         readAt: IsNull(),
         status: NotificationStatus.SENT,
       },
@@ -129,7 +137,11 @@ export class NotificationTypeOrmRepository implements INotificationRepository {
     status: NotificationStatus,
   ): Promise<NotificationEntity[]> {
     return this.ormRepository.find({
-      where: { recipient: recipientId, status },
+      where: { 
+        recipient: recipientId, 
+        status,
+        channel: NotificationChannel.WEBSOCKET,
+      },
       order: { createdAt: 'DESC' },
     });
   }

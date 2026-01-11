@@ -22,7 +22,6 @@ export class ApplicationCreatedHandler
     this.logger.log(
       `Handling ApplicationCreatedEvent for application ${event.applicationId}`,
     );
-
     try {
       // Notify candidate
       await this.notificationOrchestrator.sendToRecipient(

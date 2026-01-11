@@ -279,6 +279,16 @@ export class SocialLinksDto {
 }
 
 export class UpdateCandidateProfileDto {
+  @ApiPropertyOptional({ description: 'Update first name' })
+  @IsOptional()
+  @IsString()
+  firstName: string;
+
+  @ApiPropertyOptional({ description: 'Update last name' })
+  @IsOptional()
+  @IsString()
+  lastName: string;
+
   @ApiPropertyOptional()
   @IsOptional()
   @IsEmail()

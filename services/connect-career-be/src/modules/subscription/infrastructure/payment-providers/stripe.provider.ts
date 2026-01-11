@@ -362,9 +362,95 @@ export class StripeProvider extends BasePaymentProvider {
 
     try {
       switch (event.type) {
-        // ... existing checkout.session and payment_intent cases ...
+        // Checkout session events
+        case 'checkout.session.completed':
+          eventType = 'payment.succeeded';
+          const session = event.data.object as Stripe.Checkout.Session;
+          paymentId = session.metadata?.paymentTransactionId || session.id;
+          // If session has payment_intent, try to get it for additional info
+          if (session.payment_intent) {
+            try {
+              const intentId =
+                typeof session.payment_intent === 'string'
+                  ? session.payment_intent
+                  : session.payment_intent.id;
+              const intent =
+                await this.stripe.paymentIntents.retrieve(intentId);
+              // Prefer metadata transaction ID if available
+              if (intent.metadata?.paymentTransactionId) {
+                paymentId = intent.metadata.paymentTransactionId;
+              }
+            } catch (error) {
+              this.logger.warn(
+                `Failed to retrieve payment intent for session ${session.id}`,
+                error,
+              );
+            }
+          }
+          break;
+
+        // Payment intent events
+        case 'payment_intent.created':
+          // This is informational, we don't need to process it as a payment event
+          eventType = 'payment.unknown';
+          const intentCreated = event.data.object as Stripe.PaymentIntent;
+          paymentId = intentCreated.metadata?.paymentTransactionId || intentCreated.id;
+          // Return early for created events as they don't indicate payment completion
+          return {
+            type: 'payment.unknown',
+            data: event.data.object,
+            paymentId,
+          };
+
+        case 'payment_intent.succeeded':
+          eventType = 'payment.succeeded';
+          const intentSucceeded = event.data.object as Stripe.PaymentIntent;
+          paymentId = intentSucceeded.metadata?.paymentTransactionId || intentSucceeded.id;
+          break;
 
         // Charge events
+        case 'charge.succeeded':
+          eventType = 'payment.succeeded';
+          const chargeSucceeded = event.data.object as Stripe.Charge;
+          if (chargeSucceeded.payment_intent) {
+            const intentId =
+              typeof chargeSucceeded.payment_intent === 'string'
+                ? chargeSucceeded.payment_intent
+                : chargeSucceeded.payment_intent.id;
+            try {
+              const intent =
+                await this.stripe.paymentIntents.retrieve(intentId);
+              paymentId = intent.metadata?.paymentTransactionId || intentId;
+            } catch {
+              paymentId = intentId;
+            }
+          } else {
+            paymentId = chargeSucceeded.id;
+          }
+          break;
+
+        case 'charge.updated':
+          // This event updates charge info (like receipt_url), but doesn't indicate new payment
+          // We'll treat it as an update to existing payment, not a new payment event
+          eventType = 'payment.updated';
+          const chargeUpdated = event.data.object as Stripe.Charge;
+          if (chargeUpdated.payment_intent) {
+            const intentId =
+              typeof chargeUpdated.payment_intent === 'string'
+                ? chargeUpdated.payment_intent
+                : chargeUpdated.payment_intent.id;
+            try {
+              const intent =
+                await this.stripe.paymentIntents.retrieve(intentId);
+              paymentId = intent.metadata?.paymentTransactionId || intentId;
+            } catch {
+              paymentId = intentId;
+            }
+          } else {
+            paymentId = chargeUpdated.id;
+          }
+          break;
+
         case 'charge.refunded':
           eventType = 'payment.refunded';
           const charge = event.data.object as Stripe.Charge;

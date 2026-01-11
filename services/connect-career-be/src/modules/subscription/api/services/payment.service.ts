@@ -510,8 +510,11 @@ export class PaymentService {
     try {
       // Update transaction status based on webhook event
       if (webhookEvent.type === 'payment.succeeded') {
+        // Check if transaction is already completed to prevent duplicate wallet credits
+        const wasAlreadyCompleted = transaction.status === PaymentStatus.COMPLETED;
+        
         transaction.status = PaymentStatus.COMPLETED;
-        transaction.completedAt = new Date();
+        transaction.completedAt = transaction.completedAt || new Date();
         transaction.providerResponse = webhookEvent.data;
 
         // Extract transaction ID from webhook data if available
@@ -534,55 +537,76 @@ export class PaymentService {
         await this.paymentTransactionRepository.save(transaction);
 
         // Credit wallet (only if not already credited)
-        const wallet = await this.walletService.getOrCreateWallet(
-          transaction.userId,
-        );
-        if (wallet.id === transaction.walletId) {
-          // Convert amount to wallet currency if needed
-          let amountToCredit = transaction.amount;
+        if (!wasAlreadyCompleted) {
+          const wallet = await this.walletService.getOrCreateWallet(
+            transaction.userId,
+          );
+          if (wallet.id === transaction.walletId) {
+            // Convert amount to wallet currency if needed
+            let amountToCredit = transaction.amount;
 
-          // MOMO and ZaloPay process payments in VND
-          if (
-            (provider === 'momo' || provider === 'zalopay') &&
-            transaction.currency !== wallet.currency
-          ) {
-            try {
-              amountToCredit = await this.currencyConversionService.convert(
-                transaction.amount,
-                transaction.currency, // VND
-                wallet.currency, // USD
-              );
+            // MOMO and ZaloPay process payments in VND
+            if (
+              (provider === 'momo' || provider === 'zalopay') &&
+              transaction.currency !== wallet.currency
+            ) {
+              try {
+                amountToCredit = await this.currencyConversionService.convert(
+                  transaction.amount,
+                  transaction.currency,
+                  wallet.currency,
+                );
 
-              this.logger.log(
-                `Converted ${transaction.amount} ${transaction.currency} to ${amountToCredit} ${wallet.currency} for wallet credit`,
-              );
-            } catch (error) {
-              this.logger.error(
-                `Failed to convert currency for payment ${transaction.id}: ${error.message}`,
-              );
-              // Throw error to prevent crediting wrong amount
-              throw new Error(
-                `Currency conversion failed: ${error.message}. Cannot credit wallet.`,
-              );
+                this.logger.log(
+                  `Converted ${transaction.amount} ${transaction.currency} to ${amountToCredit} ${wallet.currency} for wallet credit`,
+                );
+              } catch (error) {
+                this.logger.error(
+                  `Failed to convert currency for payment ${transaction.id}: ${error.message}`,
+                );
+                // Throw error to prevent crediting wrong amount
+                throw new Error(
+                  `Currency conversion failed: ${error.message}. Cannot credit wallet.`,
+                );
+              }
             }
-          }
 
-          await this.walletService.creditWallet(
-            transaction.walletId,
-            amountToCredit, // Use converted amount
-            `Top-up via ${provider} (${transaction.amount} ${transaction.currency} → ${amountToCredit} ${wallet.currency})`,
-            {
-              paymentTransactionId: transaction.id,
-              originalAmount: transaction.amount,
-              originalCurrency: transaction.currency,
-              convertedAmount: amountToCredit,
-              exchangeRate: amountToCredit / transaction.amount,
-            },
+            await this.walletService.creditWallet(
+              transaction.walletId,
+              amountToCredit, // Use converted amount
+              `Top-up via ${provider} (${transaction.amount} ${transaction.currency} → ${amountToCredit} ${wallet.currency})`,
+              {
+                paymentTransactionId: transaction.id,
+                originalAmount: transaction.amount,
+                originalCurrency: transaction.currency,
+                convertedAmount: amountToCredit,
+                exchangeRate: amountToCredit / transaction.amount,
+              },
+            );
+          }
+        } else {
+          this.logger.log(
+            `Payment already completed for transaction ${transaction.id}, skipping wallet credit`,
           );
         }
 
         this.logger.log(
           `Payment succeeded via webhook: ${transaction.id} for user ${transaction.userId}`,
+        );
+      } else if (webhookEvent.type === 'payment.updated') {
+        // Handle payment update events (e.g., charge.updated with receipt_url)
+        // Update transaction info without crediting wallet again
+        transaction.providerResponse = webhookEvent.data;
+        
+        // Update provider transaction ID if available and not already set
+        if (!transaction.providerTransactionId && webhookEvent.data?.id) {
+          transaction.providerTransactionId = String(webhookEvent.data.id);
+        }
+        
+        await this.paymentTransactionRepository.save(transaction);
+        
+        this.logger.log(
+          `Payment updated via webhook: ${transaction.id} for user ${transaction.userId}`,
         );
       } else if (webhookEvent.type === 'payment.refunded') {
         // Handle refund webhook

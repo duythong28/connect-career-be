@@ -608,6 +608,9 @@ export class ApplicationService {
     userId: string,
   ): Promise<Application> {
     const app = await this.getApplicationById(id);
+    const oldStatus = app.status; // Store old status for event
+    
+    // Update status and rejection details
     app.addStatusHistory(ApplicationStatus.REJECTED, userId, reason);
     app.rejectionDetails = {
       rejectedDate: new Date(),
@@ -616,9 +619,36 @@ export class ApplicationService {
       feedback,
       canReapply: false,
     };
+    
+    // Update pipeline stage if needed
+    await this.updatePipelineStageForStatus(
+      app,
+      ApplicationStatus.REJECTED,
+      userId,
+      reason,
+    );
+    
     app.updateCalculatedFields();
     await this.applicationRepository.save(app);
-    return this.getApplicationById(id);
+    
+    // Get updated application with relations
+    const updatedApp = await this.getApplicationById(id);
+    
+    // Publish ApplicationStatusChangedEvent (IMPORTANT for notifications)
+    this.eventBus.publish(
+      new ApplicationStatusChangedEvent(
+        updatedApp.id,
+        updatedApp.candidateId,
+        updatedApp.jobId,
+        updatedApp.job.title,
+        oldStatus,
+        ApplicationStatus.REJECTED,
+        userId,
+        reason,
+      ),
+    );
+    
+    return updatedApp;
   }
 
   async withdrawApplication(

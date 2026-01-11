@@ -59,7 +59,8 @@ export class ZaloPayProvider extends BasePaymentProvider {
   readonly supportedCurrencies: string[] = ['VND'];
   readonly supportedRegions: string[] = ['VN'];
 
-  constructor(private readonly configService: ConfigService,
+  constructor(
+    private readonly configService: ConfigService,
     @InjectRepository(PaymentTransaction)
     private paymentTransactionRepository: Repository<PaymentTransaction>,
   ) {
@@ -279,15 +280,14 @@ export class ZaloPayProvider extends BasePaymentProvider {
         data: qs.stringify(refundRequest),
       };
 
-      const response: AxiosResponse<ZaloPayRefundResponse> = await axios(
-        postConfig,
-      );
+      const response: AxiosResponse<ZaloPayRefundResponse> =
+        await axios(postConfig);
 
       if (response.data.return_code !== 1) {
         // Handle specific error cases
         const errorMessage = response.data.return_message || 'Unknown error';
         const subMessage = response.data.sub_return_message || '';
-        
+
         // Check if transaction is already being refunded
         if (
           errorMessage.includes('đang refund') ||

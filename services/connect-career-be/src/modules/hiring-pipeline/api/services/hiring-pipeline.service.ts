@@ -110,7 +110,7 @@ export class HiringPipelineRecruiterService {
       .orderBy('pipeline.createdAt', 'ASC')
       .addOrderBy('stages.order', 'ASC')
       .getMany();
-  
+
     return pipelines;
   }
 

@@ -99,6 +99,10 @@ export class JobSearchDto extends PaginationDto {
   sortBy?: string = 'postedDate';
 
   @IsOptional()
+  @IsString()
+  industryId?: string;
+
+  @IsOptional()
   @IsEnum(['ASC', 'DESC'])
   sortOrder?: 'ASC' | 'DESC' = 'DESC';
 }

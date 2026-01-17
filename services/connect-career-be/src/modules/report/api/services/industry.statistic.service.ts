@@ -7,16 +7,18 @@ import * as distributedCacheInterface from "src/shared/infrastructure/cache/inte
 export interface IndustryStatisticItem {
     key: string;
     value: string;
+    industryId: string;
 }
 
 export interface IndustryNameStatisticItem {
     key: string;
     value: number;
     time_scan: string;
+    industryId: string;
 }
-    
+
 @Injectable()
-export class IndustryStatisticService { 
+export class IndustryStatisticService {
     private readonly CACHE_KEY_PREFIX = 'industry-statistic:';
     private readonly CACHE_KEY_PREFIX_BY_NAME = 'industry-statistic-by-name:';
     private readonly CACHE_TTL = 60 * 60 * 24; // 24 hours
@@ -26,7 +28,7 @@ export class IndustryStatisticService {
         private readonly jobRepository: Repository<Job>,
         @Inject('IDistributedCache')
         private readonly cache: distributedCacheInterface.IDistributedCache,
-    ) {}
+    ) { }
 
     private generateCacheKey(
         startDate?: Date,
@@ -55,8 +57,7 @@ export class IndustryStatisticService {
         startDate?: Date,
         endDate?: Date,
         industryId?: string,
-    ): Promise<IndustryStatisticItem[]>
-    {
+    ): Promise<IndustryStatisticItem[]> {
         const cacheKey = this.generateCacheKey(startDate, endDate, industryId);
 
         const cachedResult = await this.cache.get<IndustryStatisticItem[]>(cacheKey);
@@ -70,12 +71,14 @@ export class IndustryStatisticService {
             .leftJoin('job.organization', 'organization')
             .leftJoin('organization.industry', 'industry')
             .select('industry.name', 'industryName')
+            .addSelect('industry.id', 'industryId')
             .addSelect('COUNT(job.id)', 'count')
             .where('job.status = :status', { status: JobStatus.ACTIVE })
             .andWhere('job.deletedAt IS NULL')
             .andWhere('organization.industryId IS NOT NULL')
             .andWhere('industry.isActive = :isActive', { isActive: true })
             .groupBy('industry.name')
+            .addGroupBy('industry.id')
             .orderBy('COUNT(job.id)', 'DESC');
 
         // Filter by date range if provided
@@ -104,6 +107,7 @@ export class IndustryStatisticService {
         const statistics: IndustryStatisticItem[] = results.map((result) => ({
             key: result.industryName as string,
             value: result.count as string,
+            industryId: result.industryId as string,
         }));
 
         // Cache the results
@@ -140,6 +144,7 @@ export class IndustryStatisticService {
         const statisticsWithTime: IndustryNameStatisticItem[] = statistics.map((item) => ({
             key: item.key,
             value: parseInt(item.value, 10),
+            industryId: item.industryId,
             time_scan: timeScan,
         }));
 

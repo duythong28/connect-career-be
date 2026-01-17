@@ -22,8 +22,8 @@ export interface WorkMarketStatistics {
 export class JobStatisticService {
     private readonly CACHE_KEY_PREFIX = 'job-opportunity-growth:';
     private readonly CACHE_KEY_PREFIX_WORK_MARKET = 'work-market:';
-    private readonly CACHE_TTL = 60 * 60; // 1 hour
-    private readonly CACHE_TTL_WORK_MARKET = 5 * 60; // 5 minutes (frequent updates)
+    private readonly CACHE_TTL = 60 * 60;
+    private readonly CACHE_TTL_WORK_MARKET = 5 * 60;
 
     constructor(
         @InjectRepository(Job)

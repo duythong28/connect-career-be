@@ -30,7 +30,7 @@ export class JobService {
     private readonly stateMachineFactory: JobStateMachineFactory,
     private readonly queueService: QueueService,
     private readonly eventBus: EventBus,
-  ) {}
+  ) { }
 
   async searchJobs(searchJobs: JobSearchDto): Promise<PaginatedResult<Job>> {
     const {
@@ -44,6 +44,7 @@ export class JobService {
       seniorityLevel,
       source,
       organizationId,
+      industryId,
       companyName,
       keywords,
       minSalary,
@@ -97,6 +98,13 @@ export class JobService {
     if (organizationId) {
       queryBuilder.andWhere('job.organizationId = :organizationId', {
         organizationId,
+      });
+    }
+
+    // Filter by organization's industryId (single)
+    if (industryId) {
+      queryBuilder.andWhere('organization.industryId = :industryId', {
+        industryId,
       });
     }
 

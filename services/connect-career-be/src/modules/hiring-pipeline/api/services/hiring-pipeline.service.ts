@@ -26,6 +26,7 @@ import {
   AssignJobToPipelineDto,
   UpdatePipelineComprehensiveDto,
   CreatePipelineComprehensiveDto,
+  PipelineResponse,
 } from '../dtos/hiring-pipeline.dto';
 import { AIService } from 'src/shared/infrastructure/external-services/ai/services/ai.service';
 
@@ -696,7 +697,7 @@ export class HiringPipelineRecruiterService {
     allowedRoles: string[] = ['recruiter', 'admin'],
     jobTitle?: string,
     jobDescription?: string,
-  ): Promise<CreatePipelineComprehensiveDto> {
+  ): Promise<PipelineResponse> {
     // Build context string for AI
     let contextInfo = '';
     if (jobTitle) {
@@ -706,109 +707,160 @@ export class HiringPipelineRecruiterService {
       contextInfo += `\nJob Description: ${jobDescription}`;
     }
 
+    // Generate pipeline ID (timestamp) - use same timestamp for consistency
+    const pipelineId = Date.now().toString();
+    const now = new Date().toISOString();
+
+    // Build user requirements section
+    let userRequirementsSection = '';
+    if (userInput) {
+      userRequirementsSection = `\n\nUser requirements: ${userInput}`;
+    } else if (jobTitle || jobDescription) {
+      userRequirementsSection = `\n\nGenerate a hiring pipeline based on the job information provided.`;
+    } else {
+      userRequirementsSection = `\n\nGenerate a standard hiring pipeline with typical stages.`;
+    }
+
     const prompt = `You are an expert HR and recruitment system designer. Generate a complete hiring pipeline structure based on the user's requirements.${contextInfo}
-  
+    
   The pipeline must include:
   1. A name for the pipeline${jobTitle ? ` (consider the job title: ${jobTitle})` : ''}
   2. Stages array with the following structure:
-     - Each stage must have: key, name, type, order, terminal
+     - Each stage must have: key, name, type, order, terminal, pipelineId
      - Stage types can be: "screening", "interview", "offer", "hired", "rejected"
      - Standard stages should include: 
-       * "applied" (sourcing, order 10, terminal false)
-       * "hired" (hired, terminal true, order 50)
-       * "rejected" (rejected, terminal true, order 60)
-     - Custom stages should have unique keys like "stage_${Date.now()}_1", "stage_${Date.now()}_2" etc. and appropriate order numbers (20, 30, 40, etc.)
+       * "applied" (sourcing, order 10, terminal false) - DO NOT include "id" field for this stage
+       * "hired" (hired, terminal true, order 50) - DO NOT include "id" field for this stage
+       * "rejected" (rejected, terminal true, order 60) - DO NOT include "id" field for this stage
+     - Custom stages (any stage that is NOT "applied", "hired", or "rejected") should have:
+       * Unique keys like "stage_${pipelineId}_1", "stage_${pipelineId}_2" etc.
+       * An "id" field with a unique timestamp-based value like "${pipelineId}_1", "${pipelineId}_2"
+       * Appropriate order numbers (20, 30, 40, etc.)
      - Terminal stages (hired, rejected) should have terminal: true
+     - ALL stages must include pipelineId: "${pipelineId}"
      ${jobDescription ? `- Consider the job requirements and create relevant interview stages (e.g., technical assessment, coding challenge, system design interview for technical roles)` : ''}
   
   3. Transitions array connecting stages:
-     - Each transition must have: fromStageKey, toStageKey, actionName, allowedRoles
+     - Each transition MUST have: id, pipelineId, fromStageKey, toStageKey, actionName, allowedRoles
+     - id should be a unique timestamp-based value like "${pipelineId}_1", "${pipelineId}_2", etc.
+     - pipelineId should be "${pipelineId}" for all transitions
      - allowedRoles should be: ${JSON.stringify(allowedRoles)}
      - Create logical transitions between stages (e.g., applied -> screening -> interview -> offer -> hired)
      - Include rejection paths from any stage to "rejected"
   
-  IMPORTANT: Return ONLY valid JSON in this exact format (no markdown, no code blocks, just pure JSON):
+  IMPORTANT: Return ONLY valid JSON in this exact format, this is just AN EXAMPLE, you can change the name and stages and transitions to fit the job title and description (no markdown, no code blocks, just pure JSON):
   {
-    "name": "Pipeline Name",
+    "id": "${pipelineId}",
+    "name": "${jobTitle} pipeline",
+    "organizationId": "${organizationId}",
     "stages": [
       {
         "key": "applied",
         "name": "Applied",
         "type": "sourcing",
         "order": 10,
-        "terminal": false
+        "terminal": false,
+        "pipelineId": "${pipelineId}"
       },
       {
-        "key": "stage_${Date.now()}_1",
+        "id": "${pipelineId}_1",
+        "key": "stage_${pipelineId}_1",
         "name": "Phone Screening",
         "type": "screening",
         "order": 20,
-        "terminal": false
+        "terminal": false,
+        "pipelineId": "${pipelineId}"
       },
       {
-        "key": "stage_${Date.now()}_2",
+        "id": "${pipelineId}_2",
+        "key": "stage_${pipelineId}_2",
         "name": "Technical Interview",
         "type": "interview",
         "order": 30,
-        "terminal": false
+        "terminal": false,
+        "pipelineId": "${pipelineId}"
       },
       {
-        "key": "stage_${Date.now()}_3",
+        "id": "${pipelineId}_3",
+        "key": "stage_${pipelineId}_3",
         "name": "Offer Stage",
         "type": "offer",
         "order": 40,
-        "terminal": false
+        "terminal": false,
+        "pipelineId": "${pipelineId}"
       },
       {
         "key": "hired",
         "name": "Hired",
         "order": 50,
         "terminal": true,
-        "type": "hired"
+        "type": "hired",
+        "pipelineId": "${pipelineId}"
       },
       {
         "key": "rejected",
         "name": "Rejected",
         "order": 60,
         "terminal": true,
-        "type": "rejected"
+        "type": "rejected",
+        "pipelineId": "${pipelineId}"
       }
     ],
     "transitions": [
       {
+        "id": "${pipelineId}_1",
+        "pipelineId": "${pipelineId}",
         "fromStageKey": "applied",
-        "toStageKey": "stage_${Date.now()}_1",
+        "toStageKey": "stage_${pipelineId}_1",
         "actionName": "Move to phone screening",
         "allowedRoles": ${JSON.stringify(allowedRoles)}
       },
       {
-        "fromStageKey": "stage_${Date.now()}_1",
-        "toStageKey": "stage_${Date.now()}_2",
+        "id": "${pipelineId}_2",
+        "pipelineId": "${pipelineId}",
+        "fromStageKey": "stage_${pipelineId}_1",
+        "toStageKey": "stage_${pipelineId}_2",
         "actionName": "Move to interview",
         "allowedRoles": ${JSON.stringify(allowedRoles)}
       },
       {
-        "fromStageKey": "stage_${Date.now()}_2",
-        "toStageKey": "stage_${Date.now()}_3",
+        "id": "${pipelineId}_3",
+        "pipelineId": "${pipelineId}",
+        "fromStageKey": "stage_${pipelineId}_2",
+        "toStageKey": "stage_${pipelineId}_3",
         "actionName": "Move to offer",
         "allowedRoles": ${JSON.stringify(allowedRoles)}
       },
       {
-        "fromStageKey": "stage_${Date.now()}_3",
+        "id": "${pipelineId}_4",
+        "pipelineId": "${pipelineId}",
+        "fromStageKey": "stage_${pipelineId}_3",
         "toStageKey": "hired",
         "actionName": "Move to hire",
         "allowedRoles": ${JSON.stringify(allowedRoles)}
       },
       {
+        "id": "${pipelineId}_5",
+        "pipelineId": "${pipelineId}",
         "fromStageKey": "applied",
         "toStageKey": "rejected",
         "actionName": "Move to rejected",
         "allowedRoles": ${JSON.stringify(allowedRoles)}
       }
-    ]
+    ],
+    "createdAt": "${now}",
+    "updatedAt": "${now}"
   }
+  ${userRequirementsSection}${contextInfo ? `\n\nAdditional Context:${contextInfo}` : ''}
   
-  User requirements: ${userInput}${contextInfo ? `\n\nAdditional Context:${contextInfo}` : ''}
+  CRITICAL RULES:
+  - Return ONLY the JSON object, no markdown, no code blocks, no explanations
+  - Use "${pipelineId}" as the root "id" and for all "pipelineId" fields
+  - Custom stages (NOT "applied", "hired", "rejected") MUST have an "id" field
+  - Standard stages ("applied", "hired", "rejected") MUST NOT have an "id" field
+  - ALL transitions MUST have an "id" field
+  - Use unique sequential IDs for stages and transitions (e.g., "${pipelineId}_1", "${pipelineId}_2", etc.)
+  - Include createdAt and updatedAt as ISO 8601 strings: "${now}"
   
   Generate a complete, logical hiring pipeline. ${jobTitle || jobDescription ? 'Use the job title and description to create relevant stages (e.g., for technical roles, include coding challenges, system design interviews, etc.). ' : ''}Include at least 3-5 custom stages between "applied" and terminal stages. Ensure all stages are connected with appropriate transitions. Make sure to include rejection paths from multiple stages to "rejected".`;
 
@@ -816,7 +868,7 @@ export class HiringPipelineRecruiterService {
       const aiResponse = await this.aiService.generate({
         prompt,
         temperature: 0.7,
-        maxOutputTokens: 2048,
+        maxOutputTokens: 8096,
       });
 
       // Parse AI response - handle markdown code blocks if present
@@ -836,24 +888,15 @@ export class HiringPipelineRecruiterService {
 
       const aiGeneratedData = JSON.parse(jsonString);
 
-      // Transform to CreatePipelineComprehensiveDto format
-      const result: CreatePipelineComprehensiveDto = {
+      // Return directly as PipelineResponse (AI should return exact format)
+      const result: PipelineResponse = {
+        id: aiGeneratedData.id || pipelineId,
         name: aiGeneratedData.name || 'AI Generated Pipeline',
-        organizationId: organizationId,
-        active: true,
-        stages: aiGeneratedData.stages.map((stage: any) => ({
-          key: stage.key,
-          name: stage.name,
-          type: stage.type as PipelineStageType,
-          order: stage.order,
-          terminal: stage.terminal || false,
-        })),
-        transitions: aiGeneratedData.transitions.map((transition: any) => ({
-          fromStageKey: transition.fromStageKey,
-          toStageKey: transition.toStageKey,
-          actionName: transition.actionName || 'Move',
-          allowedRoles: transition.allowedRoles || allowedRoles,
-        })),
+        organizationId: aiGeneratedData.organizationId || organizationId,
+        stages: aiGeneratedData.stages || [],
+        transitions: aiGeneratedData.transitions || [],
+        createdAt: aiGeneratedData.createdAt || now,
+        updatedAt: aiGeneratedData.updatedAt || now,
       };
 
       return result;

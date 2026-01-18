@@ -23,6 +23,7 @@ import {
   UpdatePipelineComprehensiveDto,
   CreatePipelineComprehensiveDto,
   GeneratePipelineWithAIDto,
+  PipelineResponse,
 } from '../dtos/hiring-pipeline.dto';
 
 @ApiTags('Hiring Pipeline V2 - Recruiter')
@@ -31,7 +32,7 @@ import {
 export class HiringPipelineV2RecruiterController {
   constructor(
     private readonly hiringPipelineRecruiterService: HiringPipelineRecruiterService,
-  ) {}
+  ) { }
 
   @Post()
   @ApiOperation({
@@ -93,13 +94,12 @@ export class HiringPipelineV2RecruiterController {
   @ApiOperation({
     summary: 'Generate hiring pipeline data using AI',
     description:
-      'Uses AI to generate a complete hiring pipeline structure with stages and transitions. Returns data in CreatePipelineComprehensiveDto format that can be directly used in POST /api/v2/recruiters/hiring-pipeline endpoint.',
+      'Uses AI to generate a complete hiring pipeline structure with stages and transitions. Returns data in frontend format with IDs and timestamps.',
   })
   @ApiResponse({
     status: 200,
     description:
       'Pipeline data generated successfully - ready to be sent to POST endpoint',
-    type: CreatePipelineComprehensiveDto,
   })
   @ApiResponse({
     status: 400,
@@ -108,9 +108,16 @@ export class HiringPipelineV2RecruiterController {
   async generatePipelineWithAI(
     @Body() generateDto: GeneratePipelineWithAIDto,
     @Query('organizationId') organizationId: string,
-  ): Promise<CreatePipelineComprehensiveDto> {
+  ): Promise<PipelineResponse> { // Update return type
     if (!organizationId) {
       throw new BadRequestException('Organization ID is required');
+    }
+
+    // Validate that at least one input is provided
+    if (!generateDto.userInput && !generateDto.jobTitle && !generateDto.jobDescription) {
+      throw new BadRequestException(
+        'At least one of userInput, jobTitle, or jobDescription must be provided',
+      );
     }
 
     const allowedRoles = generateDto.allowedRoles || ['recruiter', 'admin'];
@@ -119,6 +126,8 @@ export class HiringPipelineV2RecruiterController {
       organizationId,
       generateDto.userInput,
       allowedRoles,
+      generateDto.jobTitle,
+      generateDto.jobDescription,
     );
   }
 }

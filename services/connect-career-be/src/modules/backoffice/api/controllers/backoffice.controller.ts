@@ -314,4 +314,36 @@ export class BackofficeController {
   async getUserDetails(@Param('userId') userId: string) {
     return await this.userDetailsService.getUserDetails(userId);
   }
+
+  @Post('users/update-missing-passwords')
+  @HttpCode(HttpStatus.OK)
+  @ApiOperation({
+    summary:
+      'Update passwords for users without passwordHash to default password',
+    description:
+      'Sets password to User@123456 for all users that do not have a passwordHash in the database',
+  })
+  @ApiResponse({
+    status: 200,
+    description: 'Passwords updated successfully',
+    schema: {
+      type: 'object',
+      properties: {
+        updatedCount: { type: 'number' },
+        updatedUsers: {
+          type: 'array',
+          items: {
+            type: 'object',
+            properties: {
+              id: { type: 'string' },
+              email: { type: 'string' },
+            },
+          },
+        },
+      },
+    },
+  })
+  async updateMissingPasswords() {
+    return this.userManagementService.updatePasswordsForUsersWithoutHash();
+  }
 }

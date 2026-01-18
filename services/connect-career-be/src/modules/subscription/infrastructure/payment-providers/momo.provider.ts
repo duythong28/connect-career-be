@@ -448,25 +448,26 @@ export class MoMoProvider extends BasePaymentProvider {
 
     if (transaction) {
       // Update providerPaymentId if it's not set yet
-      if (!transaction.providerPaymentId || transaction.providerPaymentId.startsWith('pending_')) {
+      if (
+        !transaction.providerPaymentId ||
+        transaction.providerPaymentId.startsWith('pending_')
+      ) {
         transaction.providerPaymentId = orderId;
       }
-      
+
       // Store transId and response, but DON'T update status here
       // Let payment.service.processWebhookEvent handle status update and wallet credit
       transaction.providerTransactionId = String(transId);
       transaction.providerResponse = payload;
-      
+
       // Only save the transId and response, not the status
       await this.paymentTransactionRepository.save(transaction);
-      
+
       this.logger.log(
         `MoMo webhook received: transaction ${transaction.id}, orderId: ${orderId}, resultCode: ${resultCode}, transId: ${transId}`,
       );
     } else {
-      this.logger.warn(
-        `Payment transaction not found for orderId ${orderId}`,
-      );
+      this.logger.warn(`Payment transaction not found for orderId ${orderId}`);
     }
 
     const eventType = resultCode === 0 ? 'payment.succeeded' : 'payment.failed';

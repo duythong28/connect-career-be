@@ -294,3 +294,42 @@ export class CreatePipelineComprehensiveDto {
   @Type(() => CreateTransitionDto)
   transitions: CreateTransitionDto[];
 }
+
+export class GeneratePipelineWithAIDto {
+  @ApiPropertyOptional({
+    description: 'User input describing the pipeline requirements',
+    example:
+      'Create a standard hiring pipeline for software engineers with phone screening, technical interview, and offer stage',
+  })
+  @IsOptional()
+  @IsString()
+  userInput?: string =
+    `\n\nGenerate a hiring pipeline based on the job information provided.`;
+
+  @ApiPropertyOptional({
+    description: 'Job title for which the pipeline is being created',
+    example: 'Senior Software Engineer',
+  })
+  @IsOptional()
+  @IsString()
+  jobTitle?: string;
+
+  @ApiPropertyOptional({
+    description:
+      'Job description to help AI generate more relevant pipeline stages',
+    example:
+      'We are looking for a Senior Software Engineer with 5+ years of experience in React, Node.js, and TypeScript...',
+  })
+  @IsOptional()
+  @IsString()
+  jobDescription?: string;
+  @ApiPropertyOptional({
+    description: 'Allowed roles for transitions',
+    type: [String],
+    default: ['hr_manager', 'recruiter', 'owner'],
+  })
+  @IsOptional()
+  @IsArray()
+  @IsString({ each: true })
+  allowedRoles?: string[] = ['hr_manager', 'recruiter', 'owner'];
+}

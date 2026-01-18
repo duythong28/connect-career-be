@@ -30,7 +30,7 @@ export class JobService {
     private readonly stateMachineFactory: JobStateMachineFactory,
     private readonly queueService: QueueService,
     private readonly eventBus: EventBus,
-  ) { }
+  ) {}
 
   async searchJobs(searchJobs: JobSearchDto): Promise<PaginatedResult<Job>> {
     const {

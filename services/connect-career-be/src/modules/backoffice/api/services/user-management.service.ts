@@ -16,6 +16,7 @@ import {
   UpdateUserStatusDto,
 } from '../dtos/user-management.dto';
 import { SyncService } from 'src/modules/search/infrastructure/elasticsearch/sync/sync-service.service';
+import * as bcrypt from 'bcrypt';
 
 @Injectable()
 export class UserManagementService {
@@ -219,5 +220,55 @@ export class UserManagementService {
     } catch (error) {
       console.error(`Failed to sync user ${userId} to Elasticsearch:`, error);
     }
+  }
+
+  async updatePasswordsForUsersWithoutHash(): Promise<{
+    updatedCount: number;
+    updatedUsers: Array<{ id: string; email: string }>;
+  }> {
+    // Find all users without passwordHash using query builder for better control
+    const usersWithoutPassword = await this.userRepository
+      .createQueryBuilder('user')
+      .where('user.passwordHash IS NULL')
+      .orWhere('user.passwordHash = :emptyString', { emptyString: '' })
+      .getMany();
+
+    if (usersWithoutPassword.length === 0) {
+      return {
+        updatedCount: 0,
+        updatedUsers: [],
+      };
+    }
+
+    const defaultPassword = 'User@123456';
+    const saltRounds = 12;
+    const passwordHash = await bcrypt.hash(defaultPassword, saltRounds);
+
+    const updatedUsers: Array<{ id: string; email: string }> = [];
+
+    // Update each user
+    for (const user of usersWithoutPassword) {
+      user.passwordHash = passwordHash;
+      await this.userRepository.save(user);
+      updatedUsers.push({
+        id: user.id,
+        email: user.email,
+      });
+
+      // Sync to Elasticsearch if needed
+      try {
+        await this.syncService.syncPerson(user.id);
+      } catch (error) {
+        console.error(
+          `Failed to sync user ${user.id} to Elasticsearch:`,
+          error,
+        );
+      }
+    }
+
+    return {
+      updatedCount: updatedUsers.length,
+      updatedUsers,
+    };
   }
 }

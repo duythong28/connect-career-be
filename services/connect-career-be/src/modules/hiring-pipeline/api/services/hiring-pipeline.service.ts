@@ -7,7 +7,10 @@ import {
 import { InjectRepository } from '@nestjs/typeorm';
 import { Repository, In } from 'typeorm';
 import { HiringPipeline } from '../../domain/entities/hiring-pipeline.entity';
-import { PipelineStage } from '../../domain/entities/pipeline-stage.entity';
+import {
+  PipelineStage,
+  PipelineStageType,
+} from '../../domain/entities/pipeline-stage.entity';
 import { PipelineTransition } from '../../domain/entities/pipeline-transition.entity';
 import { Job } from 'src/modules/jobs/domain/entities/job.entity';
 import { Organization } from 'src/modules/profile/domain/entities/organization.entity';
@@ -24,6 +27,7 @@ import {
   UpdatePipelineComprehensiveDto,
   CreatePipelineComprehensiveDto,
 } from '../dtos/hiring-pipeline.dto';
+import { AIService } from 'src/shared/infrastructure/external-services/ai/services/ai.service';
 
 @Injectable()
 export class HiringPipelineRecruiterService {
@@ -38,7 +42,8 @@ export class HiringPipelineRecruiterService {
     private readonly jobRepository: Repository<Job>,
     @InjectRepository(Organization)
     private readonly organizationRepository: Repository<Organization>,
-  ) {}
+    private readonly aiService: AIService,
+  ) { }
 
   async createPipeline(
     createPipelineDto: CreatePipelineDto,
@@ -684,5 +689,178 @@ export class HiringPipelineRecruiterService {
         });
       },
     );
+  }
+  async generatePipelineDataWithAI(
+    organizationId: string,
+    userInput: string | undefined,
+    allowedRoles: string[] = ['recruiter', 'admin'],
+    jobTitle?: string,
+    jobDescription?: string,
+  ): Promise<CreatePipelineComprehensiveDto> {
+    // Build context string for AI
+    let contextInfo = '';
+    if (jobTitle) {
+      contextInfo += `\nJob Title: ${jobTitle}`;
+    }
+    if (jobDescription) {
+      contextInfo += `\nJob Description: ${jobDescription}`;
+    }
+
+    const prompt = `You are an expert HR and recruitment system designer. Generate a complete hiring pipeline structure based on the user's requirements.${contextInfo}
+  
+  The pipeline must include:
+  1. A name for the pipeline${jobTitle ? ` (consider the job title: ${jobTitle})` : ''}
+  2. Stages array with the following structure:
+     - Each stage must have: key, name, type, order, terminal
+     - Stage types can be: "screening", "interview", "offer", "hired", "rejected"
+     - Standard stages should include: 
+       * "applied" (sourcing, order 10, terminal false)
+       * "hired" (hired, terminal true, order 50)
+       * "rejected" (rejected, terminal true, order 60)
+     - Custom stages should have unique keys like "stage_${Date.now()}_1", "stage_${Date.now()}_2" etc. and appropriate order numbers (20, 30, 40, etc.)
+     - Terminal stages (hired, rejected) should have terminal: true
+     ${jobDescription ? `- Consider the job requirements and create relevant interview stages (e.g., technical assessment, coding challenge, system design interview for technical roles)` : ''}
+  
+  3. Transitions array connecting stages:
+     - Each transition must have: fromStageKey, toStageKey, actionName, allowedRoles
+     - allowedRoles should be: ${JSON.stringify(allowedRoles)}
+     - Create logical transitions between stages (e.g., applied -> screening -> interview -> offer -> hired)
+     - Include rejection paths from any stage to "rejected"
+  
+  IMPORTANT: Return ONLY valid JSON in this exact format (no markdown, no code blocks, just pure JSON):
+  {
+    "name": "Pipeline Name",
+    "stages": [
+      {
+        "key": "applied",
+        "name": "Applied",
+        "type": "sourcing",
+        "order": 10,
+        "terminal": false
+      },
+      {
+        "key": "stage_${Date.now()}_1",
+        "name": "Phone Screening",
+        "type": "screening",
+        "order": 20,
+        "terminal": false
+      },
+      {
+        "key": "stage_${Date.now()}_2",
+        "name": "Technical Interview",
+        "type": "interview",
+        "order": 30,
+        "terminal": false
+      },
+      {
+        "key": "stage_${Date.now()}_3",
+        "name": "Offer Stage",
+        "type": "offer",
+        "order": 40,
+        "terminal": false
+      },
+      {
+        "key": "hired",
+        "name": "Hired",
+        "order": 50,
+        "terminal": true,
+        "type": "hired"
+      },
+      {
+        "key": "rejected",
+        "name": "Rejected",
+        "order": 60,
+        "terminal": true,
+        "type": "rejected"
+      }
+    ],
+    "transitions": [
+      {
+        "fromStageKey": "applied",
+        "toStageKey": "stage_${Date.now()}_1",
+        "actionName": "Move to phone screening",
+        "allowedRoles": ${JSON.stringify(allowedRoles)}
+      },
+      {
+        "fromStageKey": "stage_${Date.now()}_1",
+        "toStageKey": "stage_${Date.now()}_2",
+        "actionName": "Move to interview",
+        "allowedRoles": ${JSON.stringify(allowedRoles)}
+      },
+      {
+        "fromStageKey": "stage_${Date.now()}_2",
+        "toStageKey": "stage_${Date.now()}_3",
+        "actionName": "Move to offer",
+        "allowedRoles": ${JSON.stringify(allowedRoles)}
+      },
+      {
+        "fromStageKey": "stage_${Date.now()}_3",
+        "toStageKey": "hired",
+        "actionName": "Move to hire",
+        "allowedRoles": ${JSON.stringify(allowedRoles)}
+      },
+      {
+        "fromStageKey": "applied",
+        "toStageKey": "rejected",
+        "actionName": "Move to rejected",
+        "allowedRoles": ${JSON.stringify(allowedRoles)}
+      }
+    ]
+  }
+  
+  User requirements: ${userInput}${contextInfo ? `\n\nAdditional Context:${contextInfo}` : ''}
+  
+  Generate a complete, logical hiring pipeline. ${jobTitle || jobDescription ? 'Use the job title and description to create relevant stages (e.g., for technical roles, include coding challenges, system design interviews, etc.). ' : ''}Include at least 3-5 custom stages between "applied" and terminal stages. Ensure all stages are connected with appropriate transitions. Make sure to include rejection paths from multiple stages to "rejected".`;
+
+    try {
+      const aiResponse = await this.aiService.generate({
+        prompt,
+        temperature: 0.7,
+        maxOutputTokens: 2048,
+      });
+
+      // Parse AI response - handle markdown code blocks if present
+      let jsonString = aiResponse.content.trim();
+
+      // Remove markdown code blocks if present
+      jsonString = jsonString
+        .replace(/\n?/g, '')
+        .replace(/```\n?/g, '')
+        .trim();
+
+      // Try to extract JSON if wrapped in text
+      const jsonMatch = jsonString.match(/\{[\s\S]*\}/);
+      if (jsonMatch) {
+        jsonString = jsonMatch[0];
+      }
+
+      const aiGeneratedData = JSON.parse(jsonString);
+
+      // Transform to CreatePipelineComprehensiveDto format
+      const result: CreatePipelineComprehensiveDto = {
+        name: aiGeneratedData.name || 'AI Generated Pipeline',
+        organizationId: organizationId,
+        active: true,
+        stages: aiGeneratedData.stages.map((stage: any) => ({
+          key: stage.key,
+          name: stage.name,
+          type: stage.type as PipelineStageType,
+          order: stage.order,
+          terminal: stage.terminal || false,
+        })),
+        transitions: aiGeneratedData.transitions.map((transition: any) => ({
+          fromStageKey: transition.fromStageKey,
+          toStageKey: transition.toStageKey,
+          actionName: transition.actionName || 'Move',
+          allowedRoles: transition.allowedRoles || allowedRoles,
+        })),
+      };
+
+      return result;
+    } catch (error) {
+      throw new BadRequestException(
+        `Failed to generate pipeline with AI: ${error.message}`,
+      );
+    }
   }
 }

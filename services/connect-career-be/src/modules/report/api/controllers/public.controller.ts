@@ -1,11 +1,14 @@
-import { Controller, Get, Query, HttpStatus, HttpCode } from "@nestjs/common";
-import { ApiTags, ApiOperation, ApiResponse, ApiQuery } from "@nestjs/swagger";
-import { Public } from "src/modules/identity/api/decorators";
-import { QueryBus } from "@nestjs/cqrs";
-import { GetIndustryStatisticQuery } from "../applications/queries/get-industry-statistic.query";
-import { GetJobOpportunityGrowthQuery } from "../applications/queries/get-job-opportunity-growth.query";
-import { IndustryStatisticItem } from "../services/industry.statistic.service";
-import { JobOpportunityGrowthItem, JobStatisticService } from "../services/job.statis.service";
+import { Controller, Get, Query, HttpStatus, HttpCode } from '@nestjs/common';
+import { ApiTags, ApiOperation, ApiResponse, ApiQuery } from '@nestjs/swagger';
+import { Public } from 'src/modules/identity/api/decorators';
+import { QueryBus } from '@nestjs/cqrs';
+import { GetIndustryStatisticQuery } from '../applications/queries/get-industry-statistic.query';
+import { GetJobOpportunityGrowthQuery } from '../applications/queries/get-job-opportunity-growth.query';
+import { IndustryStatisticItem } from '../services/industry.statistic.service';
+import {
+  JobOpportunityGrowthItem,
+  JobStatisticService,
+} from '../services/job.statis.service';
 
 @ApiTags('Reports - Public')
 @Controller('/v1/public/reports')
@@ -69,7 +72,10 @@ export class PublicReportController {
     const end = new Date(endDate);
 
     const query = new GetIndustryStatisticQuery(start, end, industryId);
-    const data = await this.queryBus.execute<GetIndustryStatisticQuery, IndustryStatisticItem[]>(query);
+    const data = await this.queryBus.execute<
+      GetIndustryStatisticQuery,
+      IndustryStatisticItem[]
+    >(query);
 
     return {
       status: 'success',
@@ -85,14 +91,16 @@ export class PublicReportController {
     name: 'startDate',
     required: false,
     type: String,
-    description: 'Start date in ISO format (YYYY-MM-DD). If not provided, returns all data.',
+    description:
+      'Start date in ISO format (YYYY-MM-DD). If not provided, returns all data.',
     example: '2025-12-27',
   })
   @ApiQuery({
     name: 'endDate',
     required: false,
     type: String,
-    description: 'End date in ISO format (YYYY-MM-DD). If not provided, returns all data.',
+    description:
+      'End date in ISO format (YYYY-MM-DD). If not provided, returns all data.',
     example: '2026-01-12',
   })
   @ApiResponse({
@@ -124,7 +132,10 @@ export class PublicReportController {
     const end = endDate ? new Date(endDate) : undefined;
 
     const query = new GetJobOpportunityGrowthQuery(start, end);
-    const data = await this.queryBus.execute<GetJobOpportunityGrowthQuery, JobOpportunityGrowthItem[]>(query);
+    const data = await this.queryBus.execute<
+      GetJobOpportunityGrowthQuery,
+      JobOpportunityGrowthItem[]
+    >(query);
 
     return {
       status: 'success',
@@ -148,7 +159,10 @@ export class PublicReportController {
           type: 'object',
           properties: {
             quantity_job_recruitment: { type: 'number', example: 41812 },
-            quantity_job_recruitment_yesterday: { type: 'number', example: 42473 },
+            quantity_job_recruitment_yesterday: {
+              type: 'number',
+              example: 42473,
+            },
             quantity_job_new_today: { type: 'number', example: 1950 },
             quantity_company_recruitment: { type: 'number', example: 13806 },
             time_scan: { type: 'string', example: '11:30 17/01/2026' },

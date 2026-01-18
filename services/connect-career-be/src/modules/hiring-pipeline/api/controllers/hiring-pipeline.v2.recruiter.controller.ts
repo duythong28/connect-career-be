@@ -7,6 +7,8 @@ import {
   Post,
   HttpCode,
   HttpStatus,
+  Query,
+  BadRequestException,
 } from '@nestjs/common';
 import {
   ApiOperation,
@@ -20,6 +22,7 @@ import { HiringPipelineRecruiterService } from '../services/hiring-pipeline.serv
 import {
   UpdatePipelineComprehensiveDto,
   CreatePipelineComprehensiveDto,
+  GeneratePipelineWithAIDto,
 } from '../dtos/hiring-pipeline.dto';
 
 @ApiTags('Hiring Pipeline V2 - Recruiter')
@@ -83,6 +86,39 @@ export class HiringPipelineV2RecruiterController {
     return await this.hiringPipelineRecruiterService.updatePipelineComprehensive(
       id,
       updatePipelineDto,
+    );
+  }
+  // Add this endpoint method inside the controller class (before or after createPipelineComprehensive)
+  @Post('generate-with-ai')
+  @ApiOperation({
+    summary: 'Generate hiring pipeline data using AI',
+    description:
+      'Uses AI to generate a complete hiring pipeline structure with stages and transitions. Returns data in CreatePipelineComprehensiveDto format that can be directly used in POST /api/v2/recruiters/hiring-pipeline endpoint.',
+  })
+  @ApiResponse({
+    status: 200,
+    description:
+      'Pipeline data generated successfully - ready to be sent to POST endpoint',
+    type: CreatePipelineComprehensiveDto,
+  })
+  @ApiResponse({
+    status: 400,
+    description: 'Invalid input or AI generation failed',
+  })
+  async generatePipelineWithAI(
+    @Body() generateDto: GeneratePipelineWithAIDto,
+    @Query('organizationId') organizationId: string,
+  ): Promise<CreatePipelineComprehensiveDto> {
+    if (!organizationId) {
+      throw new BadRequestException('Organization ID is required');
+    }
+
+    const allowedRoles = generateDto.allowedRoles || ['recruiter', 'admin'];
+
+    return await this.hiringPipelineRecruiterService.generatePipelineDataWithAI(
+      organizationId,
+      generateDto.userInput,
+      allowedRoles,
     );
   }
 }

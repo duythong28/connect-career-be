@@ -12,7 +12,8 @@ import { ApplicationService } from 'src/modules/applications/api/services/applic
 @Injectable()
 @EventsHandler(ApplicationCreatedEvent)
 export class ApplicationLLMEvaluationHandler
-  implements IEventHandler<ApplicationCreatedEvent> {
+  implements IEventHandler<ApplicationCreatedEvent>
+{
   private readonly logger = new Logger(ApplicationLLMEvaluationHandler.name);
 
   constructor(
@@ -24,7 +25,7 @@ export class ApplicationLLMEvaluationHandler
     private readonly cvRepository: Repository<CV>,
     private readonly aiService: AIService,
     private readonly applicationService: ApplicationService,
-  ) { }
+  ) {}
 
   async handle(event: ApplicationCreatedEvent): Promise<{
     success: boolean;
@@ -129,7 +130,7 @@ export class ApplicationLLMEvaluationHandler
     //   "matchedRequirements": ["list requirements that ARE met in the CV JSON"]
     // }
 
-    // IMPORTANT: 
+    // IMPORTANT:
     // - If missingRequirements array has ANY items, meetsRequirements MUST be false
     // - Be thorough - check EVERY requirement individually against the CV JSON structure
     // - If you cannot find clear evidence of a requirement in the CV JSON, it MUST be listed in missingRequirements`;

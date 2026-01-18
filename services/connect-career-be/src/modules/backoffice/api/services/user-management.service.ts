@@ -26,7 +26,7 @@ export class UserManagementService {
     @InjectRepository(Role)
     private readonly roleRepository: Repository<Role>,
     private readonly syncService: SyncService,
-  ) { }
+  ) {}
 
   async getUsers(query: UserListQueryDto) {
     const page = query.page || 1;
@@ -259,7 +259,10 @@ export class UserManagementService {
       try {
         await this.syncService.syncPerson(user.id);
       } catch (error) {
-        console.error(`Failed to sync user ${user.id} to Elasticsearch:`, error);
+        console.error(
+          `Failed to sync user ${user.id} to Elasticsearch:`,
+          error,
+        );
       }
     }
 

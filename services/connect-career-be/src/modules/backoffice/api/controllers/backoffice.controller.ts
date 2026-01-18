@@ -67,7 +67,7 @@ export class BackofficeController {
     private readonly candidateService: CandidateManagementService,
     private readonly userDetailsService: UserDetailsService,
     private readonly userManagementService: UserManagementService,
-  ) { }
+  ) {}
 
   // ========== STATISTICS ==========
   @Get('stats')
@@ -318,8 +318,10 @@ export class BackofficeController {
   @Post('users/update-missing-passwords')
   @HttpCode(HttpStatus.OK)
   @ApiOperation({
-    summary: 'Update passwords for users without passwordHash to default password',
-    description: 'Sets password to User@123456 for all users that do not have a passwordHash in the database',
+    summary:
+      'Update passwords for users without passwordHash to default password',
+    description:
+      'Sets password to User@123456 for all users that do not have a passwordHash in the database',
   })
   @ApiResponse({
     status: 200,

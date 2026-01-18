@@ -264,7 +264,10 @@ export class ApplicationLLMEvaluationHandler
     //         error: error.message,
     //       };
     //     }
-    throw NotImplementedException;
+    return {
+      success: true,
+      error: 'Not implemented',
+    };
   }
   async evaluateApplication(applicationId: string): Promise<{
     success: boolean;

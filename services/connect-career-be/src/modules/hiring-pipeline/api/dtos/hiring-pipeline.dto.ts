@@ -333,3 +333,32 @@ export class GeneratePipelineWithAIDto {
   @IsString({ each: true })
   allowedRoles?: string[] = ['hr_manager', 'recruiter', 'owner'];
 }
+
+export interface PipelineStageResponse {
+  id?: string;
+  key: string;
+  name: string;
+  type: string;
+  order: number;
+  terminal: boolean;
+  pipelineId: string;
+}
+
+export interface PipelineTransitionResponse {
+  id: string;
+  pipelineId: string;
+  fromStageKey: string;
+  toStageKey: string;
+  actionName: string;
+  allowedRoles: string[];
+}
+
+export interface PipelineResponse {
+  id: string;
+  name: string;
+  organizationId: string;
+  stages: PipelineStageResponse[];
+  transitions: PipelineTransitionResponse[];
+  createdAt: string;
+  updatedAt: string;
+}

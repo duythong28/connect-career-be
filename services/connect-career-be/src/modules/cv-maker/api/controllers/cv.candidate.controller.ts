@@ -42,11 +42,11 @@ export class CVCandidateController {
   @UseGuards(JwtAuthGuard)
   @ApiOperation({ summary: 'Get CV by ID' })
   @ApiResponse({ status: 200, description: 'CV retrieved successfully' })
-  async getCVById(
+  async getCVByUserId(
     @Param('id') id: string,
     @decorators.CurrentUser() user: decorators.CurrentUserPayload,
   ) {
-    return this.cvService.getCVById(id, user);
+    return this.cvService.getCVsByCandidateId(id);
   }
 
   @Get()

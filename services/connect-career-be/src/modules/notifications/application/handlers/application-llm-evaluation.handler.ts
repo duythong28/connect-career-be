@@ -1,4 +1,4 @@
-import { Injectable, Logger } from '@nestjs/common';
+import { Injectable, Logger, NotImplementedException } from '@nestjs/common';
 import { EventsHandler, IEventHandler } from '@nestjs/cqrs';
 import { InjectRepository } from '@nestjs/typeorm';
 import { Repository } from 'typeorm';
@@ -12,8 +12,7 @@ import { ApplicationService } from 'src/modules/applications/api/services/applic
 @Injectable()
 @EventsHandler(ApplicationCreatedEvent)
 export class ApplicationLLMEvaluationHandler
-  implements IEventHandler<ApplicationCreatedEvent>
-{
+  implements IEventHandler<ApplicationCreatedEvent> {
   private readonly logger = new Logger(ApplicationLLMEvaluationHandler.name);
 
   constructor(
@@ -25,7 +24,7 @@ export class ApplicationLLMEvaluationHandler
     private readonly cvRepository: Repository<CV>,
     private readonly aiService: AIService,
     private readonly applicationService: ApplicationService,
-  ) {}
+  ) { }
 
   async handle(event: ApplicationCreatedEvent): Promise<{
     success: boolean;
@@ -33,238 +32,239 @@ export class ApplicationLLMEvaluationHandler
     explanation?: string;
     error?: string;
   }> {
-    this.logger.log(
-      `Evaluating application ${event.applicationId} with LLM for job requirements match`,
-    );
+    //     this.logger.log(
+    //       `Evaluating application ${event.applicationId} with LLM for job requirements match`,
+    //     );
 
-    try {
-      // Load application with relations
-      const application = await this.applicationRepository.findOne({
-        where: { id: event.applicationId },
-        relations: ['job', 'cv'],
-      });
+    //     try {
+    //       // Load application with relations
+    //       const application = await this.applicationRepository.findOne({
+    //         where: { id: event.applicationId },
+    //         relations: ['job', 'cv'],
+    //       });
 
-      if (!application) {
-        this.logger.warn(
-          `Application ${event.applicationId} not found for LLM evaluation`,
-        );
-        return {
-          success: false,
-          error: 'Application not found',
-        };
-      }
+    //       if (!application) {
+    //         this.logger.warn(
+    //           `Application ${event.applicationId} not found for LLM evaluation`,
+    //         );
+    //         return {
+    //           success: false,
+    //           error: 'Application not found',
+    //         };
+    //       }
 
-      // Load job with requirements
-      const job = await this.jobRepository.findOne({
-        where: { id: event.jobId },
-      });
+    //       // Load job with requirements
+    //       const job = await this.jobRepository.findOne({
+    //         where: { id: event.jobId },
+    //       });
 
-      if (!job) {
-        this.logger.warn(`Job ${event.jobId} not found for LLM evaluation`);
-        return {
-          success: false,
-          error: 'Job not found',
-        };
-      }
+    //       if (!job) {
+    //         this.logger.warn(`Job ${event.jobId} not found for LLM evaluation`);
+    //         return {
+    //           success: false,
+    //           error: 'Job not found',
+    //         };
+    //       }
 
-      // Check if job has requirements
-      if (!job.requirements || job.requirements.length === 0) {
-        this.logger.log(
-          `Job ${event.jobId} has no requirements, skipping LLM evaluation`,
-        );
-        return {
-          success: false,
-          error: 'Job has no requirements',
-        };
-      }
+    //       // Check if job has requirements
+    //       if (!job.requirements || job.requirements.length === 0) {
+    //         this.logger.log(
+    //           `Job ${event.jobId} has no requirements, skipping LLM evaluation`,
+    //         );
+    //         return {
+    //           success: false,
+    //           error: 'Job has no requirements',
+    //         };
+    //       }
 
-      // Load CV if not already loaded
-      let cv: CV | null = application.cv || null;
-      if (!cv && application.cvId) {
-        cv = await this.cvRepository.findOne({
-          where: { id: application.cvId },
-        });
-      }
+    //       // Load CV if not already loaded
+    //       let cv: CV | null = application.cv || null;
+    //       if (!cv && application.cvId) {
+    //         cv = await this.cvRepository.findOne({
+    //           where: { id: application.cvId },
+    //         });
+    //       }
 
-      // If no CV, skip evaluation
-      if (!cv || !cv.content) {
-        this.logger.warn(
-          `No CV content found for application ${event.applicationId}, skipping LLM evaluation`,
-        );
-        return {
-          success: false,
-          error: 'No CV content found',
-        };
-      }
+    //       // If no CV, skip evaluation
+    //       if (!cv || !cv.content) {
+    //         this.logger.warn(
+    //           `No CV content found for application ${event.applicationId}, skipping LLM evaluation`,
+    //         );
+    //         return {
+    //           success: false,
+    //           error: 'No CV content found',
+    //         };
+    //       }
 
-      // Prepare data for LLM evaluation - pass CV as JSON object
-      const jobRequirements = job.requirements.join('\n- ');
-      const cvContentJson = JSON.stringify(cv.content, null, 2);
+    //       // Prepare data for LLM evaluation - pass CV as JSON object
+    //       const jobRequirements = job.requirements.join('\n- ');
+    //       const cvContentJson = JSON.stringify(cv.content, null, 2);
 
-      // Create LLM prompt - emphasize that requirements are MANDATORY
-      const prompt = `You are an expert recruiter evaluating a job application. The candidate's CV MUST meet ALL the job requirements listed below. These are MANDATORY/CRITICAL requirements - if ANY requirement is missing, the candidate MUST be rejected.
+    //       // Create LLM prompt - emphasize that requirements are MANDATORY
+    //       const prompt = `You are an expert recruiter evaluating a job application. The candidate's CV MUST meet ALL the job requirements listed below. These are MANDATORY/CRITICAL requirements - if ANY requirement is missing, the candidate MUST be rejected.
 
-MANDATORY JOB REQUIREMENTS (ALL must be met):
-${jobRequirements}
+    // MANDATORY JOB REQUIREMENTS (ALL must be met):
+    // ${jobRequirements}
 
-CANDIDATE CV (JSON format):
-${cvContentJson}
+    // CANDIDATE CV (JSON format):
+    // ${cvContentJson}
 
-CRITICAL EVALUATION RULES:
-1. These are MANDATORY requirements - ALL must be clearly demonstrated in the CV JSON structure
-2. Analyze the CV JSON structure: personalInfo, workExperience, education, skills, certifications, projects
-3. If the CV is missing ANY requirement, you MUST set "meetsRequirements" to false
-4. Be strict - if a requirement is not clearly shown in the CV JSON, it counts as missing
-5. Only return true if the CV JSON clearly demonstrates ALL requirements
+    // CRITICAL EVALUATION RULES:
+    // 1. These are MANDATORY requirements - ALL must be clearly demonstrated in the CV JSON structure
+    // 2. Analyze the CV JSON structure: personalInfo, workExperience, education, skills, certifications, projects
+    // 3. If the CV is missing ANY requirement, you MUST set "meetsRequirements" to false
+    // 4. Be strict - if a requirement is not clearly shown in the CV JSON, it counts as missing
+    // 5. Only return true if the CV JSON clearly demonstrates ALL requirements
 
-For each requirement, check in the CV JSON:
-- Check personalInfo, workExperience, education, skills sections
-- Look for explicit mentions or clear evidence
-- If uncertain or not clearly shown, mark it as missing
+    // For each requirement, check in the CV JSON:
+    // - Check personalInfo, workExperience, education, skills sections
+    // - Look for explicit mentions or clear evidence
+    // - If uncertain or not clearly shown, mark it as missing
 
-Respond in JSON format:
-{
-  "meetsRequirements": false,
-  "explanation": "Detailed explanation. If ANY requirement is missing, clearly state which ones and why the candidate does not meet them based on the CV JSON structure",
-  "missingRequirements": ["list ALL missing mandatory requirements - this is critical"],
-  "matchedRequirements": ["list requirements that ARE met in the CV JSON"]
-}
+    // Respond in JSON format:
+    // {
+    //   "meetsRequirements": false,
+    //   "explanation": "Detailed explanation. If ANY requirement is missing, clearly state which ones and why the candidate does not meet them based on the CV JSON structure",
+    //   "missingRequirements": ["list ALL missing mandatory requirements - this is critical"],
+    //   "matchedRequirements": ["list requirements that ARE met in the CV JSON"]
+    // }
 
-IMPORTANT: 
-- If missingRequirements array has ANY items, meetsRequirements MUST be false
-- Be thorough - check EVERY requirement individually against the CV JSON structure
-- If you cannot find clear evidence of a requirement in the CV JSON, it MUST be listed in missingRequirements`;
+    // IMPORTANT: 
+    // - If missingRequirements array has ANY items, meetsRequirements MUST be false
+    // - Be thorough - check EVERY requirement individually against the CV JSON structure
+    // - If you cannot find clear evidence of a requirement in the CV JSON, it MUST be listed in missingRequirements`;
 
-      // Call LLM
-      const llmResponse = await this.aiService.generate({
-        prompt,
-        temperature: 0.2, // Lower temperature for stricter evaluation
-        maxOutputTokens: 2048,
-      });
+    //       // Call LLM
+    //       const llmResponse = await this.aiService.generate({
+    //         prompt,
+    //         temperature: 0.2, // Lower temperature for stricter evaluation
+    //         maxOutputTokens: 2048,
+    //       });
 
-      // Parse LLM response
-      let evaluationResult: {
-        meetsRequirements: boolean;
-        explanation: string;
-        missingRequirements?: string[];
-        matchedRequirements?: string[];
-      };
+    //       // Parse LLM response
+    //       let evaluationResult: {
+    //         meetsRequirements: boolean;
+    //         explanation: string;
+    //         missingRequirements?: string[];
+    //         matchedRequirements?: string[];
+    //       };
 
-      try {
-        // Try to extract JSON from response - handle markdown code blocks
-        let jsonString = llmResponse.content.trim();
+    //       try {
+    //         // Try to extract JSON from response - handle markdown code blocks
+    //         let jsonString = llmResponse.content.trim();
 
-        // Remove markdown code blocks if present
-        jsonString = jsonString
-          .replace(/\n?/g, '')
-          .replace(/```\n?/g, '')
-          .trim();
+    //         // Remove markdown code blocks if present
+    //         jsonString = jsonString
+    //           .replace(/\n?/g, '')
+    //           .replace(/```\n?/g, '')
+    //           .trim();
 
-        // Try to find JSON object
-        const jsonMatch = jsonString.match(/\{[\s\S]*\}/);
-        if (jsonMatch) {
-          evaluationResult = JSON.parse(jsonMatch[0]);
+    //         // Try to find JSON object
+    //         const jsonMatch = jsonString.match(/\{[\s\S]*\}/);
+    //         if (jsonMatch) {
+    //           evaluationResult = JSON.parse(jsonMatch[0]);
 
-          // Validate required fields
-          if (typeof evaluationResult.meetsRequirements !== 'boolean') {
-            throw new Error('meetsRequirements must be boolean');
-          }
-          if (!evaluationResult.explanation) {
-            throw new Error('explanation is required');
-          }
+    //           // Validate required fields
+    //           if (typeof evaluationResult.meetsRequirements !== 'boolean') {
+    //             throw new Error('meetsRequirements must be boolean');
+    //           }
+    //           if (!evaluationResult.explanation) {
+    //             throw new Error('explanation is required');
+    //           }
 
-          // CRITICAL: If there are missing requirements, force meetsRequirements to false
-          if (
-            evaluationResult.missingRequirements &&
-            evaluationResult.missingRequirements.length > 0
-          ) {
-            evaluationResult.meetsRequirements = false;
-            this.logger.log(
-              `Application ${event.applicationId} has missing requirements: ${evaluationResult.missingRequirements.join(', ')}`,
-            );
-          }
-        } else {
-          throw new Error('No JSON object found in response');
-        }
-      } catch (parseError) {
-        this.logger.warn(
-          `LLM response for application ${event.applicationId} is not valid JSON: ${parseError.message}. Response: ${llmResponse.content.substring(0, 200)}`,
-        );
-        // Default to rejection if parsing fails (safer approach)
-        evaluationResult = {
-          meetsRequirements: false,
-          explanation:
-            'Unable to parse LLM evaluation. Application requires manual review.',
-          missingRequirements: [
-            'Unable to verify requirements due to parsing error',
-          ],
-        };
-      }
+    //           // CRITICAL: If there are missing requirements, force meetsRequirements to false
+    //           if (
+    //             evaluationResult.missingRequirements &&
+    //             evaluationResult.missingRequirements.length > 0
+    //           ) {
+    //             evaluationResult.meetsRequirements = false;
+    //             this.logger.log(
+    //               `Application ${event.applicationId} has missing requirements: ${evaluationResult.missingRequirements.join(', ')}`,
+    //             );
+    //           }
+    //         } else {
+    //           throw new Error('No JSON object found in response');
+    //         }
+    //       } catch (parseError) {
+    //         this.logger.warn(
+    //           `LLM response for application ${event.applicationId} is not valid JSON: ${parseError.message}. Response: ${llmResponse.content.substring(0, 200)}`,
+    //         );
+    //         // Default to rejection if parsing fails (safer approach)
+    //         evaluationResult = {
+    //           meetsRequirements: false,
+    //           explanation:
+    //             'Unable to parse LLM evaluation. Application requires manual review.',
+    //           missingRequirements: [
+    //             'Unable to verify requirements due to parsing error',
+    //           ],
+    //         };
+    //       }
 
-      // If candidate doesn't meet requirements (has missing requirements), reject immediately
-      if (
-        !evaluationResult.meetsRequirements ||
-        (evaluationResult.missingRequirements &&
-          evaluationResult.missingRequirements.length > 0)
-      ) {
-        const rejectionReason =
-          'LLM Evaluation: CV does not meet mandatory job requirements';
-        const rejectionFeedback = `LLM Evaluation Result:\n\n${evaluationResult.explanation}\n\n${
-          evaluationResult.missingRequirements?.length
-            ? `MISSING MANDATORY REQUIREMENTS (CRITICAL):\n${evaluationResult.missingRequirements.map((req) => `- ${req}`).join('\n')}\n\n`
-            : ''
-        }${
-          evaluationResult.matchedRequirements?.length
-            ? `Matched Requirements:\n${evaluationResult.matchedRequirements.map((req) => `- ${req}`).join('\n')}`
-            : ''
-        }`;
+    //       // If candidate doesn't meet requirements (has missing requirements), reject immediately
+    //       if (
+    //         !evaluationResult.meetsRequirements ||
+    //         (evaluationResult.missingRequirements &&
+    //           evaluationResult.missingRequirements.length > 0)
+    //       ) {
+    //         const rejectionReason =
+    //           'LLM Evaluation: CV does not meet mandatory job requirements';
+    //         const rejectionFeedback = `LLM Evaluation Result:\n\n${evaluationResult.explanation}\n\n${
+    //           evaluationResult.missingRequirements?.length
+    //             ? `MISSING MANDATORY REQUIREMENTS (CRITICAL):\n${evaluationResult.missingRequirements.map((req) => `- ${req}`).join('\n')}\n\n`
+    //             : ''
+    //         }${
+    //           evaluationResult.matchedRequirements?.length
+    //             ? `Matched Requirements:\n${evaluationResult.matchedRequirements.map((req) => `- ${req}`).join('\n')}`
+    //             : ''
+    //         }`;
 
-        // Reject application using the application service
-        const rejectedBy = event?.recruiterId || 'system';
+    //         // Reject application using the application service
+    //         const rejectedBy = event?.recruiterId || 'system';
 
-        try {
-          await this.applicationService.rejectApplication(
-            event.applicationId,
-            rejectionReason,
-            rejectionFeedback,
-            rejectedBy,
-          );
+    //         try {
+    //           await this.applicationService.rejectApplication(
+    //             event.applicationId,
+    //             rejectionReason,
+    //             rejectionFeedback,
+    //             rejectedBy,
+    //           );
 
-          this.logger.log(
-            `Application ${event.applicationId} rejected by LLM evaluation. Missing requirements: ${evaluationResult.missingRequirements?.join(', ') || 'N/A'}`,
-          );
-        } catch (rejectError) {
-          this.logger.error(
-            `Failed to reject application ${event.applicationId}: ${rejectError.message}`,
-            rejectError.stack,
-          );
-        }
+    //           this.logger.log(
+    //             `Application ${event.applicationId} rejected by LLM evaluation. Missing requirements: ${evaluationResult.missingRequirements?.join(', ') || 'N/A'}`,
+    //           );
+    //         } catch (rejectError) {
+    //           this.logger.error(
+    //             `Failed to reject application ${event.applicationId}: ${rejectError.message}`,
+    //             rejectError.stack,
+    //           );
+    //         }
 
-        return {
-          success: true,
-          meetsRequirements: false,
-          explanation: evaluationResult.explanation,
-        };
-      } else {
-        this.logger.log(
-          `Application ${event.applicationId} passed LLM evaluation - all mandatory requirements met`,
-        );
-        return {
-          success: true,
-          meetsRequirements: true,
-          explanation: evaluationResult.explanation,
-        };
-      }
-    } catch (error) {
-      this.logger.error(
-        `Error in LLM evaluation for application ${event.applicationId}: ${error.message}`,
-        error.stack,
-      );
-      return {
-        success: false,
-        error: error.message,
-      };
-    }
+    //         return {
+    //           success: true,
+    //           meetsRequirements: false,
+    //           explanation: evaluationResult.explanation,
+    //         };
+    //       } else {
+    //         this.logger.log(
+    //           `Application ${event.applicationId} passed LLM evaluation - all mandatory requirements met`,
+    //         );
+    //         return {
+    //           success: true,
+    //           meetsRequirements: true,
+    //           explanation: evaluationResult.explanation,
+    //         };
+    //       }
+    //     } catch (error) {
+    //       this.logger.error(
+    //         `Error in LLM evaluation for application ${event.applicationId}: ${error.message}`,
+    //         error.stack,
+    //       );
+    //       return {
+    //         success: false,
+    //         error: error.message,
+    //       };
+    //     }
+    throw NotImplementedException;
   }
   async evaluateApplication(applicationId: string): Promise<{
     success: boolean;
